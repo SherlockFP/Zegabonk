@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ZEGABONK - Darbe Yarigi</title>
+  <link rel="icon" type="image/svg+xml" href="assets/icons/sword.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="epilepsyNotice" class="epilepsyNotice" role="alert">&#9888; Yanip sonen efektler bulunur. Isiga duyarli oyuncular efekt yogunlugunu dusurmelidir.</div>
+  <div id="loadingOverlay" class="loadingOverlay" aria-live="polite">
+    <div class="loadingSpinner"></div>
+    <span class="loadingBrand">ZEGABONK</span>
+    <span class="loadingText">Darbe Yarigi hazirlaniyor</span>
+    <span id="loadingProgress" class="loadingProgress"></span>
+  </div>
+  <canvas id="game" tabindex="0"></canvas>
+
+  <div id="ui">
+    <section id="startScreen" class="overlay menuOverlay">
+      <div class="menuAtmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="startShell">
+        <header class="brandBlock">
+          <span class="brandEyebrow">PRENSES ZEGA SENI BEKLIYOR</span>
+          <div class="gameLogo" aria-label="ZEGABONK">ZEGA<span>BONK</span></div>
+          <p class="brandTagline">Uc bolgeyi as. Grom'u BONK'la. Tac Yarigi'nda zirveye tirman.</p>
+        </header>
+        <div class="startMenuLayout">
+          <nav class="startMenu" aria-label="Ana menu">
+            <button id="playBtn" class="btn primary menuPrimary"><span>HIKAYEYE BASLA</span><small>Prenses Zega'yi kurtar</small></button>
+            <button id="crownRiftBtn" class="btn crownRiftButton hidden">TAC YARIKLARI</button>
+            <button id="menuSettingsBtn" class="btn secondary">AYARLAR</button>
+            <button id="leaderboardBtn" class="btn secondary">LIDERLIK</button>
+            <button id="quitBtnMenu" class="btn ghostButton">CIKIS</button>
+          </nav>
+          <aside class="runBrief">
+            <div class="runBriefHeader"><span>HIKAYE ROTASI</span><strong>KIRIK TAC</strong></div>
+            <div class="phaseRail" aria-label="Hikaye bolgeleri"><b></b><b></b><b></b></div>
+            <p>Yesil Yokuslar -> Gunes Kirigi -> Bulut Taci. Uc portal, uc boss, tek kurtarma.</p>
+            <label class="profileField" for="playerNameInput"><span>SAVASCI ADI</span><input type="text" id="playerNameInput" maxlength="20" placeholder="Isimsiz Gezgin"></label>
+            <div class="questsBox" id="questsBox">
+              <div class="hudTitle">GUNLUK YEMINLER</div>
+              <div id="questsList"></div>
+            </div>
+          </aside>
+        </div>
+        <footer class="menuFooter"><span>WASD hareket</span><span>Q otomatik saldiri</span><span>F3 profiler</span><span>v0.2 NIGHTFALL</span></footer>
+      </div>
+    </section>
+
+    <section id="lobbyScreen" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="lobbyTitle">
+      <div class="panel lobbyPanel">
+        <span class="brandEyebrow lobbyEyebrow">RUN HAZIRLIGI</span>
+        <h2 id="lobbyTitle" class="lobbyTitle">KIRIK TAC MACERASI</h2>
+        <p class="lobbySubtitle">Savasciyi sec, uc bolgeyi as ve Prenses Zega'yi Grom'dan kurtar.</p>
+        <div class="lobbySection">
+          <span class="lobbySectionTitle">01 / Savasci</span>
+          <div class="lobbyCharGrid">
+            <label class="lobbyLevelOption">
+              <input type="radio" name="lobbyChar" value="scout" checked>
+              <div><span class="lobbyLevelName">Izci</span><small>Hiz + Frostball</small></div>
+            </label>
+            <label class="lobbyLevelOption">
+              <input type="radio" name="lobbyChar" value="brawler">
+              <div><span class="lobbyLevelName">Dovucu</span><small>HP + Kiliclar</small></div>
+            </label>
+            <label class="lobbyLevelOption">
+              <input type="radio" name="lobbyChar" value="mage">
+              <div><span class="lobbyLevelName">Buyucu</span><small>Hasar + Fireball + Magnet</small></div>
+            </label>
+            <label class="lobbyLevelOption">
+              <input type="radio" name="lobbyChar" value="survivor">
+              <div><span class="lobbyLevelName">Hayatta Kalan</span><small>Kalkan + Regen</small></div>
+            </label>
+            <label class="lobbyLevelOption">
+              <input type="radio" name="lobbyChar" value="samurai">
+              <div><span class="lobbyLevelName">Samuray</span><small>Tam melee • Kilic skilleri</small></div>
+            </label>
+            <label class="lobbyLevelOption">
+              <input type="radio" name="lobbyChar" value="gorilla">
+              <div><span class="lobbyLevelName">Goril</span><small>Skill atmaz • Hasar alani</small></div>
+            </label>
+            <label class="lobbyLevelOption">
+              <input type="radio" name="lobbyChar" value="monk">
+              <div><span class="lobbyLevelName">Kesis</span><small>Flicker Strike • Isinlanip vurur</small></div>
+            </label>
+            <label class="lobbyLevelOption">
+              <input type="radio" name="lobbyChar" value="paladin">
+              <div><span class="lobbyLevelName">Paladin</span><small>Smite • Zirh • Kutsal vurus</small></div>
+            </label>
+            <label class="lobbyLevelOption">
+              <input type="radio" name="lobbyChar" value="archer">
+              <div><span class="lobbyLevelName">Okcu</span><small>Yay + Ok • Sok/Yakici/Donduran ok • Max 4 ok</small></div>
+            </label>
+          </div>
+        </div>
+        <div class="lobbySection">
+          <span class="lobbySectionTitle">03 / Run Kurallari</span>
+          <label class="lobbyCheckWrap"><input type="checkbox" id="lobbyExileMode"> <span>Exile Modu</span></label>
+          <small style="display:block;margin-top:4px;color:var(--muted);font-size:7px;">Level up = skill puani. P ile skill agaci acilir (Path of Exile tarzi).</small>
+        </div>
+        <div class="lobbySection">
+          <span class="lobbySectionTitle">05 / Siluet</span>
+          <div class="characterEditorRow">
+            <label class="editorLabel">Gövde rengi</label>
+            <input type="color" id="appBodyColor" value="#2299dd" class="colorInput" title="Gövde rengi">
+          </div>
+          <div class="characterEditorRow">
+            <label class="editorLabel">Pelerin rengi</label>
+            <input type="color" id="appCapeColor" value="#4444aa" class="colorInput" title="Pelerin rengi">
+          </div>
+          <div class="characterEditorRow">
+            <label class="editorLabel">Pelerin</label>
+            <label class="lobbyCheckWrap"><input type="checkbox" id="appCapeVisible" checked> <span>Pelerini kapat</span></label>
+          </div>
+          <div class="characterEditorRow">
+            <label class="editorLabel">Zırh rengi</label>
+            <input type="color" id="appArmorColor" value="#4488cc" class="colorInput" title="Zırh rengi">
+          </div>
+          <div class="characterEditorRow">
+            <label class="editorLabel">Boyut</label>
+            <div class="sliderWrap"><input type="range" id="appScale" min="0.9" max="1.5" step="0.05" value="1.2"><span id="appScaleValue">1.2</span></div>
+          </div>
+          <div class="characterEditorRow" id="retroPresetRow" style="display:none">
+            <button type="button" id="appRetroBtn" class="btn secondary">Retro (gizli)</button>
+          </div>
+        </div>
+        <div class="lobbySection">
+          <span class="lobbySectionTitle">02 / Hikaye Rotasi</span>
+        <div class="lobbyLevels">
+          <label class="lobbyLevelOption">
+            <input type="radio" name="lobbyMap" value="classic" checked>
+            <div>
+              <span class="lobbyLevelName">Darbe Yarigi</span>
+              <small>Acik alan • Agaclar, goller, koyler</small>
+            </div>
+          </label>
+          <label class="lobbyLevelOption">
+            <input type="radio" name="lobbyMap" value="forest">
+            <div>
+              <span class="lobbyLevelName">Orman</span>
+              <small>Yogun orman • Daha cok agac, karanlik tonlar</small>
+            </div>
+          </label>
+          <label class="lobbyLevelOption">
+            <input type="radio" name="lobbyMap" value="desert">
+            <div>
+              <span class="lobbyLevelName">Col</span>
+              <small>Kum ve kayalar • Genis dus alani</small>
+            </div>
+          </label>
+          <label class="lobbyLevelOption">
+            <input type="radio" name="lobbyMap" value="ice">
+            <div>
+              <span class="lobbyLevelName">Buz Haritasi</span>
+              <small>Kar ve buz • Kayma mekanigi • Kutup ayilari</small>
+            </div>
+          </label>
+          <label class="lobbyLevelOption">
+            <input type="radio" name="lobbyMap" value="swamp">
+            <div>
+              <span class="lobbyLevelName">Bataklik</span>
+              <small>Yesil bataklik • Mantarlar • Durgun su</small>
+            </div>
+          </label>
+          <label class="lobbyLevelOption">
+            <input type="radio" name="lobbyMap" value="island">
+            <div>
+              <span class="lobbyLevelName">Ada</span>
+              <small>Adada hayatta kal • Etraf su • Sinirli alan</small>
+            </div>
+          </label>
+        </div>
+        </div>
+        <div class="lobbySection">
+          <span class="lobbySectionTitle">04 / Challenge</span>
+          <select id="challengeModeSelect">
+            <option value="none">Yok</option>
+            <option value="melee_only">Sadece yakın savas</option>
+            <option value="one_life">Tek can</option>
+            <option value="timer_5">5 dk limit</option>
+          </select>
+        </div>
+        <div class="menuButtons lobbyButtons">
+          <button id="lobbyStartBtn" class="btn primary">YARIGA GIR</button>
+          <button id="lobbyBackBtn" class="btn secondary">GERI</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="bossBarWrap" class="bossBarWrap hidden">
+      <div id="bossBarList" class="bossBarList"></div>
+    </section>
+
+    <section id="hud" class="hidden">
+      <!-- TOP CENTER: Time -->
+      <div id="topCenterTime" class="chip timeChipCenter">00:00</div>
+      <!-- TOP CENTER: Active effects (perks / buffs with duration) -->
+      <div id="activeEffectsBar" class="activeEffectsBar" aria-label="Aktif efektler"></div>
+      <div id="gameNotification" class="gameNotification gameNotificationHidden" aria-live="polite"></div>
+      <!-- TOP RIGHT: Kill -->
+      <div id="topRightHud">
+        <div id="killChip" class="chip topChip">Kills 0</div>
+      </div>
+
+      <!-- LEFT: Pasif yetenekler (Tab panelde gosterilir, HUD'da acik kalmaz) -->
+      <div id="passiveSkillsLeft" class="passiveSkillsLeft hidden" aria-label="Alinan pasif yetenekler"></div>
+      <!-- LEFT: Level, Coin, Bolum, Time (big) + HP/Shield/Mana bars -->
+      <div class="hudTopLeft">
+        <div id="levelChip" class="chip">Lvl 1</div>
+        <div id="coinChip" class="chip coinChip">0 Coin</div>
+        <div id="stageChip" class="chip">Bolum 1</div>
+        <div id="timeChip" class="chip timeChipBig hidden">00:00</div>
+        <div class="barWrapCompact">
+          <div class="bar hpBar"><div id="hpFill"></div><span id="hpText" class="barTextInside">100/100</span></div>
+        </div>
+        <div class="barWrapCompact" id="shieldWrap">
+          <div class="bar shieldBar"><div id="shieldFill"></div><span id="shieldText" class="barTextInside">0</span></div>
+        </div>
+        <div class="barWrapCompact" id="manaWrap">
+          <div class="bar manaBar"><div id="manaFill"></div><span id="manaText" class="barTextInside">100/100</span></div>
+        </div>
+        <div id="statsText" class="smallText"></div>
+        <div id="auraList" class="auraList"></div>
+      </div>
+
+      <div id="radarWrap" class="radarWrap">
+        <div class="barWrapCompact reloadAboveRadar" id="reloadAmmoWrap" style="display:none;">
+          <span class="chip" style="font-size:9px;">4 Mermi</span>
+          <span id="reloadAmmoText" class="barTextInside">4/4</span>
+          <div class="bar" style="height:6px;background:rgba(0,0,0,0.4);"><div id="reloadBarFill" style="width:0%;height:100%;background:rgba(255,180,80,0.9);"></div></div>
+        </div>
+        <span class="radarLabel">RADAR</span>
+        <canvas id="minimap" width="200" height="200"></canvas>
+      </div>
+      <div id="chestNearHint" class="hidden">F - Ac</div>
+      <div id="shrineHint">Bekle... 0/5s</div>
+      <div id="ritualHint" class="hidden">F - Ritüeli Başlat</div>
+      <div id="zoneTimer" class="zoneTimer hidden">Ritüel: 30 sn</div>
+      <div id="portalHint" class="hidden">Portal: Bekle 3 sn</div>
+      <div id="caveNotify">Magaraya girdin!</div>
+      <div id="autoAttackIndicator">SALDIRI KAPALI [Q]</div>
+      <div id="tabPanel" class="tabPanel hidden" aria-hidden="true">
+        <div class="tabPanelLeft">
+          <div class="tabPanelTitle">AKTIF & PASIF SKILLLER</div>
+          <div id="tabPanelSkills" class="tabPanelSkills"></div>
+        </div>
+        <div class="tabPanelRight">
+          <div class="tabPanelTitle">STATLAR</div>
+          <div id="tabPanelStats" class="tabPanelStats"></div>
+        </div>
+        <div class="tabPanelHint">TAB basili tut</div>
+      </div>
+      <div id="levelupChoiceBar" class="levelupChoiceBar hidden" aria-hidden="true">
+        <button type="button" class="levelupChoiceSlot" data-choice="0" title="1. secenek"><span class="choiceIcon"></span><span class="choiceName"></span><span class="choiceKey">1</span></button>
+        <button type="button" class="levelupChoiceSlot" data-choice="1" title="2. secenek"><span class="choiceIcon"></span><span class="choiceName"></span><span class="choiceKey">2</span></button>
+        <button type="button" class="levelupChoiceSlot" data-choice="2" title="3. secenek"><span class="choiceIcon"></span><span class="choiceName"></span><span class="choiceKey">3</span></button>
+      </div>
+      <div id="acquiredSkillsIcons" class="acquiredSkillsIcons skillStripAboveXp skillStripRight"></div>
+      <div id="xpBarBottom">
+        <div id="xpBarBottomFill"></div>
+        <div id="xpBarBottomText">Lvl 1 • XP 0 / 45</div>
+      </div>
+    </section>
+
+    <section id="skillBar" class="skillBar hidden">
+      <div class="skillBarTitle">Beceri cubugu – tus + cooldown</div>
+      <div id="skillSlots" class="skillSlots">
+        <div class="skillSlot" data-key="e">
+          <span class="skillKey">E</span>
+          <span class="skillName">Frost Nova</span>
+          <div class="skillCooldownWrap"><div class="skillCooldownFill" id="cdE"></div></div>
+          <span class="skillCdText" id="cdEText"></span>
+        </div>
+        <div class="skillSlot" data-key="r">
+          <span class="skillKey">R</span>
+          <span class="skillName">Dash</span>
+          <div class="skillCooldownWrap"><div class="skillCooldownFill" id="cdR"></div></div>
+          <span class="skillCdText" id="cdRText"></span>
+        </div>
+        <div class="skillSlot" data-key="t">
+          <span class="skillKey">T</span>
+          <span class="skillName">Meteor Yagmuru</span>
+          <div class="skillCooldownWrap"><div class="skillCooldownFill" id="cdT"></div></div>
+          <span class="skillCdText" id="cdTText"></span>
+        </div>
+        <div class="skillSlot" data-key="x">
+          <span class="skillKey">X</span>
+          <span class="skillName">Patlama</span>
+          <div class="skillCooldownWrap"><div class="skillCooldownFill" id="cdX"></div></div>
+          <span class="skillCdText" id="cdXText"></span>
+        </div>
+        <div class="skillSlot skillSlotUlt" data-key="y">
+          <span class="skillKey">Y</span>
+          <span class="skillName" id="ultSkillName">Ulti</span>
+          <div class="skillCooldownWrap"><div class="skillCooldownFill" id="cdY"></div></div>
+          <span class="skillCdText" id="cdYText"></span>
+        </div>
+      </div>
+    </section>
+
+    <section id="skillsHud" class="panel hidden">
+      <div class="hudTitle">BUILD • YETENEKLER</div>
+      <div class="skillSubTitle">Aktif</div>
+      <div id="activeSkills" class="skillList"></div>
+      <div class="skillSubTitle passiveTitle">Pasif</div>
+      <div id="passiveSkills" class="skillList"></div>
+    </section>
+
+    <section id="levelup" class="overlay hidden">
+      <div class="panel levelPanel levelPanelLayout">
+        <h2>⚔ LEVEL UP ⚔</h2>
+        <p id="levelInfo" class="subtitle">Bir kart sec</p>
+        <div class="levelupColumns">
+          <div class="levelupLeft">
+            <div class="hudTitle">📋 Skiller</div>
+            <div id="levelupSkillsList" class="skillList"></div>
+          </div>
+          <div class="levelupCenter">
+            <div id="cardRow" class="cardRow"></div>
+            <div class="levelupActions">
+              <button id="rerollBtn" class="btn secondary">🔄 Reroll <span id="rerollCount">2</span></button>
+            </div>
+          </div>
+          <div class="levelupRight">
+            <div class="hudTitle">📊 Statlar</div>
+            <div id="levelupStatsList" class="statsList"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="chestPanel" class="overlay hidden">
+      <div class="panel chestPanelInner">
+        <h2>📦 Sandik</h2>
+        <p class="subtitle">Gelen bonus</p>
+        <div id="chestCard" class="card chestCard"></div>
+        <p id="chestHint" class="chestHint">SPACE - Al</p>
+      </div>
+    </section>
+
+    <!-- Floating XP/Gold counter near player -->
+    <div id="floatingCounters"></div>
+
+    <!-- Low HP red vignette overlay -->
+    <div id="lowHpOverlay"></div>
+
+    <section id="gameOver" class="overlay hidden">
+      <div class="panel gameOverPanel">
+        <h2>💀 OLDUN 💀</h2>
+        <div id="gameOverStats" class="gameOverStatsGrid"></div>
+        <p id="gameOverText" class="subtitle"></p>
+        <div class="menuButtons">
+          <button id="restartBtn" class="btn primary">TEKRAR DENE</button>
+          <button id="mainMenuBtn" class="btn secondary">ANA MENU</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="skillTreePanel" class="overlay hidden">
+      <div class="panel skillTreePanelInner">
+        <h2>SKILL AGACI</h2>
+        <p class="subtitle">Skill Puanı: <span id="skillTreePoints">0</span> — P veya ESC ile kapat</p>
+        <div id="skillTreeContainer" class="skillTreeContainer"></div>
+        <div class="menuButtons" style="margin-top:12px">
+          <button id="skillTreeCloseBtn" class="btn primary">KAPAT (P)</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="pauseMenu" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+      <div class="panel pausePanel">
+        <h2 id="pauseTitle">DURDURULDU</h2>
+        <p class="subtitle">ESC ile devam et • P ile Skill Menüsü (Breach / Ritüel / Abyss / Zorluk)</p>
+        <div class="menuButtons">
+          <button id="resumeBtn" class="btn primary">DEVAM</button>
+          <button id="skillMenuBtn" class="btn secondary">SKILL MENÜSÜ (P)</button>
+          <button id="settingsBtn" class="btn secondary">AYARLAR</button>
+          <button id="quitBtn" class="btn secondary">ANA MENU</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="activitySkillPanel" class="overlay hidden">
+      <div class="panel pausePanel" style="max-width:520px">
+        <h2>SKILL MENÜSÜ</h2>
+        <p class="subtitle">Puanlar: Breach / Ritüel / Abyss tamamlayınca +1 • Her 10 level'de Zorluk puanı +1</p>
+        <div class="activitySkillTabs" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <button type="button" class="btn secondary activityTab" data-tab="breach">Breach</button>
+          <button type="button" class="btn secondary activityTab" data-tab="ritual">Ritüel</button>
+          <button type="button" class="btn secondary activityTab" data-tab="abyss">Abyss</button>
+          <button type="button" class="btn secondary activityTab" data-tab="difficulty">Oyun Zorluğu</button>
+        </div>
+        <div id="activitySkillPoints" style="margin-bottom:8px;font-weight:bold"></div>
+        <div id="activitySkillContent" class="activitySkillContent" style="min-height:180px;margin-bottom:12px"></div>
+        <div class="menuButtons">
+          <button id="activitySkillCloseBtn" class="btn primary">KAPAT (P)</button>
+          <button id="activitySkillTreeBtn" class="btn secondary" style="display:none">Skill Agaci (Exile)</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="leaderboardPanel" class="overlay hidden">
+      <div class="panel settingsPanel">
+        <h2>LIDERLIK</h2>
+        <p class="leaderboardNote">Skorlar bu cihazda saklanir (tarayici). Tum kullanicilar icin liderlik icin sunucu gerekir.</p>
+        <div id="leaderboardList" class="leaderboardList"></div>
+        <div class="menuButtons"><button id="leaderboardBackBtn" class="btn primary">GERI</button></div>
+      </div>
+    </section>
+    <section id="settingsMenu" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="panel settingsPanel">
+        <h2 id="settingsTitle">AYARLAR</h2>
+        <div class="settingsGrid">
+          <div class="settingRow"><label>Mouse hassasiyeti</label><div class="sliderWrap"><input type="range" id="sensSlider" min="0.5" max="4" step="0.1" value="1"><span id="sensValue">1.0</span></div></div>
+          <div class="settingRow"><label>Kamera mesafesi</label><div class="sliderWrap"><input type="range" id="camDistSlider" min="3" max="12" step="0.5" value="5.2"><span id="camDistValue">5.2</span></div></div>
+          <div class="settingRow"><label>Kamera yukseklik</label><div class="sliderWrap"><input type="range" id="camHeightSlider" min="0.5" max="5" step="0.2" value="2.1"><span id="camHeightValue">2.1</span></div></div>
+          <div class="settingRow"><label>Kamera acisi</label><div class="sliderWrap"><input type="range" id="pitchRangeSlider" min="0.3" max="1.2" step="0.1" value="0.55"><span id="pitchRangeValue">32°</span></div></div>
+          <div class="settingRow"><label>Kamera modu</label><select id="cameraAngleSelect"><option value="default">Varsayilan</option><option value="isometric">Izometrik (tepeden)</option><option value="isometric_angled">Acili izometrik (League of Legends)</option><option value="first_person">First person (deneysel)</option></select></div>
+          <div class="settingRow"><label>2D grafik</label><label class="lobbyCheckWrap"><input type="checkbox" id="graphics2DCheck"> <span>2D grafik modu (tepeden 2D)</span></label></div>
+          <div class="settingRow"><label>FOV</label><div class="sliderWrap"><input type="range" id="fovSlider" min="50" max="95" step="5" value="70"><span id="fovValue">70</span></div></div>
+          <div class="settingRow"><label>Ses (genel)</label><div class="sliderWrap"><input type="range" id="soundSlider" min="0" max="100" step="10" value="100"><span id="soundValue">100%</span></div></div>
+          <div class="settingRow"><label>Muzik sesi</label><div class="sliderWrap"><input type="range" id="musicSlider" min="0" max="100" step="10" value="100"><span id="musicValue">100%</span></div></div>
+          <div class="settingRow"><label>Efekt sesi</label><div class="sliderWrap"><input type="range" id="effectSlider" min="0" max="100" step="10" value="100"><span id="effectValue">100%</span></div></div>
+          <div class="settingRow"><label>Ekran sarsintisi</label><label class="lobbyCheckWrap"><input type="checkbox" id="screenShakeCheck" checked> <span>Acik</span></label></div>
+          <div class="settingRow"><label>Partikul yogunlugu</label><select id="particleDensitySelect"><option value="low">Dusuk</option><option value="normal" selected>Normal</option><option value="high">Yuksek</option></select></div>
+        </div>
+        <div class="menuButtons"><button id="settingsBackBtn" class="btn primary">GERI</button></div>
+      </div>
+    </section>
+  </div>
+
+  <script type="importmap">
+    {"imports":{"three":"https://unpkg.com/three@0.159.0/build/three.module.js","three/":"https://unpkg.com/three@0.159.0/"}}
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    window.THREE = THREE;
+    import { GLTFLoader } from 'https://unpkg.com/three@0.159.0/examples/jsm/loaders/GLTFLoader.js';
+    window.GLTFLoader = GLTFLoader;
+    window.dispatchEvent(new Event('GLTFLoaderReady'));
+    var s = document.createElement('script');
+    s.src = 'app.js?v=' + Date.now();
+    document.body.appendChild(s);
+  </script>
+</body>
+</html>

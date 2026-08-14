@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+.repowise/
+.serena/
+.claude/
+.omp/
+.vscode/
+.mcp.json
+
+.DS_Store
+Thumbs.db
+*.log
