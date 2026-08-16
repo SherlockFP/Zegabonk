@@ -12,3 +12,10 @@ dist/
 .DS_Store
 Thumbs.db
 *.log
+
+test-results/
+graphify-out/
+mem
+*.zip
+
+assets/sources/

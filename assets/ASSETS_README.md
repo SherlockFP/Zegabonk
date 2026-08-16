@@ -88,3 +88,19 @@ Efektler şu an kodla (ring, burst, projectile) yapılıyor; ileride `assets/eff
 4. **Boyut:** Modeller çok büyük olmasın; oyun otomatik ölçekler ama çok detaylı modeller FPS’i düşürebilir.  
 
 Bu dosya sadece rehberdir; modelleri siz indirip ilgili klasörlere koyacaksınız. Oyun, dosya varsa onu kullanır, yoksa varsayılan modellere geri döner.
+
+---
+
+## Yüklü modeller — Kaynak & lisans (CC Attribution)
+
+Aşağıdaki 5 model Sketchfab'dan indirilmiş ve **CC Attribution** lisansıyla kullanılmaktadır. Kullanımda yazar adı ve kaynak atfı zorunludur.
+
+| Model | Dosya | Sketchfab yazarı | Sketchfab UID | Lisans |
+|-------|-------|------------------|---------------|--------|
+| Low Poly Ghost | `assets/creatures/ghost.glb` | Jenna-W | `62e2b3e9db77443b88a7341ac0032e3b` | CC Attribution |
+| PSX Horror Creature | `assets/creatures/horror.glb` | RunBunStudios | `f2cb965d13df49f2a9c78c3358386076` | CC Attribution |
+| Low Poly Wild Boar | `assets/creatures/boar.glb` | Hanabi_Map | `c629c82f34754fd09230b2c9563296ac` | CC Attribution |
+| Low Poly - Polar Bear | `assets/creatures/polarBear.glb` | Gouw | `744849f988f148749245c8115eec046e` | CC Attribution |
+| Shadowsail | `assets/creatures/void.glb` | Alx_Olotl | `dd453c67708d46189100fa63111b59cd` | CC Attribution |
+
+Model sayfaları: `https://sketchfab.com/3d-models/<UID>` (ör. ghost için `https://sketchfab.com/3d-models/62e2b3e9db77443b88a7341ac0032e3b`).

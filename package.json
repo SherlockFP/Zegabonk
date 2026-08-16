@@ -1,0 +1,16 @@
+{
+  "name": "zegabonk",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run serve",
+    "serve": "node tools/qa/serve.mjs",
+    "preview": "vite preview",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "vite": "^5.4.0"
+  }
+}

@@ -29,9 +29,13 @@
         <div class="startMenuLayout">
           <nav class="startMenu" aria-label="Ana menu">
             <button id="playBtn" class="btn primary menuPrimary"><span>HIKAYEYE BASLA</span><small>Prenses Zega'yi kurtar</small></button>
+            <button id="resumeBtn" class="btn secondary hidden">DEVAM ET</button>
+            <button id="dailyBtn" class="btn secondary">GUNLUK KOSU</button>
             <button id="crownRiftBtn" class="btn crownRiftButton hidden">TAC YARIKLARI</button>
             <button id="menuSettingsBtn" class="btn secondary">AYARLAR</button>
             <button id="leaderboardBtn" class="btn secondary">LIDERLIK</button>
+            <button id="feedbackBtn" class="btn ghostButton">GERI BILDIRIM</button>
+            <button id="telemetryBtn" class="btn ghostButton">TELEMETRI</button>
             <button id="quitBtnMenu" class="btn ghostButton">CIKIS</button>
           </nav>
           <aside class="runBrief">
@@ -43,9 +47,26 @@
               <div class="hudTitle">GUNLUK YEMINLER</div>
               <div id="questsList"></div>
             </div>
+            <div class="nextLockPreview" id="nextLockPreview" style="margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.06);color:#ffd94a;font-size:12px;letter-spacing:0.4px;"></div>
+            <div class="nextLockPreview" id="dailyBoardPreview" style="margin-top:6px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.06);color:#7cfc66;font-size:12px;letter-spacing:0.4px;"></div>
+            <div class="nextLockPreview" id="weeklyAffixRow" style="margin-top:6px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.06);color:#c473ff;font-size:12px;letter-spacing:0.4px;"></div>
           </aside>
         </div>
-        <footer class="menuFooter"><span>WASD hareket</span><span>Q otomatik saldiri</span><span>F3 profiler</span><span>v0.2 NIGHTFALL</span></footer>
+        <footer class="menuFooter"><span>WASD hareket</span><span>Q otomatik saldiri</span><span>F3 profiler</span><span>v1.0 DARBE YARIGI</span></footer>
+      </div>
+    </section>
+
+    <section id="dailyModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="dailyModalTitle">
+      <div class="panel lobbyPanel">
+        <span class="brandEyebrow lobbyEyebrow">GUNLUK KOSU</span>
+        <h2 id="dailyModalTitle" class="lobbyTitle">BUGUNUN KOSUSU</h2>
+        <p class="lobbySubtitle">Affix sec ya da bugunun sabitlerini kullan. Her affix +%20 skor carpani (max 6).</p>
+        <span id="mutatorModalToday" class="lobbySubtitle" style="display:block;margin-bottom:10px;color:#ffd94a;"></span>
+        <div id="mutatorList" class="mutatorList"></div>
+        <div class="menuButtons" style="display:flex;gap:10px;margin-top:18px;">
+          <button id="dailyStartBtn" class="btn primary">KOSUYU BASLAT</button>
+          <button id="dailyBackBtn" class="btn secondary">GERI</button>
+        </div>
       </div>
     </section>
 
@@ -57,48 +78,94 @@
         <div class="lobbySection">
           <span class="lobbySectionTitle">01 / Savasci</span>
           <div class="lobbyCharGrid">
-            <label class="lobbyLevelOption">
+            <label class="lobbyLevelOption lobbyCharCard" style="--swatch:#63e0ff">
               <input type="radio" name="lobbyChar" value="scout" checked>
-              <div><span class="lobbyLevelName">Izci</span><small>Hiz + Frostball</small></div>
+              <span class="lobbyCharEmoji" aria-hidden="true">🏃</span>
+              <span class="lobbyCharInfo"><span class="lobbyLevelName">Izci</span><small>Hiz + Frostball</small></span>
+              <span class="lobbyCharSwatch" aria-hidden="true"></span>
             </label>
-            <label class="lobbyLevelOption">
+            <label class="lobbyLevelOption lobbyCharCard" style="--swatch:#ff6b6b">
               <input type="radio" name="lobbyChar" value="brawler">
-              <div><span class="lobbyLevelName">Dovucu</span><small>HP + Kiliclar</small></div>
+              <span class="lobbyCharEmoji" aria-hidden="true">🥊</span>
+              <span class="lobbyCharInfo"><span class="lobbyLevelName">Dovucu</span><small>HP + Kiliclar</small></span>
+              <span class="lobbyCharSwatch" aria-hidden="true"></span>
             </label>
-            <label class="lobbyLevelOption">
+            <label class="lobbyLevelOption lobbyCharCard" style="--swatch:#a05ae8">
               <input type="radio" name="lobbyChar" value="mage">
-              <div><span class="lobbyLevelName">Buyucu</span><small>Hasar + Fireball + Magnet</small></div>
+              <span class="lobbyCharEmoji" aria-hidden="true">🔮</span>
+              <span class="lobbyCharInfo"><span class="lobbyLevelName">Buyucu</span><small>Hasar + Fireball + Magnet</small></span>
+              <span class="lobbyCharSwatch" aria-hidden="true"></span>
             </label>
-            <label class="lobbyLevelOption">
+            <label class="lobbyLevelOption lobbyCharCard" style="--swatch:#6be08a">
               <input type="radio" name="lobbyChar" value="survivor">
-              <div><span class="lobbyLevelName">Hayatta Kalan</span><small>Kalkan + Regen</small></div>
+              <span class="lobbyCharEmoji" aria-hidden="true">🛡️</span>
+              <span class="lobbyCharInfo"><span class="lobbyLevelName">Hayatta Kalan</span><small>Kalkan + Regen</small></span>
+              <span class="lobbyCharSwatch" aria-hidden="true"></span>
             </label>
-            <label class="lobbyLevelOption">
+            <label class="lobbyLevelOption lobbyCharCard" style="--swatch:#c8d0d8">
               <input type="radio" name="lobbyChar" value="samurai">
-              <div><span class="lobbyLevelName">Samuray</span><small>Tam melee • Kilic skilleri</small></div>
+              <span class="lobbyCharEmoji" aria-hidden="true">⚔️</span>
+              <span class="lobbyCharInfo"><span class="lobbyLevelName">Samuray</span><small>Tam melee • Kilic skilleri</small></span>
+              <span class="lobbyCharSwatch" aria-hidden="true"></span>
             </label>
-            <label class="lobbyLevelOption">
+            <label class="lobbyLevelOption lobbyCharCard" style="--swatch:#c98a5a">
               <input type="radio" name="lobbyChar" value="gorilla">
-              <div><span class="lobbyLevelName">Goril</span><small>Skill atmaz • Hasar alani</small></div>
+              <span class="lobbyCharEmoji" aria-hidden="true">🦍</span>
+              <span class="lobbyCharInfo"><span class="lobbyLevelName">Goril</span><small>Skill atmaz • Hasar alani</small></span>
+              <span class="lobbyCharSwatch" aria-hidden="true"></span>
             </label>
-            <label class="lobbyLevelOption">
+            <label class="lobbyLevelOption lobbyCharCard" style="--swatch:#ffd27a">
               <input type="radio" name="lobbyChar" value="monk">
-              <div><span class="lobbyLevelName">Kesis</span><small>Flicker Strike • Isinlanip vurur</small></div>
+              <span class="lobbyCharEmoji" aria-hidden="true">🧘</span>
+              <span class="lobbyCharInfo"><span class="lobbyLevelName">Kesis</span><small>Isik Vurusu • Isinlanip vurur</small></span>
+              <span class="lobbyCharSwatch" aria-hidden="true"></span>
             </label>
-            <label class="lobbyLevelOption">
+            <label class="lobbyLevelOption lobbyCharCard" style="--swatch:#ffe9a8">
               <input type="radio" name="lobbyChar" value="paladin">
-              <div><span class="lobbyLevelName">Paladin</span><small>Smite • Zirh • Kutsal vurus</small></div>
+              <span class="lobbyCharEmoji" aria-hidden="true">⚜️</span>
+              <span class="lobbyCharInfo"><span class="lobbyLevelName">Paladin</span><small>Kutsal Vurus • Zirh • Kutsal vurus</small></span>
+              <span class="lobbyCharSwatch" aria-hidden="true"></span>
+            </label>
+            <label class="lobbyLevelOption lobbyCharCard" style="--swatch:#ff9c73">
+              <input type="radio" name="lobbyChar" value="archer">
+              <span class="lobbyCharEmoji" aria-hidden="true">🏹</span>
+              <span class="lobbyCharInfo"><span class="lobbyLevelName">Okcu</span><small>Yay + Ok • Sok/Yakici/Donduran ok • Max 4 ok</small></span>
+              <span class="lobbyCharSwatch" aria-hidden="true"></span>
+            </label>
+          </div>
+        </div>
+        <div class="lobbySection">
+          <span class="lobbySectionTitle">02 / Hikaye Rotasi</span>
+          <div class="lobbyLevels">
+            <label class="lobbyLevelOption">
+              <input type="radio" name="lobbyMap" value="classic" checked>
+              <div>
+                <span class="lobbyLevelName">Darbe Yarigi</span>
+                <small>Tek hikaye rotasi • Warden gecidi • 10. dakikada Endless</small>
+              </div>
             </label>
             <label class="lobbyLevelOption">
-              <input type="radio" name="lobbyChar" value="archer">
-              <div><span class="lobbyLevelName">Okcu</span><small>Yay + Ok • Sok/Yakici/Donduran ok • Max 4 ok</small></div>
+              <input type="radio" name="lobbyMap" value="openworld">
+              <div>
+                <span class="lobbyLevelName">Acik Dunya</span>
+                <small>Seed prosedurel harita • 12x12 tile • kesfedilecek gecit + mug</small>
+              </div>
             </label>
           </div>
         </div>
         <div class="lobbySection">
           <span class="lobbySectionTitle">03 / Run Kurallari</span>
-          <label class="lobbyCheckWrap"><input type="checkbox" id="lobbyExileMode"> <span>Exile Modu</span></label>
-          <small style="display:block;margin-top:4px;color:var(--muted);font-size:7px;">Level up = skill puani. P ile skill agaci acilir (Path of Exile tarzi).</small>
+          <label class="lobbyCheckWrap"><input type="checkbox" id="lobbyExileMode"> <span>Surgun Modu</span></label>
+          <small style="display:block;margin-top:4px;color:var(--muted);font-size:11px;">Level up = skill puani. P ile skill agaci acilir.</small>
+        </div>
+        <div class="lobbySection">
+          <span class="lobbySectionTitle">04 / Challenge</span>
+          <select id="challengeModeSelect">
+            <option value="none">Yok</option>
+            <option value="melee_only">Sadece yakın savas</option>
+            <option value="one_life">Tek can</option>
+            <option value="timer_5">5 dk limit</option>
+          </select>
         </div>
         <div class="lobbySection">
           <span class="lobbySectionTitle">05 / Siluet</span>
@@ -125,62 +192,6 @@
           <div class="characterEditorRow" id="retroPresetRow" style="display:none">
             <button type="button" id="appRetroBtn" class="btn secondary">Retro (gizli)</button>
           </div>
-        </div>
-        <div class="lobbySection">
-          <span class="lobbySectionTitle">02 / Hikaye Rotasi</span>
-        <div class="lobbyLevels">
-          <label class="lobbyLevelOption">
-            <input type="radio" name="lobbyMap" value="classic" checked>
-            <div>
-              <span class="lobbyLevelName">Darbe Yarigi</span>
-              <small>Acik alan • Agaclar, goller, koyler</small>
-            </div>
-          </label>
-          <label class="lobbyLevelOption">
-            <input type="radio" name="lobbyMap" value="forest">
-            <div>
-              <span class="lobbyLevelName">Orman</span>
-              <small>Yogun orman • Daha cok agac, karanlik tonlar</small>
-            </div>
-          </label>
-          <label class="lobbyLevelOption">
-            <input type="radio" name="lobbyMap" value="desert">
-            <div>
-              <span class="lobbyLevelName">Col</span>
-              <small>Kum ve kayalar • Genis dus alani</small>
-            </div>
-          </label>
-          <label class="lobbyLevelOption">
-            <input type="radio" name="lobbyMap" value="ice">
-            <div>
-              <span class="lobbyLevelName">Buz Haritasi</span>
-              <small>Kar ve buz • Kayma mekanigi • Kutup ayilari</small>
-            </div>
-          </label>
-          <label class="lobbyLevelOption">
-            <input type="radio" name="lobbyMap" value="swamp">
-            <div>
-              <span class="lobbyLevelName">Bataklik</span>
-              <small>Yesil bataklik • Mantarlar • Durgun su</small>
-            </div>
-          </label>
-          <label class="lobbyLevelOption">
-            <input type="radio" name="lobbyMap" value="island">
-            <div>
-              <span class="lobbyLevelName">Ada</span>
-              <small>Adada hayatta kal • Etraf su • Sinirli alan</small>
-            </div>
-          </label>
-        </div>
-        </div>
-        <div class="lobbySection">
-          <span class="lobbySectionTitle">04 / Challenge</span>
-          <select id="challengeModeSelect">
-            <option value="none">Yok</option>
-            <option value="melee_only">Sadece yakın savas</option>
-            <option value="one_life">Tek can</option>
-            <option value="timer_5">5 dk limit</option>
-          </select>
         </div>
         <div class="menuButtons lobbyButtons">
           <button id="lobbyStartBtn" class="btn primary">YARIGA GIR</button>
@@ -239,6 +250,15 @@
       <div id="ritualHint" class="hidden">F - Ritüeli Başlat</div>
       <div id="zoneTimer" class="zoneTimer hidden">Ritüel: 30 sn</div>
       <div id="portalHint" class="hidden">Portal: Bekle 3 sn</div>
+      <div id="portalGuide" class="hidden" aria-live="polite"></div>
+      <div id="onboardingOverlay" class="onboardingOverlay hidden" aria-live="polite">
+        <div id="onboardingArrow" class="onboardingArrow hidden" aria-hidden="true">▶</div>
+        <div class="onboardingCard">
+          <span id="onboardingTip" class="onboardingTipText"></span>
+          <div id="onboardingProgress" class="onboardingProgress"></div>
+          <button type="button" id="onboardingSkip" class="onboardingSkip">GEC</button>
+        </div>
+      </div>
       <div id="caveNotify">Magaraya girdin!</div>
       <div id="autoAttackIndicator">SALDIRI KAPALI [Q]</div>
       <div id="tabPanel" class="tabPanel hidden" aria-hidden="true">
@@ -352,7 +372,7 @@
         <div id="gameOverStats" class="gameOverStatsGrid"></div>
         <p id="gameOverText" class="subtitle"></p>
         <div class="menuButtons">
-          <button id="restartBtn" class="btn primary">TEKRAR DENE</button>
+          <button id="restartBtn" class="btn primary">TEKRAR OYNA</button>
           <button id="mainMenuBtn" class="btn secondary">ANA MENU</button>
         </div>
       </div>
@@ -396,7 +416,7 @@
         <div id="activitySkillContent" class="activitySkillContent" style="min-height:180px;margin-bottom:12px"></div>
         <div class="menuButtons">
           <button id="activitySkillCloseBtn" class="btn primary">KAPAT (P)</button>
-          <button id="activitySkillTreeBtn" class="btn secondary" style="display:none">Skill Agaci (Exile)</button>
+          <button id="activitySkillTreeBtn" class="btn secondary" style="display:none">Skill Agaci (Surgun)</button>
         </div>
       </div>
     </section>
@@ -417,7 +437,7 @@
           <div class="settingRow"><label>Kamera mesafesi</label><div class="sliderWrap"><input type="range" id="camDistSlider" min="3" max="12" step="0.5" value="5.2"><span id="camDistValue">5.2</span></div></div>
           <div class="settingRow"><label>Kamera yukseklik</label><div class="sliderWrap"><input type="range" id="camHeightSlider" min="0.5" max="5" step="0.2" value="2.1"><span id="camHeightValue">2.1</span></div></div>
           <div class="settingRow"><label>Kamera acisi</label><div class="sliderWrap"><input type="range" id="pitchRangeSlider" min="0.3" max="1.2" step="0.1" value="0.55"><span id="pitchRangeValue">32°</span></div></div>
-          <div class="settingRow"><label>Kamera modu</label><select id="cameraAngleSelect"><option value="default">Varsayilan</option><option value="isometric">Izometrik (tepeden)</option><option value="isometric_angled">Acili izometrik (League of Legends)</option><option value="first_person">First person (deneysel)</option></select></div>
+          <div class="settingRow"><label>Kamera modu</label><select id="cameraAngleSelect"><option value="default">Varsayilan</option><option value="isometric">Izometrik (tepeden)</option><option value="isometric_angled">Acili izometrik</option><option value="first_person">First person (deneysel)</option></select></div>
           <div class="settingRow"><label>2D grafik</label><label class="lobbyCheckWrap"><input type="checkbox" id="graphics2DCheck"> <span>2D grafik modu (tepeden 2D)</span></label></div>
           <div class="settingRow"><label>FOV</label><div class="sliderWrap"><input type="range" id="fovSlider" min="50" max="95" step="5" value="70"><span id="fovValue">70</span></div></div>
           <div class="settingRow"><label>Ses (genel)</label><div class="sliderWrap"><input type="range" id="soundSlider" min="0" max="100" step="10" value="100"><span id="soundValue">100%</span></div></div>
@@ -440,6 +460,9 @@
     import { GLTFLoader } from 'https://unpkg.com/three@0.159.0/examples/jsm/loaders/GLTFLoader.js';
     window.GLTFLoader = GLTFLoader;
     window.dispatchEvent(new Event('GLTFLoaderReady'));
+    import { RGBELoader } from 'https://unpkg.com/three@0.159.0/examples/jsm/loaders/RGBELoader.js';
+    window.RGBELoader = RGBELoader;
+    window.dispatchEvent(new Event('RGBELoaderReady'));
     var s = document.createElement('script');
     s.src = 'app.js?v=' + Date.now();
     document.body.appendChild(s);
