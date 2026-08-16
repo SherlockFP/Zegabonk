@@ -22,6 +22,7 @@ const MIME = {
   '.webp': 'image/webp',
   '.glb': 'model/gltf-binary',
   '.gltf': 'model/gltf+json',
+  '.hdr': 'application/octet-stream',
   '.mp3': 'audio/mpeg',
   '.ogg': 'audio/ogg',
   '.wav': 'audio/wav',

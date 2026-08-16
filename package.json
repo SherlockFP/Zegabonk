@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "npm run serve",
     "serve": "node tools/qa/serve.mjs",
-    "preview": "vite preview",
+    "start": "node tools/qa/serve.mjs",
+    "preview": "node tools/qa/serve.mjs",
     "test": "playwright test"
   },
   "devDependencies": {
