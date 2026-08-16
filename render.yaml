@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: zegabonk
+    runtime: node
+    buildCommand: npm install
+    startCommand: node tools/qa/serve.mjs
+    plan: free
