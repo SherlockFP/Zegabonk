@@ -2,6 +2,7 @@ import { expect } from '@playwright/test';
 
 export async function enterLobbyFromPlay(page) {
   await page.waitForFunction(() => typeof enterTownHub === 'function', null, { timeout: 20000 });
+  await page.waitForFunction(() => document.getElementById('loadingOverlay')?.classList.contains('hidden'), null, { timeout: 30000 });
   await page.click('#playBtn');
   await page.waitForFunction(() => typeof state !== 'undefined' && state.inTown === true, null, { timeout: 20000 });
   await page.waitForTimeout(350);

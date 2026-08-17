@@ -7,11 +7,16 @@ test('lobby and first combat frame', async ({ page }) => {
 
   await page.goto('/');
   await expect(page.locator('#startScreen')).toBeVisible({ timeout: 30000 });
-  await page.waitForTimeout(1200);
+  await page.waitForFunction(() => document.getElementById('loadingOverlay')?.classList.contains('hidden'), null, { timeout: 30000 });
+  await expect(page.locator('#menuCharDock')).toBeVisible();
+  await expect(page.locator('.menuCharTile[data-char="scout"]')).toBeVisible();
+  await page.waitForTimeout(400);
   await page.screenshot({ path: 'tests/artifacts/menu-after.png', fullPage: true });
+  await page.screenshot({ path: 'tests/artifacts/gauntlet-menu.png', fullPage: true });
 
   await enterLobbyFromPlay(page);
   await page.waitForTimeout(600);
+  await expect(page.locator('.lobbyCharCard[data-char="scout"] .lobbyCharPortrait')).toBeVisible();
   await page.screenshot({ path: 'tests/artifacts/lobby.png', fullPage: true });
 
   await page.click('#lobbyStartBtn');

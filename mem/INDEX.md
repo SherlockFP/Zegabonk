@@ -22,8 +22,9 @@ Third-person 3D auto-battler survivor (MEGABONK-like). WASD + mouse look. Auto w
 - MEGABONK feel: dense map, find the portal, stand in it -> Warden
 - Characters use per-class GLB under `assets/models/production/`
 - Creature GLB + aliases (goblin/rattlecap, bat=crow, etc)
-- Current score: ~8.1/10 (loop 8, opening 8.2, juice 7.6, HUD/menu 8.3, map 8.0, town hub 7.6, audio 5.6). AA 9 still wants recorded SFX.
+- Honest score ~6.0/10 after juice+char-select pass (loop 7.0, HUD/menu 7.7, juice 6.4, map 4.2). See `mem/GAUNTLET.md`.
 - Hunt chain: explore chests/POIs -> level -> elites -> portal GPS
+- Classic gate: stand 3s -> Kirik-Tac Muhafizi approaches -> kill opens portal now -> Bolum 2. No 10:00 wait. Hardcore/random teleports off until story/endless.
 - Play opens Tac Koyu (3D hub). Portal -> lobby overlay -> run. Yol Tasi +2.. after Ender. Gear + durability/repair in `hub.js`.
 - Horde spawns 32-44m ahead of camera, despawn 78m
 - Chapter 1 favors goblin/wolf GLBs
@@ -33,7 +34,7 @@ Third-person 3D auto-battler survivor (MEGABONK-like). WASD + mouse look. Auto w
 - Pause resume is `#pauseResumeBtn` (start continue is `#resumeBtn`)
 - `updateCamera` ~17169 chase cam. Do not reload old localStorage camera (`settingsVersion`)
 - GLB facing: some clones need `rotation.y = Math.PI`
-- `loop.spec.js` still asserts Warden then `endlessMode` (Ender arena also starts there)
+- `loop.spec.js` asserts Muhafiz then chapter 2 (not 10:00 endless)
 
 ## Do not
 

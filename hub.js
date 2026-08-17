@@ -155,7 +155,9 @@
     if (state.inTown) return;
     var key = state.mythicKey || 0;
     var chance = source === "boss" ? 0.55 : source === "elite" ? 0.22 : source === "chest" ? 0.18 : 0.06;
-    chance *= 1 + key * 0.08;
+    chance *= 1 + key * 0.12;
+    chance *= 1 + (typeof stats !== "undefined" && stats.dropLuck ? stats.dropLuck : 0);
+    if (state.rift && state.rift.active) chance *= 1.18;
     if (rng() > chance) return;
     var item = rollItem(Math.max(1, key || (state.chapter || 1)), source === "boss" ? (rng() < 0.2 ? "unique" : "rare") : null);
     var p = ensureGearProfile();
