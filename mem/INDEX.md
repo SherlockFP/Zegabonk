@@ -22,7 +22,7 @@ Third-person 3D auto-battler survivor (MEGABONK-like). WASD + mouse look. Auto w
 - MEGABONK feel: dense map, find the portal, stand in it -> Warden
 - Characters use per-class GLB under `assets/models/production/`
 - Creature GLB + aliases (goblin/rattlecap, bat=crow, etc)
-- Current score: ~7.6/10 (loop 8, opening 8, juice 7.5, HUD/menu 8.2, map 7.5, audio 5.5). AA 9 still wants unique GLBs + recorded SFX.
+- Current score: ~7.8/10 (loop 8, opening 8, juice 7.6, HUD/menu 8.3, map 7.6, audio 5.6). AA 9 still wants recorded SFX.
 - Hunt chain: explore chests/POIs -> level -> elites -> portal GPS
 - Horde spawns 32-44m ahead of camera, despawn 78m
 - Chapter 1 favors goblin/wolf GLBs

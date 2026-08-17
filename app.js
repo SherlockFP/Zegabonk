@@ -4,7 +4,7 @@
     setTimeout(function() {
       el.style.opacity = "0";
       setTimeout(function() { el.style.display = "none"; }, 400);
-    }, 5200);
+    }, 2800);
   }
 })();
 var preloadedMaps = {};
@@ -2194,23 +2194,23 @@ let randomTeleportPortals = [];
 let hardcorePortalData = null;
 let defaultSkyTex = null;
 let defaultFogColor = 0x88c8ee;
-let defaultFogDensity = 0.0055;
+let defaultFogDensity = 0.0020;
 
 // === 3-STAGE BIOME KIT (chapter-per-biyom) ===
 let cliHemi = null, cliSun = null, cliFill = null; // classic map isik referanslari
 const BIOME_BY_CHAPTER = {
   1: { // Yesil Yokuslar: yesil zemin, yesilimsi sis, parlak gokyuzu, yesil isik
-    bg: 0x6ec4ff, fog: 0x6e9a92, fogD: 0.0019,
+    bg: 0x6ec4ff, fog: 0x6e9a92, fogD: 0.0015,
     ground: 0x8ad06a, emissive: 0x1e3a1c, exposure: 1.38,
     hemi: [0xe8f2ff, 0x3a5a42, 1.18], sun: [0xfff4d8, 2.85], fill: [0x9ec4e8, 0.55],
   },
   2: { // Gunes Kirigi: col/yanik - tan/turuncu zemin, sicak sis, turuncu gokyuzu, sicak isik
-    bg: 0xf0a060, fog: 0xd88848, fogD: 0.0070,
+    bg: 0xf0a060, fog: 0xd88848, fogD: 0.0022,
     ground: 0xc88840, emissive: 0x3a200c, exposure: 1.26,
     hemi: [0xffe8b8, 0x7a4a1a, 1.6], sun: [0xffc86a, 2.35], fill: [0xffb060, 0.55],
   },
   3: { // Kizil Yarik: volkanik cehennem - kirmizi zemin, kizil sis, kor gokyuzu
-    bg: 0x3a0c0c, fog: 0x5a1410, fogD: 0.0088,
+    bg: 0x3a0c0c, fog: 0x5a1410, fogD: 0.0026,
     ground: 0x5a1c14, emissive: 0x2a0606, exposure: 1.08,
     hemi: [0xff7755, 0x3a100c, 1.55], sun: [0xff5518, 2.15], fill: [0xff3318, 0.55],
   },
@@ -2238,6 +2238,7 @@ function applyBiomeTheme(chapter) {
   if (cliSun) { cliSun.color.setHex(b.sun[0]); cliSun.intensity = b.sun[1]; }
   if (cliFill) { cliFill.color.setHex(b.fill[0]); cliFill.intensity = b.fill[1]; }
   if (renderer) renderer.toneMappingExposure = b.exposure;
+  if (typeof dressClassicBiome === "function") dressClassicBiome(ch);
 }
 const MAX_CHAPTER = 3;
 const MEGA_BOSS_HP_MULT = 25;
@@ -2491,25 +2492,23 @@ const ENEMY_SPEECH_BOSS = [
 ];
 
 const MEME_DEATH_MESSAGES = [
-  "skill issue tbh",
-  "git gud",
-  "L + ratio",
-  "you forgor to dodge",
-  "not stonks",
-  "press F in chat",
-  "gg ez (said the enemies)",
-  "bruh moment",
-  "your bhop game was weak",
-  "should have bought armor",
-  "RIP bozo",
-  "no cap you got clapped",
-  "built different (the enemies)",
-  "Yeniden dene – bir dahaki sefere!",
-  "Kahramanlık böyle biter.",
-  "Düşmanlar seni unutmayacak.",
-  "En azından güzel denedin.",
-  "XP bir sonraki run’da seni bekliyor.",
-  "Restart’a bas, kalk ayağa!",
+  "Kacirdin. Tekrar dene.",
+  "Kite et, durma.",
+  "Zirh al, dodge bas.",
+  "Sandigi acmayi unuttun mu?",
+  "Horde seni yedi.",
+  "Bonk yetmedi.",
+  "F ile sandik, sonra kart.",
+  "Erken oldu. Bir tur daha.",
+  "PB seni bekliyor.",
+  "Dusmanlar daha acikti.",
+  "Kamera arkasini kontrol et.",
+  "Yeniden dene, bir dahaki sefere.",
+  "Kahramanlik boyle biter.",
+  "Dusmanlar seni unutmayacak.",
+  "En azindan guzel denedin.",
+  "XP bir sonraki kosta seni bekliyor.",
+  "Tekrar oyna, kalk ayaga.",
 ];
 
 const ACHIEVEMENTS = [
@@ -2738,7 +2737,7 @@ function playSfxShoot() {
   setTimeout(function() { activeSfxCount = Math.max(0, activeSfxCount - 1); }, 120);
   const now = audioCtx.currentTime;
   const vol = (camSettings.soundVolume || 1) * (camSettings.effectVolume ?? 1) * 0.28;
-  // Megabonk: tok, derin ates sesi – dusuk frekans + kisa punch
+  // Tok, derin ates sesi - dusuk frekans + kisa punch
   const baseFreq = 165 + Math.random() * 55;
   const osc = audioCtx.createOscillator();
   osc.type = "square";
@@ -2808,7 +2807,7 @@ function playSfxHit(freq = 320) {
   kick.frequency.setValueAtTime(Math.max(70, freq * 0.45), now);
   kick.frequency.exponentialRampToValueAtTime(48, now + 0.07);
   const kickG = audioCtx.createGain();
-  kickG.gain.setValueAtTime(0.11 * vol, now);
+  kickG.gain.setValueAtTime(0.16 * vol, now);
   kickG.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
   osc.connect(gain); gain.connect(audioCtx.destination);
   noise.connect(noiseG); noiseG.connect(audioCtx.destination);
@@ -2833,7 +2832,7 @@ function playSfxKill(freq = 190) {
   thump.frequency.setValueAtTime(pitch, now);
   thump.frequency.exponentialRampToValueAtTime(Math.max(40, pitch * 0.18), now + 0.12);
   const tg = audioCtx.createGain();
-  tg.gain.setValueAtTime(0.2 * vol, now);
+  tg.gain.setValueAtTime(0.28 * vol, now);
   tg.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
   const crunch = audioCtx.createOscillator();
   crunch.type = "sawtooth";
@@ -3339,7 +3338,7 @@ const skillLookup = {};
 skills.forEach((s) => { skillLookup[s.id] = { name: s.name, rarity: s.rarity || "common" }; });
 
 // ============================================================
-// WORLD GENERATION - Megabonk-style vibrant terrain system
+// WORLD GENERATION - vibrant terrain
 // ============================================================
 const HILLS = [
   { x: 0, z: 0, r: 60, h: 0.3 },
@@ -3481,6 +3480,8 @@ function sampleClassicHeight(x, z) {
   }
   h += ridgeBump(x + 38, z - 2, 28, 9.5);
   h += ridgeBump(x - 40, z + 2, 26, 9.0);
+  h += ridgeBump(x + 30, z + 14, 13, 5.2);
+  h += ridgeBump(x - 30, z + 16, 13, 5.0);
   h += ridgeBump(x + 22, z + 28, 20, 5.8);
   h += ridgeBump(x - 24, z + 26, 20, 5.4);
   h += ridgeBump(x - 4, z - 64, 30, 11.5);
@@ -4010,6 +4011,55 @@ function addHorizonSilhouettes() {
     if (classicInteriorClear(x, z) || classicOpenClear(x, z)) continue;
     hill(x, z, 10 + (i % 3) * 3, 7 + (i % 4) * 2.5, mats[i % 3]);
   }
+  const nearN = 8;
+  for (let i = 0; i < nearN; i++) {
+    const a = (i / nearN) * Math.PI * 2 + 0.22;
+    const rad = 54 + (i % 2) * 6;
+    const x = Math.cos(a) * rad, z = Math.sin(a) * rad;
+    if (classicInteriorClear(x, z) || classicOpenClear(x, z)) continue;
+    hill(x, z, 7 + (i % 3) * 2, 5.5 + (i % 3) * 1.8, mats[i % 3]);
+  }
+}
+
+function dressClassicBiome(ch) {
+  if (!mapGroup) return;
+  if (mapGroup.userData.biomeDress) {
+    mapGroup.remove(mapGroup.userData.biomeDress);
+    mapGroup.userData.biomeDress = null;
+  }
+  if (ch < 2) return;
+  const g = new THREE.Group();
+  g.name = "biomeDress";
+  const desert = ch === 2;
+  const mat = new THREE.MeshStandardMaterial({
+    color: desert ? 0xc4a060 : 0x4a1810,
+    emissive: desert ? 0x3a2008 : 0x6a1408,
+    emissiveIntensity: desert ? 0.2 : 0.5,
+    roughness: 0.86,
+    flatShading: true,
+  });
+  const spots = [[-72, 18], [68, 16], [-28, 72], [42, 84], [12, -52], [-92, -18], [108, -38], [-50, 100], [80, 70], [-58, -42], [62, -48], [-110, 48], [118, 8], [28, 108]];
+  for (let i = 0; i < spots.length; i++) {
+    const x = spots[i][0], z = spots[i][1];
+    if (classicOpenClear(x, z)) continue;
+    const y = sampleTerrainHeight(x, z);
+    if (desert) {
+      const cactus = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.48, 4.4 + (i % 3) * 0.8, 6), mat);
+      cactus.position.set(x, y + 2.3, z);
+      cactus.castShadow = true;
+      g.add(cactus);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.32, 0.32), mat);
+      arm.position.set(x + 0.7, y + 2.8, z);
+      g.add(arm);
+    } else {
+      const spire = new THREE.Mesh(new THREE.ConeGeometry(0.75, 5.8 + (i % 2), 5), mat);
+      spire.position.set(x, y + 3.0, z);
+      spire.castShadow = true;
+      g.add(spire);
+    }
+  }
+  mapGroup.add(g);
+  mapGroup.userData.biomeDress = g;
 }
 
 
@@ -4665,11 +4715,11 @@ const CLASSIC_TREE_BATCH_SIZE = 12;
 const CLASSIC_INITIAL_TREE_COUNT = 400;
 
 const CLASSIC_PHASE_PROFILES = [
-  { name: "Sessiz Fundalik", bg: 0x79bce8, fog: 0x6e9a92, fogDensity: 0.0019, ground: 0x9fbd73, landmark: 0x6f7d88, emissive: 0x17251b, exposure: 1.42 },
-  { name: "Kok Uyanisi", bg: 0x65a9c8, fog: 0x91c7b0, fogDensity: 0.0075, ground: 0x83a967, landmark: 0x65766f, emissive: 0x18351f, exposure: 1.25 },
-  { name: "Yarik Basinci", bg: 0x6f6fb2, fog: 0x8d85b2, fogDensity: 0.0085, ground: 0x777591, landmark: 0x665f7b, emissive: 0x3d2760, exposure: 1.18 },
-  { name: "Kizil Tutulma", bg: 0x9b5967, fog: 0xa8757b, fogDensity: 0.009, ground: 0x80676b, landmark: 0x765158, emissive: 0x67232d, exposure: 1.12 },
-  { name: "Tac Dususu", bg: 0x5b405f, fog: 0x78536a, fogDensity: 0.008, ground: 0x6f5f70, landmark: 0x7a5060, emissive: 0x923743, exposure: 1.16 },
+  { name: "Sessiz Fundalik", bg: 0x79bce8, fog: 0x6e9a92, fogDensity: 0.0016, ground: 0x9fbd73, landmark: 0x6f7d88, emissive: 0x17251b, exposure: 1.42 },
+  { name: "Kok Uyanisi", bg: 0x65a9c8, fog: 0x91c7b0, fogDensity: 0.0019, ground: 0x83a967, landmark: 0x65766f, emissive: 0x18351f, exposure: 1.25 },
+  { name: "Yarik Basinci", bg: 0x6f6fb2, fog: 0x8d85b2, fogDensity: 0.0022, ground: 0x777591, landmark: 0x665f7b, emissive: 0x3d2760, exposure: 1.18 },
+  { name: "Kizil Tutulma", bg: 0x9b5967, fog: 0xa8757b, fogDensity: 0.0025, ground: 0x80676b, landmark: 0x765158, emissive: 0x67232d, exposure: 1.12 },
+  { name: "Tac Dususu", bg: 0x5b405f, fog: 0x78536a, fogDensity: 0.0024, ground: 0x6f5f70, landmark: 0x7a5060, emissive: 0x923743, exposure: 1.16 },
 ];
 
 function getClassicPhaseIndex() {
@@ -4719,8 +4769,8 @@ function buildClassicSignatureArena() {
     root.add(disc);
   }
 
-  const landmarkMat = new THREE.MeshStandardMaterial({ color: 0x3a4868, emissive: 0x4a28a0, emissiveIntensity: 0.72, roughness: 0.48, metalness: 0.28, flatShading: true });
-  const crystalMat = new THREE.MeshStandardMaterial({ color: 0x48c8c4, emissive: 0x6a38e0, emissiveIntensity: 0.95, roughness: 0.22, metalness: 0.4, flatShading: true });
+  const landmarkMat = new THREE.MeshStandardMaterial({ color: 0x1a6a78, emissive: 0x2ee8d4, emissiveIntensity: 0.98, roughness: 0.38, metalness: 0.32, flatShading: true });
+  const crystalMat = new THREE.MeshStandardMaterial({ color: 0x7cf0e8, emissive: 0x2ee8d4, emissiveIntensity: 1.05, roughness: 0.2, metalness: 0.42, flatShading: true });
   const ruinMat = new THREE.MeshStandardMaterial({ color: 0x6a645c, emissive: 0x1a1814, emissiveIntensity: 0.12, roughness: 0.9, metalness: 0.04, flatShading: true });
   const scorchedMat = new THREE.MeshStandardMaterial({ color: 0x3a2218, emissive: 0x8a2a10, emissiveIntensity: 0.55, roughness: 0.88, flatShading: true });
 
@@ -4729,10 +4779,10 @@ function buildClassicSignatureArena() {
   core.rotation.set(0.35, 0.4, 0.18);
   core.castShadow = true;
   root.add(core);
-  const meteorGlow = new THREE.PointLight(0x6a48e8, 1.55, 42, 1.6);
+  const meteorGlow = new THREE.PointLight(0x48ffe0, 2.15, 52, 1.45);
   meteorGlow.position.set(meteorX, meteorY + 4.2, meteorZ);
   root.add(meteorGlow);
-  const meteorBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.55, 16, 6), new THREE.MeshBasicMaterial({ color: 0xb48cff, transparent: true, opacity: 0.38, depthWrite: false }));
+  const meteorBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.55, 16, 6), new THREE.MeshBasicMaterial({ color: 0x9afff2, transparent: true, opacity: 0.46, depthWrite: false }));
   meteorBeam.position.set(meteorX, meteorY + 11.2, meteorZ);
   root.add(meteorBeam);
   for (let i = 0; i < 7; i++) {
@@ -4776,8 +4826,8 @@ function buildClassicSignatureArena() {
     wallB.position.set(wx, wy + 2.2, wz + corners[c][1] * -2.2);
     wallB.castShadow = true;
     root.add(wallB);
-    colliders.push({ x: wx + corners[c][0] * -2.2, z: wz, r: 3.4 });
-    colliders.push({ x: wx, z: wz + corners[c][1] * -2.2, r: 3.4 });
+    colliders.push({ x: wx + corners[c][0] * -2.2, z: wz, r: 2.0 });
+    colliders.push({ x: wx, z: wz + corners[c][1] * -2.2, r: 2.0 });
   }
 
   const ruinTower = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.85, 9.2, 8), ruinMat);
@@ -4793,12 +4843,12 @@ function buildClassicSignatureArena() {
   root.add(ruinSpire);
   colliders.push({ x: ruX + 16.2, z: ruZ - 4, r: 1.6 });
 
-  const trailMat = new THREE.MeshLambertMaterial({ color: 0x7a5a30, transparent: true, opacity: 0.55, depthWrite: false });
-  const trailGeo = new THREE.CircleGeometry(1.85, 10);
+  const trailMat = new THREE.MeshLambertMaterial({ color: 0x8a6840, transparent: true, opacity: 0.28, depthWrite: false });
+  const trailGeo = new THREE.CircleGeometry(1.35, 10);
   function addDirtTrail(ax, az, bx, bz) {
     const dx = bx - ax, dz = bz - az;
     const len = Math.hypot(dx, dz) || 1;
-    for (let t = 2.2; t < len - 1.6; t += 1.45) {
+    for (let t = 2.4; t < len - 1.8; t += 2.15) {
       const u = t / len;
       const x = ax + dx * u + Math.sin(t * 0.31) * 1.05;
       const z = az + dz * u + Math.cos(t * 0.27) * 0.75;
@@ -4844,6 +4894,19 @@ function buildClassicSignatureArena() {
   }
   addPassGate(-46, 6, 1.15);
   addPassGate(50, 4, -1.05);
+
+  const rimMat = new THREE.MeshStandardMaterial({ color: 0x4a5348, roughness: 0.9, flatShading: true });
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2 + 0.08;
+    const rr = 33 + (i % 3) * 1.4;
+    const rx = meteorX + Math.cos(a) * rr, rz = meteorZ + Math.sin(a) * rr;
+    if (Math.hypot(rx, rz + 12) < 18) continue;
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.15 + (i % 3) * 0.4, 0), rimMat);
+    rock.position.set(rx, sampleTerrainHeight(rx, rz) + 0.85, rz);
+    rock.rotation.set(0.15, a, 0.1);
+    rock.castShadow = true;
+    root.add(rock);
+  }
 
   if (typeof addOpenShrine === "function") addOpenShrine(-24, -88, function() { return 0.37; });
 
@@ -6723,6 +6786,9 @@ function buildImportedPlayer(origin, scale, srcAsset, srcClips) {
   });
   player.heroParts = heroParts;
   player.mesh = g;
+  const heroRim = new THREE.PointLight(0xfff0d8, 1.05, 11, 2);
+  heroRim.position.set(0, 1.7, 0.35);
+  g.add(heroRim);
   attachPlayerShield(g);
   scene.add(g);
   if (typeof refreshRunCosmetics === "function") refreshRunCosmetics();
@@ -6862,6 +6928,9 @@ function buildPlayer() {
   g.position.copy(origin);
   g.traverse((c) => { if (c.isMesh) c.castShadow = true; });
   player.mesh = g;
+  const procRim = new THREE.PointLight(0xfff0d8, 1.05, 11, 2);
+  procRim.position.set(0, 1.7, 0.35);
+  g.add(procRim);
   attachPlayerShield(g);
   scene.add(g);
   if (typeof refreshRunCosmetics === "function") refreshRunCosmetics();
@@ -9788,6 +9857,11 @@ function createEnemy(tier, cfg, opts) {
   if ((state.time || 0) >= 540) speed *= 1.02;
   const enemyDmgMult = 0.92;
   let damage = cfg.damage * timeScale * (1 + plvl * 0.004 + Math.max(0, state.difficultyStage - 1) * 0.04) * endlessScale * diffMult * chapterDmgMult * globalEase * earlyLevelEase * levelDiffMult * levelDmgRamp * enemyDmgMult;
+  if (player.mesh && typeof classicGeoZone === "function") {
+    const znow = classicGeoZone(player.mesh.position.x, player.mesh.position.z);
+    if (znow && znow.kind === "narrow") speed *= 0.86;
+    if (znow && znow.kind === "danger") { hp *= 1.18; damage *= 1.08; }
+  }
   let xp = cfg.xp * (1 + plvl * 0.04 + Math.max(0, state.difficultyStage - 1) * 0.08) * diffMult * levelDiffMult;
   if (normalBeastType === "polarBear") {
     speed *= 1.4;
@@ -15342,6 +15416,12 @@ function updateEnemies(dt) {
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
     const distToPlayer = e.mesh.position.distanceTo(playerPos);
+    if (e.hpBar || e.nameLabel) {
+      const crowd = enemies.length > 42;
+      const keepBar = !!(e.isBoss || e.isElite || distToPlayer < (crowd ? 16 : 30));
+      if (e.hpBar) e.hpBar.visible = keepBar;
+      if (e.nameLabel) e.nameLabel.visible = keepBar && distToPlayer < 20;
+    }
     if (!e.isBoss && !e.isBreach && !e.abyssPitRef && !e.isAttackRound && distToPlayer > ENEMY_DESPAWN_DISTANCE) {
       if (scene && e.mesh) scene.remove(e.mesh);
       if (e.nameLabel && e.mesh) e.mesh.remove(e.nameLabel);
@@ -15848,7 +15928,7 @@ function updateEnemies(dt) {
       if (e.castLabel) {
         if (e.shootCd <= 0.6 && e.shootCd > 0) {
           updateCastLabel(e.castLabel, skillType === "fireball" ? "Ateş Topu!" : (skillType === "holy" ? "Kutsal!" : "Atış!"));
-          e.castLabel.visible = true;
+          e.castLabel.visible = distToPlayer < 22;
         } else {
           e.castLabel.visible = false;
         }
@@ -15883,7 +15963,13 @@ function updateEnemies(dt) {
     if (e.affix === "slowAura" && dist < 4) {
       if (!state.slowAuraUntil || state.time > state.slowAuraUntil) state.slowAuraUntil = state.time + 0.2;
     }
-    if (e.hpBar) updateHpBar(e.hpBar, e.hp, e.maxHp);
+    if (e.hpBar) {
+      const crowd = enemies.length > 42;
+      const keep = !!(e.isBoss || e.isElite || distToPlayer < (crowd ? 16 : 30));
+      e.hpBar.visible = keep;
+      if (e.nameLabel) e.nameLabel.visible = keep && distToPlayer < 20;
+      if (keep) updateHpBar(e.hpBar, e.hp, e.maxHp);
+    }
   }
 }
 
@@ -18561,6 +18647,15 @@ function updateCamera(dt) {
     playerPos.y + lift,
     playerPos.z - Math.cos(yaw) * dist * cp
   );
+  if (!isometric && !isometricAngled && colliders.length) {
+    let bump = 0;
+    for (let i = 0; i < colliders.length; i++) {
+      const c = colliders[i];
+      const d = Math.hypot(desired.x - c.x, desired.z - c.z);
+      if (d < 5.2) bump = Math.max(bump, (5.2 - d) * 1.35);
+    }
+    if (bump > 0) desired.y += Math.min(5.5, bump);
+  }
   const introUntil = state.bossIntroUntil || 0;
   if (introUntil > state.time && state.bossIntroTarget) {
     // Boss intro: kamerayi 2sn boyunca boss'a dogru lerp et

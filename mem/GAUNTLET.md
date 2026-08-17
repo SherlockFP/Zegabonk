@@ -102,6 +102,57 @@ Genre keys (original names): power every ~22s, level-up magnet, smash crates, ch
 
 Still open: chase-cam disc, ch2/3 authored geo, recorded SFX, unique beast GLB.
 
+## Needs-to-change closeout (17 Aug)
+
+Landed:
+- Player rim light on imported + procedural hero (was lost in env)
+- Regional combat: narrow pass slower, crater tankier (after damage init, no TDZ)
+- Crowd HP/name/cast hide at loop start so dist>72 continue cannot leak bars
+- Phase fog 0.0075-0.009 -> 0.0016-0.0025 (POIs stay visible)
+- Kirik Goktasi teal core + brighter beam/light
+- Ch2/3 biome dress extra spots (still skip kite bowl)
+- Hit/kill oscillator punch; no wav/mp3 in repo
+- Ruin corner colliders 2.0, toast bottom-left, bowl rim rocks (prior)
+
+Won't do: fill kite bowl with trees (chase cam photographs the disc on purpose).
+
+| Pillar | Now |
+| --- | --- |
+| Loop / 20-40s power | 8.0 |
+| Opening | 8.0 |
+| Hit / juice | 7.6 |
+| HUD / menu | 8.2 |
+| Map | 7.6 |
+| Audio | 5.6 |
+| Overall | 7.7 |
+
+`node --check app.js` clean. No commit.
+
+## Final eval playtest (17 Aug)
+
+Shots: `tests/artifacts/final-menu.png` ... `final-gameover.png`. No page errors.
+
+Playtest fixes:
+- Camera dropdown no longer says Megabonk
+- Dirt trail less muddy
+- Pause overlay lets the world show
+- Lobby extras show + / -
+- Epilepsy banner fades at 2.8s, lower z
+- Death quotes Turkish
+- Level-up title hidden so the 3-card strip stays a bottom board
+- Game over z-index with other overlays
+
+| Pillar | Score |
+| --- | --- |
+| Loop / 20-40s | 8.0 |
+| Opening | 8.0 |
+| Hit / juice | 7.6 |
+| HUD / menus | 8.3 |
+| Map | 7.6 |
+| Audio | 5.6 |
+| Gauntlet 5 | next 8, power 8, map 7, climax 7, queue 8 |
+| Overall | 7.8 |
+
 ## Later
 
-- Unique GLB per beast + recorded SFX for 9
+- Recorded SFX for 9. Unique GLBs already loaded via CREATURE_GLB_PATHS.
