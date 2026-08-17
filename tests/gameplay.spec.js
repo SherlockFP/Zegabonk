@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { enterLobbyFromPlay } from './helpers.js';
 
 test('gameplay: run starts, horde spawns, no 404s, level-up cards render', async ({ page }) => {
   const consoleErrors = [];
@@ -25,16 +26,15 @@ test('gameplay: run starts, horde spawns, no 404s, level-up cards render', async
 
   await page.goto('/');
 
-  // --- MENU → LOBBY ---
   await expect(page.locator('#startScreen')).toBeVisible({ timeout: 30000 });
-  await page.click('#playBtn');
-  await expect(page.locator('#lobbyScreen')).toBeVisible({ timeout: 15000 });
+  await enterLobbyFromPlay(page);
 
   // --- LOBBY → START RUN ---
   await page.click('#lobbyStartBtn');
 
   // Run actually started => app exposes global `running`
-  await page.waitForFunction(() => running === true, null, { timeout: 60000 });
+  await page.waitForFunction(() => running === true && state.inTown === false, null, { timeout: 60000 });
+  await page.waitForSelector('#hud:not(.hidden)', { timeout: 60000 });
   await page.waitForTimeout(10000); // let horde batch-spawn
 
   const state = await page.evaluate(() => ({

@@ -153,6 +153,41 @@ Playtest fixes:
 | Gauntlet 5 | next 8, power 8, map 7, climax 7, queue 8 |
 | Overall | 7.8 |
 
+## Yuk Tasi map pass (17 Aug)
+
+YouTube watch skill landed (`youtube-watch`). Classic map now routes like a charge-stone map: 7 trail **Yuk Tasi** plus Yemin, smash crates on dirt paths, green diamond radar, explore credit on fill. Do not copy 15 shrines or MEGABONK names.
+
+| Pillar | Score |
+| --- | --- |
+| Map | 8.0 |
+| Opening | 8.0 |
+| Overall | 8.0 |
+
+## Town hub + gear (17 Aug)
+
+Play -> 3D Tac Koyu. Portal opens existing lobby overlay. Demirci craft, Sandikci inventory, Yol Tasi +N after Ender. Gear in hub.js. Mythic key still dresses classic (no CLASSIC_GEO rewrite).
+
+## Town next-stage pass (17 Aug later)
+
+Landed: paper-doll inventory, durability + Demirci TAMIR, NPC labels, plaza lanterns + portal path, mythic spikes/fog/crates on ch1 Yol Tasi, `#bossBarWrap` restored. `startRun` no longer simulates town during world rebuild; opening seed runs after `clearEntities`.
+
+Playtest 1 (before fixes): T-pose in town, portal read as Yol Tasi, lanterns looked like sticks, Playwright still expected Play -> lobby. Hub ~7.2.
+
+Playtest 2 (`npx playwright test`, 6/6): idle pose, path to Buyuk Gecit, inventory 6 slots + 100/100, TAMIR visible, Warden loop green, 4-5 opening enemies.
+
+| Pillar | Score |
+| --- | --- |
+| Loop / 20-40s | 8.0 |
+| Opening | 8.2 |
+| Hit / juice | 7.6 |
+| HUD / menus | 8.3 |
+| Map | 8.0 |
+| Town hub | 7.6 |
+| Audio | 5.6 |
+| Overall | 8.1 |
+
+Shots: `tests/artifacts/town-plaza.png`, `town-inventory.png`, `town-craft.png`, `town-run.png`.
+
 ## Later
 
 - Recorded SFX for 9. Unique GLBs already loaded via CREATURE_GLB_PATHS.

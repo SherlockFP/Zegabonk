@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { enterLobbyFromPlay } from './helpers.js';
 
 test('full loop: portal → Warden (Grom GLB) → kill → exit → endless', async ({ page }) => {
   const consoleErrors = [];
@@ -18,10 +19,10 @@ test('full loop: portal → Warden (Grom GLB) → kill → exit → endless', as
 
   await page.goto('/');
   await expect(page.locator('#startScreen')).toBeVisible({ timeout: 30000 });
-  await page.click('#playBtn');
-  await expect(page.locator('#lobbyScreen')).toBeVisible({ timeout: 15000 });
+  await enterLobbyFromPlay(page);
   await page.click('#lobbyStartBtn');
-  await page.waitForFunction(() => running === true, null, { timeout: 60000 });
+  await page.waitForFunction(() => running === true && state.inTown === false, null, { timeout: 60000 });
+  await page.waitForSelector('#hud:not(.hidden)', { timeout: 60000 });
 
   // --- Force portal phase (skip 7-min timer) ---
   await page.evaluate(() => {

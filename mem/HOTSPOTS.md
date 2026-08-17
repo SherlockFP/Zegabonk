@@ -5,7 +5,7 @@ Read only the range you need. Grep names; line numbers drift.
 ## State / meta
 
 - `state` object near top
-- `CAMPAIGN_MAPS` / `MYTHIC_KEYS` / hunt (`HUNT_POI_SPOTS`, `updateHunt`, `isHuntReady`)
+- `CAMPAIGN_MAPS` / `MYTHIC_KEYS` / hunt (`HUNT_POI_SPOTS`, `CLASSIC_YUK_TASI`, `updateHunt`, `isHuntReady`)
 - `createDefaultPlayerProfile` / `renderCampaignProgress` / `renderRetentionHub`
 - `skills` array: grep `id: "`
 - `MAX_WEAPONS`
@@ -14,6 +14,7 @@ Read only the range you need. Grep names; line numbers drift.
 
 - GLB preload / `createEnemy`
 - `startRun`
+- `enterTownHub` / `hub.js` (Tac Koyu, gear, Yol Tasi)
 - `applyMapTheme` / `applyBiomeTheme` / `BIOME_BY_CHAPTER`
 
 ## Input / camera / combat

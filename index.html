@@ -20,7 +20,7 @@
 
   <div id="ui">
     <section id="startScreen" class="overlay menuOverlay">
-      <div class="menuAtmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
+      <img class="menuKeyart" src="assets/ui/menu-keyart.jpg" alt="" decoding="async" onerror="this.onerror=null;this.src='assets/ui/menu-keyart.png'">
       <div class="startShell">
         <header class="brandBlock">
           <span class="brandEyebrow">PRENSES ZEGA SENI BEKLIYOR</span>
@@ -28,14 +28,6 @@
           <p class="brandTagline">Kesfet, guclen, portali ac. Uc bolgeyi as. Ender'i BONK'la.</p>
         </header>
         <div class="startMenuLayout">
-          <aside class="menuLbRail" aria-label="Liderlik">
-            <div class="menuLbHead">
-              <span>LIDERLIK</span>
-              <strong id="menuLbYouRank">SEN —</strong>
-            </div>
-            <div id="menuLeaderboardList" class="leaderboardList menuLbList"></div>
-            <p class="menuLbNote">Oto guncellenir. Bu cihaz + sunucu.</p>
-          </aside>
           <nav class="startMenu" aria-label="Ana menu">
             <button id="playBtn" class="btn primary menuPrimary"><span>OYNA</span><small>Hikayeye basla · Prenses Zega'yi kurtar</small></button>
             <button id="resumeBtn" class="btn secondary hidden">DEVAM ET</button>
@@ -44,7 +36,19 @@
             <button id="menuSettingsBtn" class="btn secondary">AYARLAR</button>
             <button id="leaderboardBtn" class="btn secondary">LIDERLIK</button>
           </nav>
-          <aside class="runBrief">
+          <aside class="menuLbRail" aria-label="Liderlik">
+            <div class="menuLbHead">
+              <span>LIDERLIK</span>
+              <strong id="menuLbYouRank">SEN —</strong>
+            </div>
+            <div id="menuLeaderboardList" class="leaderboardList menuLbList"></div>
+            <p class="menuLbNote">Oto guncellenir.</p>
+          </aside>
+          <div class="nextLockPreview" id="nextLockPreview"></div>
+          <div class="nextLockPreview nextLockDaily" id="dailyBoardPreview"></div>
+          <div class="nextLockPreview nextLockWeekly" id="weeklyAffixRow"></div>
+        </div>
+        <aside class="runBrief">
             <div class="runBriefHeader"><span>HIKAYE ROTASI</span><strong>KIRIK TAC</strong></div>
             <div class="phaseRail" aria-label="Hikaye bolgeleri">
               <b data-phase="Yesil Yokus"></b>
@@ -77,13 +81,7 @@
                 </div>
               </div>
             </div>
-            <div class="runBriefLocks">
-              <div class="nextLockPreview" id="nextLockPreview"></div>
-              <div class="nextLockPreview nextLockDaily" id="dailyBoardPreview"></div>
-              <div class="nextLockPreview nextLockWeekly" id="weeklyAffixRow"></div>
-            </div>
           </aside>
-        </div>
         <footer class="menuFooter">
           <span>WASD hareket</span>
           <span>Q otomatik saldiri</span>
@@ -262,6 +260,58 @@
       </div>
     </section>
 
+    <section id="gearPanel" class="overlay hidden" role="dialog" aria-labelledby="gearTitle">
+      <div class="panel gearBoard">
+        <span class="brandEyebrow">SANDIK</span>
+        <h2 id="gearTitle" class="lobbyTitle">ESYA VE ZIRH</h2>
+        <p id="gearDust" class="lobbySubtitle"></p>
+        <div class="gearLayout">
+          <div>
+            <span class="lobbySectionTitle">Giyilen</span>
+            <div class="gearDoll">
+              <div class="gearDollFig" aria-hidden="true"></div>
+              <div id="gearEquip" class="gearEquip"></div>
+            </div>
+          </div>
+          <div>
+            <span class="lobbySectionTitle">Sandik</span>
+            <div id="gearStash" class="gearStash"></div>
+            <div class="menuButtons">
+              <button id="gearEquipBtn" type="button" class="btn primary">GIY</button>
+              <button id="gearCloseBtn" type="button" class="btn secondary">KAPAT</button>
+            </div>
+          </div>
+        </div>
+        <p class="lobbySubtitle">I tus envanter. Giyilen parcalar karaktere islenir.</p>
+      </div>
+    </section>
+
+    <section id="craftPanel" class="overlay hidden" role="dialog" aria-labelledby="craftTitle">
+      <div class="panel gearBoard craftBoard">
+        <span class="brandEyebrow">DEMIRCI</span>
+        <h2 id="craftTitle" class="lobbyTitle">CILA VE DAMGA</h2>
+        <p class="lobbySubtitle">Sandiktan esya sec, sonra islem. Tamir giyileni veya secili sandik parcasini doldurur.</p>
+        <div class="menuButtons">
+          <button id="craftCilaBtn" type="button" class="btn primary">CILA TUZU<small>beyaz -> mavi · 40 gumus</small></button>
+          <button id="craftDamgaBtn" type="button" class="btn secondary">SARI DAMGA<small>mavi -> sari · 90 gumus</small></button>
+          <button id="craftKaosBtn" type="button" class="btn secondary">KAOS KUMU<small>affix reroll · 70 gumus</small></button>
+          <button id="craftTamirBtn" type="button" class="btn secondary">TAMIR<small>dayaniklilik · 15 gumus / parca</small></button>
+        </div>
+      </div>
+    </section>
+
+    <section id="waystonePanel" class="overlay hidden" role="dialog" aria-labelledby="wayTitle">
+      <div class="panel gearBoard">
+        <span class="brandEyebrow">YOL TASI</span>
+        <h2 id="wayTitle" class="lobbyTitle">TAC YARIGI</h2>
+        <p class="lobbySubtitle">3. portaldan sonra acilir. Sure limiti var. Yuksek anahtar = daha iyi drop ve daha sert harita.</p>
+        <div id="waystoneKeys" class="waystoneKeys"></div>
+        <div class="menuButtons">
+          <button id="waystoneCloseBtn" type="button" class="btn secondary">KAPAT</button>
+        </div>
+      </div>
+    </section>
+
     <section id="bossBarWrap" class="bossBarWrap hidden">
       <div id="bossBarList" class="bossBarList"></div>
     </section>
@@ -324,7 +374,7 @@
           <button type="button" id="onboardingSkip" class="onboardingSkip">GEC</button>
         </div>
       </div>
-      <div id="caveNotify">Magaraya girdin!</div>
+      <div id="townHint" class="townHint" style="display:none"></div>
       <div id="autoAttackIndicator">SALDIRI KAPALI [Q]</div>
       <div id="tabPanel" class="tabPanel hidden" aria-hidden="true">
         <div class="tabPanelLeft">
@@ -542,6 +592,11 @@
     window.dispatchEvent(new Event('RGBELoaderReady'));
     var s = document.createElement('script');
     s.src = 'app.js?v=' + Date.now();
+    s.onload = function () {
+      var h = document.createElement('script');
+      h.src = 'hub.js?v=' + Date.now();
+      document.body.appendChild(h);
+    };
     document.body.appendChild(s);
   </script>
 </body>

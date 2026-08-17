@@ -755,6 +755,7 @@ function refreshRunCosmetics() {
       player.parts.head.material.color.lerp(tint, 0.35);
     }
   }
+  if (typeof attachGearVisuals === "function") attachGearVisuals(g);
   host.add(g);
 }
 function enderCrystalsAlive() {
@@ -773,6 +774,15 @@ const HUNT_POI_SPOTS = [
   { x: -24, z: -88, name: "Yemin Sunagi" },
   { x: 120, z: -90, name: "Uzak Kule" },
 ];
+const CLASSIC_YUK_TASI = [
+  { x: -52, z: -8 },
+  { x: 62, z: -6 },
+  { x: -58, z: 22 },
+  { x: 72, z: 8 },
+  { x: 14, z: 96 },
+  { x: 96, z: -68 },
+  { x: -8, z: -48 },
+];
 const HUNT_REVEAL_FAILSAFE = 510;
 
 function huntTargets() {
@@ -786,7 +796,7 @@ function huntTargets() {
 
 function huntExploreCount() {
   if (!state.hunt) return 0;
-  return (state.hunt.chests || 0) + (state.hunt.pois || 0);
+  return (state.hunt.chests || 0) + (state.hunt.pois || 0) + (state.hunt.shrines || 0);
 }
 
 function isHuntReady() {
@@ -803,6 +813,11 @@ function noteHuntChest() {
   }
   if (!state.hunt) return;
   state.hunt.chests = (state.hunt.chests || 0) + 1;
+}
+
+function noteHuntShrine() {
+  if (!state.hunt) return;
+  state.hunt.shrines = (state.hunt.shrines || 0) + 1;
 }
 
 function seedHuntPois() {
@@ -915,10 +930,13 @@ function campaignObjectiveText() {
     return isHuntReady() ? "PORTALI BUL - pusula yardim eder, icinde bekle" : "GOREV BITIR - gecit bir yerde, isaret yok";
   }
   if (state.endlessMode && !state.inMegaArena) return "ENDLESS - PB kovala";
+  if (state.mythicKey > 0 && state.rift && state.rift.active && state.rift.timeLeft != null) {
+    return "YOL TASI +" + state.mythicKey + " - " + formatTime(state.rift.timeLeft) + " kaldi";
+  }
   if (state.routeMain && state.hunt) {
     const need = huntTargets();
     const h = state.hunt;
-    if (h.step === 0) return "KESFET " + huntExploreCount() + "/" + need.explore + " - sandik veya isaret";
+    if (h.step === 0) return "KESFET " + huntExploreCount() + "/" + need.explore + " - yuk tasi veya sandik";
     if (h.step === 1) return "GUCLEN - seviye " + (state.level || 1) + "/" + need.level;
     if (h.step === 2) return "AV - elit " + (h.elites || 0) + "/" + need.elites;
     const t = state.routeTime || 0;
@@ -979,8 +997,24 @@ function seedOpeningLoop() {
   if (typeof seedHuntPois === "function") seedHuntPois();
   const cratePath = [
     { x: 3, z: -8 }, { x: 2, z: -2 }, { x: 1, z: 6 }, { x: 0, z: 14 }, { x: -4, z: 4 },
+    { x: -18, z: -6 }, { x: -34, z: 2 }, { x: -48, z: 14 },
+    { x: 22, z: -8 }, { x: 38, z: 0 }, { x: 56, z: 8 },
+    { x: -6, z: -28 }, { x: -12, z: -46 }, { x: -18, z: -66 },
+    { x: 6, z: 52 }, { x: 10, z: 74 }, { x: 12, z: 92 },
+    { x: -62, z: 26 }, { x: 80, z: 14 },
+    { x: 88, z: -52 }, { x: 102, z: -70 },
   ];
   for (let i = 0; i < cratePath.length; i++) spawnSmashCrate(cratePath[i].x, cratePath[i].z);
+  const mythicKey = state.mythicKey || 0;
+  if (mythicKey >= 2) {
+    const extraCrates = [
+      { x: -28, z: 28 }, { x: 28, z: -22 }, { x: -40, z: -20 },
+      { x: 44, z: 32 }, { x: -70, z: 8 }, { x: 16, z: -90 },
+      { x: 64, z: -44 }, { x: -88, z: 36 }
+    ];
+    const n = Math.min(extraCrates.length, 2 + mythicKey);
+    for (let i = 0; i < n; i++) spawnSmashCrate(extraCrates[i].x, extraCrates[i].z);
+  }
   for (let i = 0; i < 3; i++) spawnEnemy((i / 3) * Math.PI * 2 + 0.4);
   runWorldEventTimer = 18;
 }
@@ -1091,7 +1125,9 @@ function createDefaultPlayerProfile() {
     lifetimeChests: 0,
     unlockedWeapons: [],
     completedChallenges: [],
-    equipment: { weapon: null, armor: null, charm: null },
+    equipment: { helm: null, chest: null, weapon: null, armor: null, charm: null, boots: null, amulet: null, ring: null },
+    stash: [],
+    dust: { cila: 2, damga: 1, kaos: 1 },
     unlockedBiomes: ["green_hills", "sunscar", "mistwood", "frostcrown", "mire"],
     mythicKey: 0,
     campaignMapsCleared: 0,
@@ -1334,6 +1370,8 @@ function loadPlayerProfile() {
       unlockedCharacters: migrateUnlocks(saved),
       lifetimeChests: saved.lifetimeChests != null ? saved.lifetimeChests : 0,
       equipment: { ...fallback.equipment, ...(saved.equipment || {}) },
+      stash: Array.isArray(saved.stash) ? saved.stash : [],
+      dust: { ...fallback.dust, ...(saved.dust || {}) },
       unlockedBiomes: Array.isArray(saved.unlockedBiomes) && saved.unlockedBiomes.length ? saved.unlockedBiomes : fallback.unlockedBiomes,
       cosmetics: { ...fallback.cosmetics, ...(saved.cosmetics || {}) },
       bestScoreByKey: (saved.bestScoreByKey && typeof saved.bestScoreByKey === "object") ? saved.bestScoreByKey : {},
@@ -1854,6 +1892,7 @@ function applyPermanentProfileBonuses() {
   stats.maxHp += mastery * 2 + gearPower;
   stats.hp = stats.maxHp;
   stats.damage *= 1 + Math.min(0.35, mastery * 0.01 + gearPower * 0.0025);
+  if (typeof applyEquippedGear === "function") applyEquippedGear();
 }
 
 state.profile = loadPlayerProfile();
@@ -2230,6 +2269,10 @@ function applyBiomeTheme(chapter) {
   else if (!scene.background || !scene.background.isTexture) scene.background = new THREE.Color(b.bg);
   if (scene.fog && scene.fog.isFogExp2) { scene.fog.color.setHex(b.fog); scene.fog.density = b.fogD; }
   else scene.fog = new THREE.FogExp2(b.fog, b.fogD);
+  const mk = state.mythicKey || 0;
+  if (mk >= 2 && scene.fog && scene.fog.isFogExp2) {
+    scene.fog.density *= 1 + Math.min(0.5, (mk - 1) * 0.055);
+  }
   if (ground && ground.material && !ground.material.vertexColors) {
     ground.material.color.setHex(b.ground);
     if (ground.material.emissive) ground.material.emissive.setHex(b.emissive);
@@ -3618,6 +3661,7 @@ function getTempleGroundHeight(x, z) {
 }
 
 function getGroundHeight(x, z) {
+  if (state.inTown || state.currentMapId === "town") return 0;
   const mapId = state.currentMapId || state.selectedMapId || "classic";
   if (mapId === "classic") {
     for (const p of classicPlatforms) {
@@ -4027,7 +4071,6 @@ function dressClassicBiome(ch) {
     mapGroup.remove(mapGroup.userData.biomeDress);
     mapGroup.userData.biomeDress = null;
   }
-  if (ch < 2) return;
   const g = new THREE.Group();
   g.name = "biomeDress";
   const desert = ch === 2;
@@ -4038,28 +4081,51 @@ function dressClassicBiome(ch) {
     roughness: 0.86,
     flatShading: true,
   });
-  const spots = [[-72, 18], [68, 16], [-28, 72], [42, 84], [12, -52], [-92, -18], [108, -38], [-50, 100], [80, 70], [-58, -42], [62, -48], [-110, 48], [118, 8], [28, 108]];
-  for (let i = 0; i < spots.length; i++) {
-    const x = spots[i][0], z = spots[i][1];
-    if (classicOpenClear(x, z)) continue;
-    const y = sampleTerrainHeight(x, z);
-    if (desert) {
-      const cactus = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.48, 4.4 + (i % 3) * 0.8, 6), mat);
-      cactus.position.set(x, y + 2.3, z);
-      cactus.castShadow = true;
-      g.add(cactus);
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.32, 0.32), mat);
-      arm.position.set(x + 0.7, y + 2.8, z);
-      g.add(arm);
-    } else {
-      const spire = new THREE.Mesh(new THREE.ConeGeometry(0.75, 5.8 + (i % 2), 5), mat);
-      spire.position.set(x, y + 3.0, z);
-      spire.castShadow = true;
-      g.add(spire);
+  if (ch >= 2) {
+    const spots = [[-72, 18], [68, 16], [-28, 72], [42, 84], [12, -52], [-92, -18], [108, -38], [-50, 100], [80, 70], [-58, -42], [62, -48], [-110, 48], [118, 8], [28, 108]];
+    for (let i = 0; i < spots.length; i++) {
+      const x = spots[i][0], z = spots[i][1];
+      if (classicOpenClear(x, z)) continue;
+      const y = sampleTerrainHeight(x, z);
+      if (desert) {
+        const cactus = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.48, 4.4 + (i % 3) * 0.8, 6), mat);
+        cactus.position.set(x, y + 2.3, z);
+        cactus.castShadow = true;
+        g.add(cactus);
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.32, 0.32), mat);
+        arm.position.set(x + 0.7, y + 2.8, z);
+        g.add(arm);
+      } else {
+        const spire = new THREE.Mesh(new THREE.ConeGeometry(0.75, 5.8 + (i % 2), 5), mat);
+        spire.position.set(x, y + 3.0, z);
+        spire.castShadow = true;
+        g.add(spire);
+      }
     }
   }
-  mapGroup.add(g);
-  mapGroup.userData.biomeDress = g;
+  const key = state.mythicKey || 0;
+  if (key >= 2) {
+    const extra = new THREE.Group();
+    const n = Math.min(10, 3 + key);
+    const spikeMat = ch >= 2 ? mat : new THREE.MeshStandardMaterial({
+      color: 0x3a1810, emissive: 0x4a0808, emissiveIntensity: 0.45, roughness: 0.86, flatShading: true
+    });
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 + 0.7;
+      const x = Math.cos(a) * (58 + (k % 3) * 8);
+      const z = Math.sin(a) * (58 + (k % 3) * 8);
+      if (classicOpenClear(x, z)) continue;
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.55, 3.2 + key * 0.15, 5), spikeMat);
+      spike.position.set(x, sampleTerrainHeight(x, z) + 1.8, z);
+      spike.castShadow = true;
+      extra.add(spike);
+    }
+    g.add(extra);
+  }
+  if (g.children.length) {
+    mapGroup.add(g);
+    mapGroup.userData.biomeDress = g;
+  }
 }
 
 
@@ -4528,6 +4594,20 @@ function addOpenShrine(x, z, rng) {
   g.position.set(x, y, z);
   g.userData.isShrine = true; g.userData.used = false; g.userData.insideTime = 0; g.userData.cooldown = 0; g.userData._panelOpened = false; g.userData.phase = rng() * 6.28;
   mapGroup.add(g); shrineGroups.push(g);
+}
+
+function seedClassicYukTasi() {
+  const rng = function() { return 0.41; };
+  for (let i = 0; i < CLASSIC_YUK_TASI.length; i++) {
+    const p = CLASSIC_YUK_TASI[i];
+    let near = false;
+    for (let j = 0; j < shrineGroups.length; j++) {
+      const s = shrineGroups[j];
+      if (s && Math.hypot((s.position.x || 0) - p.x, (s.position.z || 0) - p.z) < 16) { near = true; break; }
+    }
+    if (near) continue;
+    addOpenShrine(p.x, p.z, rng);
+  }
 }
 
 function addOpenAltar(x, z) {
@@ -6584,6 +6664,10 @@ const SHRINE_RADIUS = 7;
 const SHRINE_HOLD_TIME = 5;
 
 function addShrines() {
+  if (state.currentMapId === "classic") {
+    seedClassicYukTasi();
+    return;
+  }
   const baseMat = new THREE.MeshStandardMaterial({ color: 0x6b5344, roughness: 0.9, metalness: 0.05 });
   const bladeMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, emissive: 0x661111, emissiveIntensity: 0.4, roughness: 0.5 });
   const hiltMat = new THREE.MeshStandardMaterial({ color: 0xffcc44, emissive: 0x886622, emissiveIntensity: 0.3, metalness: 0.5 });
@@ -7494,7 +7578,8 @@ document.addEventListener("keyup", (e) => {
     state.requestedStartMode = "story";
     const title = document.getElementById("lobbyTitle");
     if (title) title.textContent = "KIRIK TAC MACERASI";
-    openLobby();
+    if (typeof enterTownHub === "function") enterTownHub();
+    else openLobby();
   });
   const resumeBtn = document.getElementById("resumeBtn");
   if (resumeBtn) {
@@ -7559,6 +7644,7 @@ document.addEventListener("keyup", (e) => {
   }
   if (lobbyBackBtn) lobbyBackBtn.addEventListener("click", () => {
     if (lobbyScreen) lobbyScreen.classList.add("hidden");
+    if (state.inTown) { paused = false; return; }
     startScreen.classList.remove("hidden");
     stopBgMusic();
     stopMenuMusic();
@@ -7566,6 +7652,11 @@ document.addEventListener("keyup", (e) => {
   });
   const mainMenuBtn = document.getElementById("mainMenuBtn");
   if (mainMenuBtn) mainMenuBtn.addEventListener("click", () => {
+    if (state.inTown && typeof exitTownToMenu === "function") {
+      gameOverPanel.classList.add("hidden");
+      exitTownToMenu();
+      return;
+    }
     stopBgMusic();
     stopMenuMusic();
     gameOverPanel.classList.add("hidden");
@@ -7685,6 +7776,21 @@ function handleEscape() {
   if (talkPanelOpen) {
     closeTalkPanel();
     return;
+  }
+  if (state.inTown) {
+    var gp = document.getElementById("gearPanel");
+    var ws = document.getElementById("waystonePanel");
+    var cr = document.getElementById("craftPanel");
+    var lb = document.getElementById("lobbyScreen");
+    if ((gp && !gp.classList.contains("hidden")) || (cr && !cr.classList.contains("hidden")) || (ws && !ws.classList.contains("hidden"))) {
+      if (typeof closeGearPanel === "function") closeGearPanel();
+      return;
+    }
+    if (lb && !lb.classList.contains("hidden")) {
+      lb.classList.add("hidden");
+      paused = false;
+      return;
+    }
   }
   if (pauseMenu && !pauseMenu.classList.contains("hidden")) {
     closePauseMenu();
@@ -8258,6 +8364,7 @@ function clearEntities() {
 }
 
 function openLobby() {
+  if (state.inTown) paused = true;
   stopBgMusic();
   startScreen.classList.add("hidden");
   const lobbyScreen = document.getElementById("lobbyScreen");
@@ -8333,6 +8440,8 @@ function bindLobbyCharacterEditor() {
 }
 
 function startRun(selectedChapter, selectedMapId) {
+  state.inTown = false;
+  running = false;
   const requestedStartMode = state.requestedStartMode || "story";
   state.requestedStartMode = "story";
   stopBgMusic();
@@ -8341,6 +8450,7 @@ function startRun(selectedChapter, selectedMapId) {
   const lobbyScreen = document.getElementById("lobbyScreen");
   if (lobbyScreen) lobbyScreen.classList.add("hidden");
   state.selectedMapId = requestedStartMode === "story" ? "classic" : (selectedMapId || "classic");
+  state.currentMapId = state.selectedMapId;
   state.chapter = 1;
   state.campaignMode = requestedStartMode === "story";
   state.mythicKey = requestedStartMode === "rift" ? (state.requestedMythicKey || 0) : 0;
@@ -8361,8 +8471,8 @@ function startRun(selectedChapter, selectedMapId) {
     try { buildPlayer(); } catch (e) { console.error("buildPlayer:", e); }
     applyChallengeMode();
     running = true;
+    paused = false;
     if (!state.profile.onboardingDone && state.routeMain && typeof startOnboarding === "function") startOnboarding();
-    if (typeof seedOpeningLoop === "function") seedOpeningLoop();
     const pn = (typeof getPlayerName === "function" ? getPlayerName() : "") || "";
     if (pn.toLowerCase().indexOf("herobrine") !== -1 && typeof showGameNotification === "function") {
       setTimeout(() => showGameNotification("Sen mi Herobrine? O.O", { rainbow: true }), 2000);
@@ -8389,10 +8499,11 @@ function startRun(selectedChapter, selectedMapId) {
   Object.assign(stats, baseStats);
   stats.hp = 120;
   stats.maxHp = 120;
+  if (typeof applyEquippedGear === "function") applyEquippedGear();
   state.time = 0;
   state.routeTime = 0;
   state.routePhase = state.routeMain ? "running" : "idle";
-  state.hunt = { step: 0, chests: 0, pois: 0, elites: 0, revealed: false };
+  state.hunt = { step: 0, chests: 0, pois: 0, shrines: 0, elites: 0, revealed: false };
   clearHuntMarkers();
   state.routePortalCandidate = 0;
   if (state.routeMain) selectClassicRoutePortal();
@@ -8648,6 +8759,7 @@ function startRun(selectedChapter, selectedMapId) {
   player.mesh.rotation.z = 0;
   player.aimDir.set(Math.sin(camYaw), 0, Math.cos(camYaw));
   snapChaseCamera();
+  try { if (typeof seedOpeningLoop === "function") seedOpeningLoop(); } catch (e) { console.error("seedOpeningLoop:", e); }
 
   startScreen.classList.add("hidden");
   levelupPanel.classList.add("hidden");
@@ -10180,6 +10292,7 @@ function hordeSpawnXZ(angleOverride, rMin, rSpan) {
 }
 
 function spawnEnemy(angleOverride, forAttackRound) {
+  if (state.inTown) return;
   if (enemies.length >= getMaxEnemies()) return;
   const tier = pickEnemyTier();
   const cfg = tierConfig[tier];
@@ -10436,6 +10549,7 @@ function spawnBoss(bossIndex, allowOverflow, fromSummonShrine, isChapterFinalBos
 }
 
 function updateSpawning(dt) {
+  if (state.inTown) return;
   if (state.inTemple) return;
   if (state.inMegaArena) return;
   if (shadowMode && !state.endlessMode) return; // Shadow mode: no normal spawning
@@ -10877,6 +10991,7 @@ function spawnChaosIceBall() {
 }
 
 function updateChaos(dt) {
+  if (state.inTown) return;
   if (!running || gameOver) return;
   const t = state.time || 0;
   if (t < 90) return;
@@ -13391,7 +13506,8 @@ function spawnChestRain(count) {
 }
 
 function spawnSmashCrate(x, z) {
-  if (!scene || smashables.length >= 28) return null;
+  const smashCap = 28 + Math.min(8, Math.max(0, (state.mythicKey || 0) - 1));
+  if (!scene || smashables.length >= smashCap) return null;
   const s = 0.72 + Math.random() * 0.22;
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(s, s, s),
@@ -14379,6 +14495,10 @@ function killEnemy(enemy) {
   spawnDamageText(enemy.mesh.position.clone().add(new THREE.Vector3(0.5, 2.2, 0)), `+${coinDrop} Coin`, false, "coin");
   const magnetChance = MAGNET_DROP_RATE[enemy.tier] || MAGNET_DROP_RATE.normal;
   if (Math.random() < magnetChance) spawnMagnetPickup(enemy.mesh.position.clone());
+  if (typeof tryDropGear === "function") {
+    const src = enemy.isBoss ? "boss" : (enemy.isElite ? "elite" : "mob");
+    tryDropGear(enemy.mesh.position.clone(), src);
+  }
   const slowmoChance = SLOWMO_DROP_RATE[enemy.tier] || SLOWMO_DROP_RATE.normal;
   if (Math.random() < slowmoChance) spawnSlowmoPickup(enemy.mesh.position.clone());
     if (enemy.isBoss) {
@@ -15237,6 +15357,7 @@ function updatePlayer(dt) {
     if (player.grounded) player.mesh.position.y = Math.max(player.mesh.position.y, minGroundY);
   }
   let bound = (state.currentMapId === "island" ? ISLAND_RADIUS : WORLD_HALF) - 3;
+  if (state.inTown) bound = 30;
   if (state.activeRitual) {
     const rc = state.activeRitual.center;
     const r = (state.activeRitual.radius || RITUAL_RADIUS) - 1.2;
@@ -18382,7 +18503,7 @@ function updateMapAnimations(dt) {
         shrineHintEl.classList.add("visible");
         shrineHintEl.style.display = "block";
         const progress = Math.min(shrine.userData.insideTime, SHRINE_HOLD_TIME);
-        shrineHintEl.textContent = `Shrine aktiflestirilyor... ${progress.toFixed(1)}/${SHRINE_HOLD_TIME}s`;
+        shrineHintEl.textContent = `Yuk tasi dolduruluyor... ${progress.toFixed(1)}/${SHRINE_HOLD_TIME}s`;
       }
 
       // Activate! (tek sefer acilsin - double-tap bug onleme)
@@ -18411,6 +18532,7 @@ function updateMapAnimations(dt) {
           playSfx(600, 0.18, 0.6);
           playSfx(800, 0.15, 0.55);
           playSfx(1000, 0.12, 0.5);
+          if (typeof noteHuntShrine === "function") noteHuntShrine();
           openShrineSkillPanel(shrine);
         }
       }
@@ -19152,6 +19274,21 @@ function drawMinimap() {
     minimapCtx.fillRect(cx + dx - size * 0.5, cy + dz - size * 0.5, size, size);
     return true;
   }
+  function plotDiamond(x, z, color, size) {
+    const dx = (x - px) * scale;
+    const dz = (z - pz) * scale;
+    if (Math.abs(dx) > cx - 2 || Math.abs(dz) > cy - 2) return false;
+    const sx = cx + dx, sy = cy + dz;
+    minimapCtx.fillStyle = color;
+    minimapCtx.beginPath();
+    minimapCtx.moveTo(sx, sy - size);
+    minimapCtx.lineTo(sx + size * 0.7, sy);
+    minimapCtx.lineTo(sx, sy + size);
+    minimapCtx.lineTo(sx - size * 0.7, sy);
+    minimapCtx.closePath();
+    minimapCtx.fill();
+    return true;
+  }
   if (_chunkTreePositions && _chunkTreePositions.length) {
     minimapCtx.fillStyle = "#4e8c4a";
     for (let i = 0; i < _chunkTreePositions.length; i += 2) {
@@ -19223,13 +19360,7 @@ function drawMinimap() {
   for (let i = 0; i < shrineGroups.length; i++) {
     const s = shrineGroups[i];
     if (s.userData?.used) continue;
-    const dx = (s.position.x - px) * scale;
-    const dz = (s.position.z - pz) * scale;
-    if (Math.abs(dx) > cx - 2 || Math.abs(dz) > cy - 2) continue;
-    minimapCtx.fillStyle = "#ffe890";
-    minimapCtx.beginPath();
-    minimapCtx.arc(cx + dx, cy + dz, 4, 0, Math.PI * 2);
-    minimapCtx.fill();
+    plotDiamond(s.position.x, s.position.z, "#5dff88", 5);
   }
 
   for (let i = 0; i < placeableTurrets.length; i++) {
@@ -20276,6 +20407,7 @@ function recordPlayerDamage(src, dmg) {
   if (!state.dmgHistory) state.dmgHistory = [];
   state.dmgHistory.push({ t: state.time || 0, src: src || "bilinmeyen", dmg: dmg || 0 });
   if (state.dmgHistory.length > 200) state.dmgHistory.shift();
+  if (typeof tickGearWear === "function") tickGearWear(dmg);
 }
 // k3: kontekstsel ipucu — olum kaynagina gore
 function getDeathHint(src, dmgType) {
@@ -20421,6 +20553,15 @@ function animate() {
       state.time += dt;
     }
     if (running && !paused) {
+      if (state.inTown) {
+        updatePlayer(dt);
+        if (typeof updateTownHub === "function") updateTownHub(dt);
+        updateRagdoll(dt);
+        updateCamera(dt);
+        renderer.render(scene, (camSettings.graphics2D && camera2D) ? camera2D : camera);
+        updatePerformanceDiagnostics(rawDt);
+        return;
+      }
       // P0-1 early hooks: quick dopamine + first-run pacing.
       if (state.time >= 15 && !state._eliteTeased) {
         state._eliteTeased = true;
