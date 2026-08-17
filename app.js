@@ -3823,13 +3823,13 @@ function applyBeastLook(g, beastType, cfg) {
     tR.position.x *= -1;
     g.add(tL, tR);
   } else if (look.accent === "blob") {
-    const blob = new THREE.Mesh(new THREE.SphereGeometry(r * 0.38, 8, 6), new THREE.MeshStandardMaterial({
-      color: ac, emissive: look.emissive || 0x114422, emissiveIntensity: 0.55, transparent: true, opacity: 0.85, roughness: 0.2,
+    const blob = new THREE.Mesh(new THREE.BoxGeometry(r * 0.7, r * 0.7, r * 0.7), new THREE.MeshStandardMaterial({
+      color: ac, emissive: look.emissive || 0x114422, emissiveIntensity: 0.55, transparent: true, opacity: 0.85, roughness: 0.2, flatShading: true,
     }));
     blob.position.y = h * 0.55;
     g.add(blob);
   } else if (look.accent === "glow") {
-    const glow = new THREE.Mesh(new THREE.SphereGeometry(r * 0.55, 8, 6), new THREE.MeshBasicMaterial({ color: ac, transparent: true, opacity: 0.28 }));
+    const glow = new THREE.Mesh(new THREE.BoxGeometry(r * 1.0, r * 1.0, r * 1.0), new THREE.MeshBasicMaterial({ color: ac, transparent: true, opacity: 0.28 }));
     glow.position.y = h * 0.7;
     g.add(glow);
   } else if (look.accent === "wings") {
@@ -3841,7 +3841,7 @@ function applyBeastLook(g, beastType, cfg) {
     wingR.rotation.z = -0.35;
     g.add(wing, wingR);
   } else if (look.accent === "eyes") {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(r * 0.09, 6, 5), new THREE.MeshBasicMaterial({ color: ac }));
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(r * 0.16, r * 0.16, r * 0.1), new THREE.MeshBasicMaterial({ color: ac }));
     eye.position.set(-r * 0.14, h * 0.95, r * 0.38);
     const eyeR = eye.clone();
     eyeR.position.x *= -1;
@@ -3852,7 +3852,7 @@ function applyBeastLook(g, beastType, cfg) {
     tail.rotation.x = -0.85;
     g.add(tail);
   } else if (look.accent === "leaf") {
-    const leaf = new THREE.Mesh(new THREE.SphereGeometry(r * 0.55, 7, 5), mat);
+    const leaf = new THREE.Mesh(new THREE.BoxGeometry(r * 1.0, r * 0.7, r * 1.0), mat);
     leaf.position.y = h * 1.05;
     g.add(leaf);
   } else if (look.accent === "cape") {
@@ -3860,7 +3860,7 @@ function applyBeastLook(g, beastType, cfg) {
     cape.position.set(0, h * 0.55, -r * 0.35);
     g.add(cape);
   } else if (look.accent === "round") {
-    const earL = new THREE.Mesh(new THREE.SphereGeometry(r * 0.16, 6, 5), mat);
+    const earL = new THREE.Mesh(new THREE.BoxGeometry(r * 0.28, r * 0.28, r * 0.2), mat);
     earL.position.set(-r * 0.32, h * 1.12, 0);
     const earR = earL.clone();
     earR.position.x *= -1;
@@ -9991,62 +9991,54 @@ function createEnemy(tier, cfg, opts) {
       } else if (normalBeastType === "flame") {
         const flameMat = new THREE.MeshStandardMaterial({ color: 0xff6622, emissive: 0xff3300, emissiveIntensity: 0.6, roughness: 0.4, metalness: 0.05 });
         const flameEye = new THREE.MeshBasicMaterial({ color: 0xffdd00 });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.5, 10, 8), flameMat);
-        body.scale.set(1, 1.2, 0.95);
-        body.position.y = cfg.height * 0.55;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.38, 10, 8), flameMat);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.95, cfg.height * 0.85, cfg.radius * 0.85), flameMat);
+        body.position.y = cfg.height * 0.52;
+        const head = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.68, cfg.radius * 0.68, cfg.radius * 0.68), flameMat);
         head.position.y = cfg.height * 1.0;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.08, 6, 6), flameEye);
-        eyeL.position.set(-cfg.radius * 0.14, cfg.height * 1.02, cfg.radius * 0.28);
+        const eyeL = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.14, cfg.radius * 0.14, cfg.radius * 0.08), flameEye);
+        eyeL.position.set(-cfg.radius * 0.14, cfg.height * 1.02, cfg.radius * 0.32);
         const eyeR = eyeL.clone();
         eyeR.position.x *= -1;
-        const flameTip = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.25, cfg.height * 0.4, 6), flameMat);
-        flameTip.position.set(0, cfg.height * 0.2, -cfg.radius * 0.35);
-        flameTip.rotation.x = 0.4;
+        const flameTip = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.28, cfg.height * 0.35, cfg.radius * 0.28), flameMat);
+        flameTip.position.set(0, cfg.height * 0.22, -cfg.radius * 0.35);
         g.add(body, head, eyeL, eyeR, flameTip);
       } else if (normalBeastType === "shadow") {
         const shadowMat = new THREE.MeshStandardMaterial({ color: 0x0a0a12, emissive: 0x220022, emissiveIntensity: 0.25, roughness: 0.9, metalness: 0, transparent: true, opacity: 0.88 });
         const shadowEye = new THREE.MeshBasicMaterial({ color: 0x6600aa });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.48, 10, 8), shadowMat);
-        body.scale.set(1, 1.3, 0.9);
-        body.position.y = cfg.height * 0.52;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.36, 10, 8), shadowMat);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.9, cfg.height * 0.88, cfg.radius * 0.8), shadowMat);
+        body.position.y = cfg.height * 0.5;
+        const head = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.64, cfg.radius * 0.64, cfg.radius * 0.64), shadowMat);
         head.position.y = cfg.height * 1.0;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.07, 6, 6), shadowEye);
-        eyeL.position.set(-cfg.radius * 0.12, cfg.height * 1.04, cfg.radius * 0.3);
+        const eyeL = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.12, cfg.radius * 0.12, cfg.radius * 0.08), shadowEye);
+        eyeL.position.set(-cfg.radius * 0.12, cfg.height * 1.04, cfg.radius * 0.32);
         const eyeR = eyeL.clone();
         eyeR.position.x *= -1;
-        const tail = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.2, cfg.height * 0.5, 6), shadowMat);
-        tail.position.set(0, cfg.height * 0.18, -cfg.radius * 0.45);
-        tail.rotation.x = 0.5;
+        const tail = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.22, cfg.height * 0.42, cfg.radius * 0.22), shadowMat);
+        tail.position.set(0, cfg.height * 0.2, -cfg.radius * 0.45);
         g.add(body, head, eyeL, eyeR, tail);
       } else {
         // Normal: round blob + ears + tail
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.55, 10, 8), mat);
-        body.scale.set(1, 1.2, 1);
-        body.position.y = cfg.height * 0.55;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.38, 10, 8), mat);
-        head.position.y = cfg.height * 1.0;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.06, 5, 5), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.15, cfg.height * 1.02, cfg.radius * 0.28);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 1.05, cfg.height * 0.72, cfg.radius * 0.9), mat);
+        body.position.y = cfg.height * 0.52;
+        const head = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.7, cfg.radius * 0.7, cfg.radius * 0.7), mat);
+        head.position.y = cfg.height * 1.02;
+        const eyeL = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.12, cfg.radius * 0.12, cfg.radius * 0.08), eyeMat);
+        eyeL.position.set(-cfg.radius * 0.16, cfg.height * 1.04, cfg.radius * 0.34);
         const eyeR = eyeL.clone();
         eyeR.position.x *= -1;
         const mouth = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.2, cfg.radius * 0.06, cfg.radius * 0.1), new THREE.MeshBasicMaterial({ color: 0x111111 }));
         mouth.position.set(0, cfg.height * 0.9, cfg.radius * 0.3);
-        const legL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.12, cfg.radius * 0.15, cfg.height * 0.3, 6), darkLeg);
+        const legL = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.22, cfg.height * 0.3, cfg.radius * 0.22), darkLeg);
         legL.position.set(-cfg.radius * 0.25, cfg.height * 0.15, 0);
         const legR = legL.clone();
         legR.position.x *= -1;
-        const earMat = new THREE.MeshStandardMaterial({ color: color * 0.95 & 0xffffff, roughness: 0.5 });
-        const earL = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.12, cfg.radius * 0.35, 4), earMat);
-        earL.position.set(-cfg.radius * 0.28, cfg.height * 1.18, 0);
-        earL.rotation.z = 0.3;
+        const earMat = new THREE.MeshStandardMaterial({ color: color * 0.95 & 0xffffff, roughness: 0.5, flatShading: true });
+        const earL = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.16, cfg.radius * 0.32, cfg.radius * 0.12), earMat);
+        earL.position.set(-cfg.radius * 0.28, cfg.height * 1.22, 0);
         const earR = earL.clone();
         earR.position.x *= -1;
-        earR.rotation.z *= -0.3;
-        const tail = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.1, cfg.radius * 0.4, 4), mat);
+        const tail = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.14, cfg.radius * 0.14, cfg.radius * 0.38), mat);
         tail.position.set(0, cfg.height * 0.35, -cfg.radius * 0.5);
-        tail.rotation.x = 0.4;
         g.add(body, head, eyeL, eyeR, mouth, legL, legR, earL, earR, tail);
       }
     } else if (tier === "rare" && normalBeastType === "shadow") {
@@ -10069,7 +10061,7 @@ function createEnemy(tier, cfg, opts) {
       // Magic: elongated body + floating crystal
       const body = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.45, cfg.radius * 0.55, cfg.height * 0.7, 8), mat);
       body.position.y = cfg.height * 0.45;
-      const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.32, 10, 8), mat);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.58, cfg.radius * 0.58, cfg.radius * 0.58), mat);
       head.position.y = cfg.height * 0.95;
       const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.07, 5, 5), eyeMat);
       eyeL.position.set(-cfg.radius * 0.14, cfg.height * 0.98, cfg.radius * 0.25);
@@ -10089,10 +10081,9 @@ function createEnemy(tier, cfg, opts) {
       g.add(body, head, eyeL, eyeR, mouth, legL, legR, crystal, horn);
     } else if (tier === "rare") {
       // Rare: beast body + big wings + tail + horn
-      const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.5, 10, 8), mat);
-      body.scale.set(1.1, 1.25, 0.9);
-      body.position.y = cfg.height * 0.55;
-      const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.36, 10, 8), mat);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 1.05, cfg.height * 0.78, cfg.radius * 0.9), mat);
+      body.position.y = cfg.height * 0.52;
+      const head = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.64, cfg.radius * 0.64, cfg.radius * 0.64), mat);
       head.position.y = cfg.height * 1.0;
       const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.07, 5, 5), eyeMat);
       eyeL.position.set(-cfg.radius * 0.16, cfg.height * 1.02, cfg.radius * 0.26);
@@ -10119,10 +10110,9 @@ function createEnemy(tier, cfg, opts) {
       g.add(body, head, eyeL, eyeR, mouth, legL, legR, horn, wingL, wingR, tail);
     } else {
       // Unique: armored look + crown + cape
-      const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.52, 10, 8), mat);
-      body.scale.set(1.05, 1.22, 1);
-      body.position.y = cfg.height * 0.54;
-      const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.36, 10, 8), mat);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 1.08, cfg.height * 0.78, cfg.radius * 0.95), mat);
+      body.position.y = cfg.height * 0.52;
+      const head = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.64, cfg.radius * 0.64, cfg.radius * 0.64), mat);
       head.position.y = cfg.height * 1.0;
       const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.065, 5, 5), eyeMat);
       eyeL.position.set(-cfg.radius * 0.15, cfg.height * 1.02, cfg.radius * 0.28);

@@ -33,7 +33,20 @@ test('lobby and first combat frame', async ({ page }) => {
     }
   });
   await page.waitForTimeout(1800);
+  await expect(page.locator('#topCenterTime')).toBeVisible();
   await page.screenshot({ path: 'tests/artifacts/gameplay.png', fullPage: true });
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#pauseMenu')).toBeVisible();
+  await expect(page.locator('#pauseResumeBtn')).toBeVisible();
+  await page.screenshot({ path: 'tests/artifacts/hud-pause.png', fullPage: true });
+  await page.click('#pauseResumeBtn');
+  await expect(page.locator('#pauseMenu')).toBeHidden();
+
+  await page.evaluate(() => { if (typeof openLevelup === 'function') openLevelup(); });
+  await expect(page.locator('#levelup')).toBeVisible();
+  await page.screenshot({ path: 'tests/artifacts/gameplay-levelup.png', fullPage: true });
+  await page.evaluate(() => { if (typeof closeLevelupAndResume === 'function') closeLevelupAndResume(); });
 
   await page.evaluate(() => {
     if (!player || !player.mesh) return;

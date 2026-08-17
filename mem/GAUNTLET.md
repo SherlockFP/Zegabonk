@@ -69,8 +69,34 @@ Shots: `tests/artifacts/gameplay.png`, `geo-grove.png`, `geo-ruins.png`.
 
 Overall **6.4/10**. Map is the visible win. Still next: box-kit remaining SphereGeometry mobs, recorded SFX, denser POI clutter.
 
+## This pass (HUD / menus / box mobs) 2026-08-18
+
+Same loop. Raise the remaining UI and creature silhouettes.
+
+1. Pixel HUD icons (hp/coin/kill). Timer top-center. Hide leftover mana bar.
+2. Pause/levelup/lobby frames thicker gold pixel. Skill slots use existing skill icons.
+3. Default goblin blob + flame/shadow/magic/rare/unique fallbacks are boxes, not spheres.
+
+## Honest scores (after HUD + box-mob shots)
+
+Shots: `gameplay.png`, `hud-pause.png`, `gameplay-levelup.png`, `lobby.png`.
+
+| Slice | Prev | Now | Why |
+| --- | --- | --- | --- |
+| Loop | 7.0 | 7.0 | Unchanged |
+| Opening | 6.3 | 6.6 | Bigger lobby portraits + dock still there |
+| Juice | 6.5 | 6.5 | Unchanged |
+| HUD/menu | 7.7 | 8.1 | Center clock, pixel icons, pause/levelup frames |
+| Map / art | 6.1 | 6.1 | Unchanged |
+| Creatures | 5.2 | 5.8 | Default blob is boxy; named wolves still mixed |
+| Boss | 6.2 | 6.2 | Unchanged |
+| Perf | 5.8 | 5.8 | Unchanged |
+| Audio | 4.2 | 4.2 | Unchanged |
+
+Overall **6.6/10**. HUD is the visible win. Audio still the floor.
+
 ## Still next
 
-- Box-kit remaining SphereGeometry mobs
+- Box-kit remaining SphereGeometry mobs (wolf/bear/spider)
 - Recorded SFX
 - FPS overlay actually ticking in stills
