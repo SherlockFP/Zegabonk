@@ -26,8 +26,8 @@ test('tac koyu hub: plaza, inventory, craft, lobby', async ({ page }) => {
 
   await page.evaluate(() => {
     if (!camera || !renderer || !scene) return;
-    camera.position.set(0, 22, 32);
-    camera.lookAt(0, 1, 4);
+    camera.position.set(0, 7.2, -9);
+    camera.lookAt(0, 1.4, 12);
     renderer.render(scene, camera);
   });
   await page.waitForTimeout(80);

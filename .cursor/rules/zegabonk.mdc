@@ -1,0 +1,16 @@
+---
+description: ZEGABONK token-cheap agent contract. Read mem/INDEX.md first.
+alwaysApply: true
+---
+
+# ZEGABONK
+
+Root game is `app.js` + `index.html` + `styles.css`. No `v2/`.
+
+Before editing gameplay, read `mem/INDEX.md` and only the `app.js` line range from `mem/HOTSPOTS.md`. Never slurp the whole file.
+
+Three.js work: `threejs-game-director`, then one of `threejs-runtime` / `threejs-perf` / `threejs-assets` / `threejs-playtest`. HUD stays DOM.
+
+Keep existing DOM ids. Pause resume is not `#resumeBtn` (that is the start-screen continue). MEGABONK-like loop, original names/art.
+
+ASCII in comments: `-`, `->`, `...`. No commit/push unless asked.

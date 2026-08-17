@@ -1,0 +1,4 @@
+interface:
+  display_name: "Three.js Assets"
+  short_description: "GLB export, optimize, texture budgets"
+  default_prompt: "Ship optimized GLB. Do not open binaries. Inspect with gltf-transform."

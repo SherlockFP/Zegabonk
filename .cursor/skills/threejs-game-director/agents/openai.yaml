@@ -1,0 +1,4 @@
+interface:
+  display_name: "Three.js Game Director"
+  short_description: "Route Three.js work to one specialist skill"
+  default_prompt: "Read threejs-game-director, then load one specialist and make the smallest playable change."

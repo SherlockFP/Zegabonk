@@ -1,0 +1,4 @@
+interface:
+  display_name: "Three.js Game Dev"
+  short_description: "Umbrella for Three.js browser-game work"
+  default_prompt: "Use threejs-game-director then one specialist. Do not load Codex three-webgl-game refs."

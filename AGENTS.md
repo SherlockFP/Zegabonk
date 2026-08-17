@@ -19,8 +19,12 @@ Three.js browser MEGABONK-like survivor. Production code is the root `app.js` + 
 
 ## Skills to load on demand
 
-- Gameplay/camera/combat: `three-webgl-game`
-- HUD/menus: `game-ui-frontend` + `frontend-design`
-- GLB export/optimize: `web-3d-asset-pipeline`
-- Playtest/screenshots: `game-playtest`
-- Blender: project MCP `blender` (port 9876)
+Always start with `zegabonk-memory`, then `threejs-game-director`. One specialist after that:
+
+- Scene / camera / loop / lights: `threejs-runtime`
+- FPS / draw calls / post cost: `threejs-perf`
+- GLB / Blender export: `threejs-assets` (+ `blender-mcp` on port 9876)
+- Boot / screenshots / HUD overlap: `threejs-playtest`
+- HUD/menus only: `game-ui-frontend` (DOM, not WebGL)
+
+Do not load Codex `three-webgl-game` or `game-studio` reference trees.

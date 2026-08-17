@@ -4185,7 +4185,7 @@ function init() {
   camera.position.set(0, 12, 18);
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
-  const MAX_PIXEL_RATIO = 1.0;
+  const MAX_PIXEL_RATIO = 1.75;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
   window._gameMaxPixelRatio = MAX_PIXEL_RATIO;
   renderer.setSize(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2), false);
@@ -8368,7 +8368,10 @@ function openLobby() {
   stopBgMusic();
   startScreen.classList.add("hidden");
   const lobbyScreen = document.getElementById("lobbyScreen");
-  if (lobbyScreen) lobbyScreen.classList.remove("hidden");
+  if (lobbyScreen) {
+    lobbyScreen.classList.remove("hidden");
+    lobbyScreen.classList.toggle("overTown", !!state.inTown);
+  }
   var radio = document.querySelector('input[name="lobbyMap"]:checked');
   if (radio) preloadMapScript(radio.value);
   bindLobbyCharacterEditor();
@@ -8442,6 +8445,7 @@ function bindLobbyCharacterEditor() {
 function startRun(selectedChapter, selectedMapId) {
   state.inTown = false;
   running = false;
+  if (document.body) document.body.classList.remove("in-town");
   const requestedStartMode = state.requestedStartMode || "story";
   state.requestedStartMode = "story";
   stopBgMusic();
@@ -18172,6 +18176,42 @@ function closeLevelupAndResume() {
   restoreCameraInput();
 }
 
+const SKILL_ART = {
+  fireball: "assets/icons/icon-fireball.png",
+  frostball: "assets/icons/icon-frostball.png",
+  comet: "assets/icons/icon-comet.png",
+  swords: "assets/icons/icon-swords.png",
+  meteor: "assets/icons/icon-meteor.png",
+  nova: "assets/icons/icon-nova.png",
+  banana: "assets/icons/icon-banana.png",
+  swordthrow: "assets/icons/icon-sword-throw.png",
+  boomerang: "assets/icons/icon-boomerang.png",
+  shuriken: "assets/icons/icon-shuriken.png",
+  bomb: "assets/icons/icon-bomb.png",
+  lineshot: "assets/icons/icon-line-shot.png",
+  laser: "assets/icons/icon-laser.png",
+  frostnova: "assets/icons/icon-frost-nova.png",
+  dash: "assets/icons/icon-dash.png",
+  meteorult: "assets/icons/icon-meteor.png",
+  explosion: "assets/icons/icon-explosion.png",
+  magnet: "assets/icons/icon-magnet.png",
+  aura: "assets/icons/icon-aura.png",
+  gorilla: "assets/icons/icon-aura.png",
+  tome: "assets/icons/icon-tome.png"
+};
+function skillArtSrc(skill) {
+  const id = typeof skill === "string" ? skill : ((skill && skill.id) || "");
+  const compact = id.replace(/^unlock_/, "").replace(/_/g, "").toLowerCase();
+  if (SKILL_ART[compact]) return SKILL_ART[compact];
+  const n = (id + " " + ((skill && skill.name) || "")).toLowerCase();
+  const keys = Object.keys(SKILL_ART);
+  for (let i = 0; i < keys.length; i++) {
+    if (keys[i].length > 3 && n.indexOf(keys[i]) >= 0) return SKILL_ART[keys[i]];
+  }
+  if (/tome|kitap/.test(n)) return SKILL_ART.tome;
+  return "";
+}
+
 function renderLevelupCards() {
   levelInfo.textContent = `Level ${state.level} - 1 kart sec (bekleyen: ${state.pendingLevels})`;
   cardRow.innerHTML = "";
@@ -18224,6 +18264,8 @@ function renderLevelupCards() {
   const critChancePct = Math.min(100, Math.round((stats.critChance || 0) * 100));
   const critMultVal = (stats.critMult || 1.9);
   const emojiFor = (s) => {
+    const art = skillArtSrc(s);
+    if (art) return `<img src="${art}" alt="">`;
     const n = ((s.name || "") + " " + (s.id || "") + " " + (s.desc || "")) + " " + ((s._tierName || "") + " " + (s._tierDesc || ""));
     if (/fire|ate[şs]|yak|meteor|nova|patla|dismantle|kes/i.test(n)) return "🔥";
     if (/heal|can\b|cancak|hp\b|vamp|yasam|yara/i.test(n)) return "❤️";
@@ -18690,12 +18732,12 @@ function openShrineSkillPanel(shrine) {
 function snapChaseCamera() {
   if (!player.mesh || !camera) return;
   const playerPos = player.mesh.position;
-  const dist = camSettings.cameraDistance;
-  const pitch = camPitch;
+  const dist = state.inTown ? 11.2 : camSettings.cameraDistance;
+  const pitch = state.inTown ? -0.28 : camPitch;
   const yaw = camYaw;
   const cp = Math.cos(pitch);
   const sp = Math.sin(pitch);
-  const height = camSettings.cameraHeight || 11;
+  const height = state.inTown ? 5.1 : (camSettings.cameraHeight || 11);
   const lift = Math.max(height, 1.25 - sp * dist);
   camera.position.set(
     playerPos.x - Math.sin(yaw) * dist * cp,
@@ -18756,13 +18798,13 @@ function updateCamera(dt) {
     return;
   }
 
-  const dist = isometric ? 22 : (isometricAngled ? 16 : camSettings.cameraDistance);
-  const pitch = isometric ? -1.15 : (isometricAngled ? -0.72 : camPitch);
+  const dist = state.inTown ? 11.2 : (isometric ? 22 : (isometricAngled ? 16 : camSettings.cameraDistance));
+  const pitch = state.inTown ? -0.28 : (isometric ? -1.15 : (isometricAngled ? -0.72 : camPitch));
   const yaw = camYaw;
   const lookLift = isometric ? 0.35 : (isometricAngled ? 0.7 : 1.25);
   const cp = Math.cos(pitch);
   const sp = Math.sin(pitch);
-  const height = isometric ? 18 : (isometricAngled ? 12 : (camSettings.cameraHeight || 11));
+  const height = state.inTown ? 5.1 : (isometric ? 18 : (isometricAngled ? 12 : (camSettings.cameraHeight || 11)));
   const lift = Math.max(height, lookLift - sp * dist);
   const desired = v1.set(
     playerPos.x - Math.sin(yaw) * dist * cp,
@@ -19050,7 +19092,11 @@ function updateAcquiredSkillsIcons() {
   if (specialUnlocks.dash) items.push({ key: "dash", icon: "\u26A1", pct: specialState.dash.timer > 0 ? 1 - specialState.dash.timer / specialState.dash.cd : 0, onCd: specialState.dash.timer > 0 });
   if (specialUnlocks.meteorUlt) items.push({ key: "meteorUlt", icon: "\uD83C\uDF0C", pct: specialState.meteorUlt.timer > 0 ? 1 - specialState.meteorUlt.timer / specialState.meteorUlt.cd : 0, onCd: specialState.meteorUlt.timer > 0 });
   if (specialUnlocks.explosion) items.push({ key: "explosion", icon: "\uD83D\uDCA5", pct: specialState.explosion.timer > 0 ? 1 - specialState.explosion.timer / specialState.explosion.cd : 0, onCd: specialState.explosion.timer > 0 });
-  el.innerHTML = items.map((s) => `<div class="skillIconWrap skillStripIcon ${s.onCd ? "onCd" : ""}" title="${s.key}"><span class="skillStripEmoji">${s.icon}</span><div class="skillStripCd" style="height:${((1 - s.pct) * 100).toFixed(0)}%"></div></div>`).join("");
+  el.innerHTML = items.map((s) => {
+    const art = skillArtSrc(s.key);
+    const inner = art ? `<img class="skillStripImg" src="${art}" alt="">` : `<span class="skillStripEmoji">${s.icon}</span>`;
+    return `<div class="skillIconWrap skillStripIcon ${s.onCd ? "onCd" : ""}" title="${s.key}">${inner}<div class="skillStripCd" style="height:${((1 - s.pct) * 100).toFixed(0)}%"></div></div>`;
+  }).join("");
   el.style.display = items.length ? "flex" : "none";
 }
 

@@ -4,13 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ZEGABONK - Darbe Yarigi</title>
-  <link rel="icon" type="image/svg+xml" href="assets/icons/sword.svg" />
+  <link rel="icon" type="image/png" href="assets/ui/logo-mark.png" />
+  <link rel="apple-touch-icon" href="assets/ui/logo-mark.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="epilepsyNotice" class="epilepsyNotice" role="alert">Yanip sonen efektler bulunur. Isiga duyarli oyuncular efekt yogunlugunu dusurmelidir.</div>
   <div id="loadingOverlay" class="loadingOverlay" aria-live="polite">
-    <div class="loadingSpinner"></div>
+    <img class="loadingLogo" src="assets/ui/logo-mark.png" alt="">
     <span class="loadingBrand">ZEGABONK</span>
     <span class="loadingText">Darbe Yarigi hazirlaniyor</span>
     <span id="loadingProgress" class="loadingProgress"></span>
@@ -20,11 +21,16 @@
 
   <div id="ui">
     <section id="startScreen" class="overlay menuOverlay">
-      <img class="menuKeyart" src="assets/ui/menu-keyart.jpg" alt="" decoding="async" onerror="this.onerror=null;this.src='assets/ui/menu-keyart.png'">
+      <img class="menuKeyart" src="assets/ui/menu-keyart.png" alt="" decoding="async">
       <div class="startShell">
         <header class="brandBlock">
-          <span class="brandEyebrow">PRENSES ZEGA SENI BEKLIYOR</span>
-          <div class="gameLogo" aria-label="ZEGABONK">ZEGA<span>BONK</span></div>
+          <div class="brandRow">
+            <img class="brandPrincess" src="assets/ui/princess-zega.png" alt="">
+            <div class="brandCopy">
+              <span class="brandEyebrow">PRENSES ZEGA SENI BEKLIYOR</span>
+              <img class="gameLogoImg" src="assets/ui/logo-wordmark.png" alt="ZEGABONK">
+            </div>
+          </div>
           <p class="brandTagline">Kesfet, guclen, portali ac. Uc bolgeyi as. Ender'i BONK'la.</p>
         </header>
         <div class="startMenuLayout">
