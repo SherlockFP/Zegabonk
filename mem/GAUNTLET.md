@@ -41,9 +41,36 @@ Shots: `tests/artifacts/menu-after.png`, `lobby.png`, `gameplay.png`. Loop test 
 
 Overall **6.0/10**. Menu/char select is the visible win. Map dressing remains the AA gap.
 
-## Still next (not this commit)
+## This pass (voxel reskin) 2026-08-18
 
-- Dress CLASSIC_GEO grove/ruins with voxel props
+Map/art was the AA gap. Same loop goal. Dress CLASSIC_GEO with custom voxel props and pixel textures.
+
+1. Image-gen tileable 64px albedos in `assets/textures/` (grass, dirt, stone, bark, leaves, brick, crate, moss, water, sand, scorch). NearestFilter, no mips.
+2. Blender voxel kit: `assets/models/props/voxel_{tree,rock,ruin,shrine,crate}.glb`.
+3. Classic trees are boxes + bark/leaf maps. Rocks/bushes/crates/water/ruins use the same atlas.
+4. `dressClassicGeoKits()` rings grove/ruins/shrine/danger/passes. Chapter 2 sand / 3 scorch on ground.
+5. Concepts in `assets/concepts/biome/` for art direction, not runtime.
+
+## Honest scores (after juice + this reskin)
+
+Shots: `tests/artifacts/gameplay.png`, `geo-grove.png`, `geo-ruins.png`.
+
+| Slice | Prev | Now | Why |
+| --- | --- | --- | --- |
+| Loop | 7.0 | 7.0 | Unchanged north star |
+| Opening | 6.3 | 6.3 | Menu unchanged this slice |
+| Juice | 6.4 | 6.5 | Pixel ground reads punchier with the same hit code |
+| HUD/menu | 7.7 | 7.7 | Unchanged |
+| Map / art | 4.2 | 6.1 | Voxel trees + zone kits + 64px tiles. Still not MEGABONK density. |
+| Creatures | 5.0 | 5.2 | Box rocks/bushes only; mobs still mixed |
+| Boss | 6.2 | 6.2 | Unchanged |
+| Perf | 6.0 | 5.8 | Extra grove/ruin clones. Caps kept. |
+| Audio | 4.2 | 4.2 | Unchanged |
+
+Overall **6.4/10**. Map is the visible win. Still next: box-kit remaining SphereGeometry mobs, recorded SFX, denser POI clutter.
+
+## Still next
+
 - Box-kit remaining SphereGeometry mobs
 - Recorded SFX
 - FPS overlay actually ticking in stills

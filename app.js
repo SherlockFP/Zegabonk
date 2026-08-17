@@ -2302,9 +2302,13 @@ function applyBiomeTheme(chapter) {
   if (mk >= 2 && scene.fog && scene.fog.isFogExp2) {
     scene.fog.density *= 1 + Math.min(0.5, (mk - 1) * 0.055);
   }
-  if (ground && ground.material && !ground.material.vertexColors) {
-    ground.material.color.setHex(b.ground);
-    if (ground.material.emissive) ground.material.emissive.setHex(b.emissive);
+  if (ground && ground.material) {
+    const texKey = ch === 2 ? "sand" : ch >= 3 ? "scorch" : "grass";
+    bindPixelMap(ground.material, texKey, 32);
+    if (!ground.material.vertexColors) {
+      ground.material.color.setHex(b.ground);
+      if (ground.material.emissive) ground.material.emissive.setHex(b.emissive);
+    }
   }
   if (cliHemi) { cliHemi.color.setHex(b.hemi[0]); cliHemi.groundColor.setHex(b.hemi[1]); cliHemi.intensity = b.hemi[2]; }
   if (cliSun) { cliSun.color.setHex(b.sun[0]); cliSun.intensity = b.sun[1]; }
@@ -3928,6 +3932,56 @@ function resolveAssetUrl(path) {
   return (typeof window !== "undefined" && window.location && window.location.href) ? new URL(path, window.location.href).href : path;
 }
 
+const PIXEL_TEX_PATHS = {
+  grass: "assets/textures/tex-grass.png",
+  dirt: "assets/textures/tex-dirt.png",
+  stone: "assets/textures/tex-stone.png",
+  bark: "assets/textures/tex-bark.png",
+  leaves: "assets/textures/tex-leaves.png",
+  brick: "assets/textures/tex-brick.png",
+  crate: "assets/textures/tex-crate.png",
+  moss: "assets/textures/tex-moss.png",
+  water: "assets/textures/tex-water.png",
+  sand: "assets/textures/tex-sand.png",
+  scorch: "assets/textures/tex-scorch.png",
+};
+const pixelTextures = {};
+function pixelizeTex(tex, repeat) {
+  if (!tex) return tex;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  if (THREE.sRGBEncoding != null) tex.encoding = THREE.sRGBEncoding;
+  tex.repeat.set(repeat || 1, repeat || 1);
+  tex.needsUpdate = true;
+  return tex;
+}
+function preloadPixelTextures() {
+  const loader = new THREE.TextureLoader();
+  Object.keys(PIXEL_TEX_PATHS).forEach(function(key) {
+    loader.load(resolveAssetUrl(PIXEL_TEX_PATHS[key]), function(tex) {
+      pixelTextures[key] = pixelizeTex(tex, 1);
+    });
+  });
+}
+function pixelMap(key, repeat) {
+  const src = pixelTextures[key];
+  if (!src) return null;
+  const tex = src.clone();
+  tex.needsUpdate = true;
+  return pixelizeTex(tex, repeat || 1);
+}
+function bindPixelMap(mat, key, repeat) {
+  if (!mat) return mat;
+  const tex = pixelMap(key, repeat);
+  if (!tex) return mat;
+  mat.map = tex;
+  mat.color.setHex(0xffffff);
+  mat.needsUpdate = true;
+  return mat;
+}
+
 function preloadCreatureModels() {
   ensureGLTFLoader(function() {
     const loader = new window.GLTFLoader();
@@ -4042,6 +4096,86 @@ const LANDMARK_GLB_PATHS = {
   crownSpire: "assets/models/production/crown_ascent_spire_v1.glb",
 };
 let landmarkAssets = {};
+const PROP_GLB_PATHS = {
+  tree: "assets/models/props/voxel_tree.glb",
+  rock: "assets/models/props/voxel_rock.glb",
+  ruin: "assets/models/props/voxel_ruin.glb",
+  shrine: "assets/models/props/voxel_shrine.glb",
+  crate: "assets/models/props/voxel_crate.glb",
+};
+let propAssets = {};
+function preloadPropModels() {
+  ensureGLTFLoader(function() {
+    const loader = new window.GLTFLoader();
+    Object.keys(PROP_GLB_PATHS).forEach(function(key) {
+      loader.load(resolveAssetUrl(PROP_GLB_PATHS[key]), function(gltf) {
+        const scn = gltf.scene;
+        scn.traverse(function(c) { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+        propAssets[key] = scn;
+      }, undefined, function() { /* missing prop glb -> procedural dress */ });
+    });
+  });
+}
+function cloneProp(key, x, z, scale, yaw) {
+  if (!propAssets[key] || !mapGroup) return null;
+  const m = propAssets[key].clone(true);
+  const s = scale || 1;
+  m.scale.setScalar(s);
+  m.position.set(x, sampleTerrainHeight(x, z), z);
+  m.rotation.y = yaw || 0;
+  mapGroup.add(m);
+  return m;
+}
+function placeVoxelProp(key, x, z, scale, yaw) {
+  if (cloneProp(key, x, z, scale, yaw)) return;
+  if (!mapGroup) return;
+  const s = scale || 1;
+  const y = sampleTerrainHeight(x, z);
+  const mat = new THREE.MeshStandardMaterial({
+    color: key === "tree" ? 0x2a8a28 : key === "crate" ? 0xb07a38 : key === "shrine" ? 0xc9a24a : 0x8a7a62,
+    roughness: 0.9,
+    flatShading: true,
+  });
+  bindPixelMap(mat, key === "tree" ? "leaves" : key === "crate" ? "crate" : key === "shrine" ? "stone" : key === "ruin" ? "brick" : "stone", 2);
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.2 * s, (key === "ruin" ? 3.4 : 1.1) * s, 1.2 * s), mat);
+  mesh.position.set(x, y + mesh.geometry.parameters.height * 0.5, z);
+  mesh.rotation.y = yaw || 0;
+  mesh.castShadow = true;
+  mapGroup.add(mesh);
+}
+function dressClassicGeoKits() {
+  if (!mapGroup || mapGroup.userData.geoKits) return;
+  mapGroup.userData.geoKits = true;
+  const rng = typeof seededRiftRandom === "function" ? seededRiftRandom((state.routeSeed || 1) + 17) : Math.random;
+  function ring(cx, cz, inner, outer, n, fn) {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rng() * 0.18;
+      const rr = inner + rng() * Math.max(0.2, outer - inner);
+      const x = cx + Math.cos(a) * rr;
+      const z = cz + Math.sin(a) * rr;
+      if (classicInteriorClear(x, z) || Math.hypot(x, z) > WORLD_HALF - 4) continue;
+      fn(x, z, i);
+    }
+  }
+  ring(-86, 36, 13, 40, 24, function(x, z, i) {
+    placeVoxelProp("tree", x, z, 1.35 + rng() * 0.85, rng() * 6);
+    if (i % 3 === 0) placeVoxelProp("rock", x + 1.1, z - 0.7, 1.05 + rng() * 0.5, rng() * 6);
+  });
+  ring(94, 22, 14, 38, 20, function(x, z, i) {
+    placeVoxelProp("ruin", x, z, 1.15 + rng() * 0.7, rng() * 6);
+    if (i % 2 === 0) placeVoxelProp("rock", x - 1.0, z + 0.5, 1.2, rng() * 6);
+  });
+  placeVoxelProp("shrine", -24, -88, 1.55, 0.35);
+  ring(-24, -88, 8, 18, 10, function(x, z) {
+    placeVoxelProp("rock", x, z, 0.85 + rng() * 0.45, rng() * 6);
+  });
+  ring(8, 128, 18, 40, 16, function(x, z, i) {
+    placeVoxelProp("rock", x, z, 1.35 + rng() * 0.7, rng() * 6);
+    if (i % 4 === 0) placeVoxelProp("ruin", x, z, 0.95, rng() * 6);
+  });
+  ring(-46, 6, 6, 13, 6, function(x, z) { placeVoxelProp("rock", x, z, 1.15, rng() * 6); });
+  ring(50, 4, 6, 13, 6, function(x, z) { placeVoxelProp("rock", x, z, 1.15, rng() * 6); });
+}
 
 function preloadLandmarkModels() {
   ensureGLTFLoader(function() {
@@ -4344,6 +4478,8 @@ function init() {
     preloadForestTreeModel();
     preloadBossModel();
     preloadLandmarkModels();
+    preloadPixelTextures();
+    preloadPropModels();
     try { buildPlayer(); } catch (e) { console.error("buildPlayer:", e); }
   }
 
@@ -4921,7 +5057,9 @@ function buildClassicSignatureArena() {
   const landmarkMat = new THREE.MeshStandardMaterial({ color: 0x1a6a78, emissive: 0x2ee8d4, emissiveIntensity: 0.98, roughness: 0.38, metalness: 0.32, flatShading: true });
   const crystalMat = new THREE.MeshStandardMaterial({ color: 0x7cf0e8, emissive: 0x2ee8d4, emissiveIntensity: 1.05, roughness: 0.2, metalness: 0.42, flatShading: true });
   const ruinMat = new THREE.MeshStandardMaterial({ color: 0x6a645c, emissive: 0x1a1814, emissiveIntensity: 0.12, roughness: 0.9, metalness: 0.04, flatShading: true });
+  bindPixelMap(ruinMat, "brick", 2);
   const scorchedMat = new THREE.MeshStandardMaterial({ color: 0x3a2218, emissive: 0x8a2a10, emissiveIntensity: 0.55, roughness: 0.88, flatShading: true });
+  bindPixelMap(scorchedMat, "scorch", 3);
 
   const core = new THREE.Mesh(new THREE.OctahedronGeometry(3.4, 0), landmarkMat);
   core.position.set(meteorX, meteorY + 3.1, meteorZ);
@@ -5050,7 +5188,7 @@ function buildClassicSignatureArena() {
     const rr = 33 + (i % 3) * 1.4;
     const rx = meteorX + Math.cos(a) * rr, rz = meteorZ + Math.sin(a) * rr;
     if (Math.hypot(rx, rz + 12) < 18) continue;
-    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.15 + (i % 3) * 0.4, 0), rimMat);
+    const rock = new THREE.Mesh(new THREE.BoxGeometry(1.4 + (i % 3) * 0.45, 1.1 + (i % 2) * 0.35, 1.4 + (i % 3) * 0.3), rimMat);
     rock.position.set(rx, sampleTerrainHeight(rx, rz) + 0.85, rz);
     rock.rotation.set(0.15, a, 0.1);
     rock.castShadow = true;
@@ -5290,11 +5428,8 @@ function buildWorldChunked(mapId, onProgress, onDone) {
         gc.strokeStyle = "rgba(" + (36 + classicRouteRandom() * 24) + "," + (88 + classicRouteRandom() * 48) + "," + (24 + classicRouteRandom() * 18) + "," + (0.22 + classicRouteRandom() * 0.28) + ")";
         gc.lineWidth = 0.5 + classicRouteRandom() * 0.8; gc.beginPath(); gc.moveTo(gx, gy); gc.lineTo(gx + (classicRouteRandom() - 0.5) * 2.2, gy - 2 - classicRouteRandom() * 5); gc.stroke();
       }
-      const grassTex = new THREE.CanvasTexture(grassC);
-      grassTex.wrapS = grassTex.wrapT = THREE.RepeatWrapping;
-      grassTex.repeat.set(42, 42);
-      grassTex.anisotropy = 4;
-      ground = new THREE.Mesh(_chunkGroundGeo, new THREE.MeshStandardMaterial({ vertexColors: true, map: grassTex, color: 0xffffff, roughness: 0.92, metalness: 0.0 }));
+      const grassTex = pixelMap("grass", 28) || pixelizeTex(new THREE.CanvasTexture(grassC), 28);
+      ground = new THREE.Mesh(_chunkGroundGeo, new THREE.MeshStandardMaterial({ vertexColors: true, map: grassTex, color: 0xffffff, roughness: 0.94, metalness: 0.0, flatShading: true }));
       ground.receiveShadow = true;
       scene.add(ground);
       // The Classic route is authored by buildClassicSignatureArena; radial dirt discs made it read as a prototype parkour field.
@@ -5305,7 +5440,8 @@ function buildWorldChunked(mapId, onProgress, onDone) {
     if (step === 0 && step0Phase === 2) {
       report(14, "Su");
       const flatWaterY = 0.01;
-      const waterMat = new THREE.MeshStandardMaterial({ color: 0x1a5a6a, emissive: 0x081a28, emissiveIntensity: 0.25, roughness: 0.08, metalness: 0.4, transparent: true, opacity: 0.78 });
+      const waterMat = new THREE.MeshStandardMaterial({ color: 0x3aa0b8, emissive: 0x081a28, emissiveIntensity: 0.22, roughness: 0.22, metalness: 0.18, transparent: true, opacity: 0.86, flatShading: true });
+      bindPixelMap(waterMat, "water", 8);
       for (let t = -380; t < 380; t += 18) {
         const rz = Math.sin(t * 0.015) * 40 + 20, ry = flatWaterY;
         if (classicWaterBlocked(t, rz, 12)) continue;
@@ -5329,18 +5465,20 @@ function buildWorldChunked(mapId, onProgress, onDone) {
       _chunkTreePositions.sort(function(a, b) {
         return Math.hypot(a.x, a.z + 12) - Math.hypot(b.x, b.z + 12);
       });
-      _chunkTrunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3220, emissive: 0x1a1208, emissiveIntensity: 0.05, roughness: 0.92 });
+      _chunkTrunkMat = new THREE.MeshStandardMaterial({ color: 0x6a4428, emissive: 0x1a1208, emissiveIntensity: 0.05, roughness: 0.94, flatShading: true });
+      bindPixelMap(_chunkTrunkMat, "bark", 2);
       _chunkLeafMats = [
-        new THREE.MeshStandardMaterial({ color: 0x2a5030, emissive: 0x0d2012, emissiveIntensity: 0.08, roughness: 0.88 }),
-        new THREE.MeshStandardMaterial({ color: 0x1e3d24, emissive: 0x081808, emissiveIntensity: 0.06, roughness: 0.9 }),
-        new THREE.MeshStandardMaterial({ color: 0x3a5a38, emissive: 0x142818, emissiveIntensity: 0.1, roughness: 0.86 }),
-        new THREE.MeshStandardMaterial({ color: 0x355234, emissive: 0x122312, emissiveIntensity: 0.08, roughness: 0.88 }),
+        new THREE.MeshStandardMaterial({ color: 0x3aaa38, emissive: 0x0d2012, emissiveIntensity: 0.08, roughness: 0.9, flatShading: true }),
+        new THREE.MeshStandardMaterial({ color: 0x2a8a28, emissive: 0x081808, emissiveIntensity: 0.06, roughness: 0.92, flatShading: true }),
+        new THREE.MeshStandardMaterial({ color: 0x58c848, emissive: 0x142818, emissiveIntensity: 0.1, roughness: 0.88, flatShading: true }),
+        new THREE.MeshStandardMaterial({ color: 0x2e6a30, emissive: 0x122312, emissiveIntensity: 0.08, roughness: 0.9, flatShading: true }),
       ];
+      for (let li = 0; li < _chunkLeafMats.length; li++) bindPixelMap(_chunkLeafMats[li], li % 2 ? "moss" : "leaves", 2);
       _chunkTreeGeometries = {
-        trunk: new THREE.CylinderGeometry(0.28, 0.42, 3.2, 7),
-        crownLow: new THREE.SphereGeometry(1.55, 8, 6),
-        crownMid: new THREE.SphereGeometry(1.18, 8, 6),
-        crownHigh: new THREE.SphereGeometry(0.92, 7, 5),
+        trunk: new THREE.BoxGeometry(0.58, 3.2, 0.58),
+        crownLow: new THREE.BoxGeometry(3.05, 1.55, 3.05),
+        crownMid: new THREE.BoxGeometry(2.15, 1.15, 2.15),
+        crownHigh: new THREE.BoxGeometry(1.55, 0.9, 1.55),
       };
       buildClassicSignatureArena();
       report(20, "Zemin");
@@ -5358,8 +5496,8 @@ function buildWorldChunked(mapId, onProgress, onDone) {
         const x = pt.x, z = pt.z;
         const lm = _chunkLeafMats[Math.floor(classicRouteRandom() * _chunkLeafMats.length)];
         const s = 1.5 + classicRouteRandom() * 1.1, hm = 1.0 + classicRouteRandom() * 0.7;
-        const useHeroTree = forestTreeAsset && Math.hypot(x, z + 12) < 80;
-        const g = useHeroTree ? forestTreeAsset.clone(true) : new THREE.Group();
+        const useHeroTree = propAssets.tree && Math.hypot(x, z + 12) < 72;
+        const g = useHeroTree ? propAssets.tree.clone(true) : new THREE.Group();
         if (!useHeroTree) {
           const th = 3.2 * hm;
           const trunk = new THREE.Mesh(_chunkTreeGeometries.trunk, _chunkTrunkMat);
@@ -5431,10 +5569,11 @@ function buildWorldChunked(mapId, onProgress, onDone) {
     }
     if (step === 6) {
       const addSteps = [
-        [88, "Landmarklar", function() { addProductionLandmarks(); addShrines(); }],
+        [88, "Landmarklar", function() { addProductionLandmarks(); addShrines(); dressClassicGeoKits(); }],
         [96, "Sinirler", function() { addBoundaryWalls(); addHorizonSilhouettes(); }],
         [100, "Hazir", function() {
           const polishSteps = [
+            function() { dressClassicGeoKits(); },
             function() { addHorizonSilhouettes(); },
             function() { addGrassField(); },
             function() { addAmbientParticles(); }
@@ -6832,7 +6971,8 @@ function addLamppostsAndWells() {
 function addGrassField() {
   const count = 2400;
   const geo = new THREE.PlaneGeometry(0.3, 0.9);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x3db84d, emissive: 0x1a5a2a, emissiveIntensity: 0.1, roughness: 0.88, side: THREE.DoubleSide });
+  const mat = new THREE.MeshStandardMaterial({ color: 0x58e05a, emissive: 0x1a5a2a, emissiveIntensity: 0.12, roughness: 0.9, side: THREE.DoubleSide, flatShading: true });
+  bindPixelMap(mat, "leaves", 1);
   const inst = new THREE.InstancedMesh(geo, mat, count);
   const dummy = new THREE.Object3D();
   for (let i = 0; i < count; i++) {
@@ -13726,7 +13866,7 @@ function spawnSmashCrate(x, z) {
   const s = 0.72 + Math.random() * 0.22;
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(s, s, s),
-    new THREE.MeshStandardMaterial({ color: 0xb07a38, roughness: 0.72, emissive: 0x3a2208, emissiveIntensity: 0.22 })
+    bindPixelMap(new THREE.MeshStandardMaterial({ color: 0xb07a38, roughness: 0.78, emissive: 0x3a2208, emissiveIntensity: 0.18, flatShading: true }), "crate", 1)
   );
   const gy = getGroundHeight(x, z);
   mesh.position.set(x, gy + s * 0.5, z);
@@ -18714,12 +18854,12 @@ function updateWorldDecors() {
   const pz = player.mesh.position.z;
   if (!worldDecorRockMats) {
     worldDecorRockMats = [
-      new THREE.MeshStandardMaterial({ color: 0x7a8a8a, emissive: 0x3a4a4a, emissiveIntensity: 0.08, roughness: 0.9 }),
-      new THREE.MeshStandardMaterial({ color: 0x8a7a6a, emissive: 0x4a3a2a, emissiveIntensity: 0.08, roughness: 0.92 }),
+      bindPixelMap(new THREE.MeshStandardMaterial({ color: 0x9aa0a0, emissive: 0x3a4a4a, emissiveIntensity: 0.08, roughness: 0.94, flatShading: true }), "stone", 2),
+      bindPixelMap(new THREE.MeshStandardMaterial({ color: 0xb09a80, emissive: 0x4a3a2a, emissiveIntensity: 0.08, roughness: 0.94, flatShading: true }), "dirt", 2),
     ];
   }
   if (!worldDecorBushMat) {
-    worldDecorBushMat = new THREE.MeshStandardMaterial({ color: 0x2d7a2d, emissive: 0x0d3a0d, emissiveIntensity: 0.1, roughness: 0.88 });
+    worldDecorBushMat = bindPixelMap(new THREE.MeshStandardMaterial({ color: 0x3aaa38, emissive: 0x0d3a0d, emissiveIntensity: 0.1, roughness: 0.9, flatShading: true }), "leaves", 2);
   }
   if (!worldDecorMushroomStemMat) {
     worldDecorMushroomStemMat = new THREE.MeshStandardMaterial({ color: 0xf5e6d3, roughness: 0.9 });
@@ -18755,14 +18895,14 @@ function updateWorldDecors() {
     if (dist2 < load2 && !d.mesh) {
       const y = sampleTerrainHeight(d.x, d.z);
       if (d.type === "rock") {
-        const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8, 0), worldDecorRockMats[d.matIndex]);
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.85, 1.15), worldDecorRockMats[d.matIndex]);
         mesh.scale.set(d.s, d.sy, d.s);
         mesh.position.set(d.x, y + 0.15 * d.s, d.z);
         mesh.rotation.set(d.rot[0], d.rot[1], d.rot[2]);
         mapGroup.add(mesh);
         d.mesh = mesh;
       } else if (d.type === "bush") {
-        const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.55, 6, 5), worldDecorBushMat);
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.95, 1.05), worldDecorBushMat);
         mesh.scale.set(d.s, d.s * 0.85, d.s);
         mesh.position.set(d.x, y + 0.2 * d.s, d.z);
         mapGroup.add(mesh);

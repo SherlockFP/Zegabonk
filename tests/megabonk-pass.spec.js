@@ -34,5 +34,18 @@ test('lobby and first combat frame', async ({ page }) => {
   });
   await page.waitForTimeout(1800);
   await page.screenshot({ path: 'tests/artifacts/gameplay.png', fullPage: true });
+
+  await page.evaluate(() => {
+    if (!player || !player.mesh) return;
+    player.mesh.position.set(-86, sampleTerrainHeight(-86, 36), 36);
+  });
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: 'tests/artifacts/geo-grove.png', fullPage: true });
+  await page.evaluate(() => {
+    if (!player || !player.mesh) return;
+    player.mesh.position.set(94, sampleTerrainHeight(94, 22), 22);
+  });
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: 'tests/artifacts/geo-ruins.png', fullPage: true });
   expect(pageErrors).toEqual([]);
 });
