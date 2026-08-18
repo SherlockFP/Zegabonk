@@ -4310,6 +4310,8 @@ function applyVoxelLook(root) {
       c.add(line);
       edgeCount += 1;
     }
+    const hiPoly = pos && pos.count >= 520;
+    if (hiPoly) return;
     if (c.isSkinnedMesh && c.skeleton) {
       const ol = new THREE.SkinnedMesh(c.geometry, _inkHullMat);
       ol.userData.skipVoxel = true;
@@ -4423,7 +4425,7 @@ function preloadCreatureModels() {
 }
 
 const PLAYER_GLB_PATH = "assets/models/production/hero_scout_toon.glb";
-const PLAYER_GLB_SCALE = 1.28;
+const PLAYER_GLB_SCALE = 1.82;
 let playerAsset = null;
 let playerAnimationClips = [];
 let playerAssetLoading = false;
@@ -4450,7 +4452,7 @@ function preloadCharacterModels() {
         charAssetCache[id] = gltf.scene;
         charClipCache[id] = gltf.animations || [];
         gltf.scene.traverse(function(c) { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
-        if (player.mesh && (state.selectedCharacter || "scout") === id && player.mesh.userData.charGlbId !== id) {
+        if (player.mesh && (state.selectedCharacter || "scout") === id && (!player.mesh.userData.importedPlayer || player.mesh.userData.charGlbId !== id || !player.mesh.userData.orientedUp)) {
           const pos = player.mesh.position.clone();
           buildPlayer();
           if (player.mesh) player.mesh.position.copy(pos);
@@ -7499,6 +7501,7 @@ function attachPlayerShield(g) {
   shieldRing.rotation.x = -Math.PI / 2;
   shieldRing.position.y = 0.8;
   shieldRing.renderOrder = 1;
+  shieldRing.visible = false;
   player.shieldRing = shieldRing;
   g.add(shieldRing);
   const shieldBubble = new THREE.Mesh(
@@ -7518,13 +7521,35 @@ const CHAR_SKIN_TINT = {
   kabukcu: 0xf4d03f, yaprakci: 0x3d8a4a, kaykayci: 0x4ad4c8,
 };
 
+function orientImportedActor(root) {
+  if (!root) return root;
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(root);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  const lying = size.y < Math.min(size.x, size.z) * 0.85;
+  if (lying) {
+    if (size.z >= size.x) root.rotateX(-Math.PI / 2);
+    else root.rotateZ(Math.PI / 2);
+    root.updateMatrixWorld(true);
+  }
+  const foot = new THREE.Box3().setFromObject(root);
+  root.position.y -= foot.min.y;
+  root.userData = Object.assign({}, root.userData || {}, { orientedUp: true });
+  return root;
+}
+
 function buildImportedPlayer(origin, scale, srcAsset, srcClips) {
   const asset = srcAsset || playerAsset;
   const clips = srcClips || playerAnimationClips || [];
   const cloneFn = (window.SkeletonUtils && window.SkeletonUtils.clone) ? window.SkeletonUtils.clone : function(o) { return o.clone(true); };
   const inner = cloneFn(asset);
   inner.rotation.y = 0;
-  inner.scale.multiplyScalar(scale * PLAYER_GLB_SCALE);
+  orientImportedActor(inner);
+  inner.scale.multiplyScalar(Math.max(1.12, scale) * PLAYER_GLB_SCALE);
+  inner.updateMatrixWorld(true);
+  const footBox = new THREE.Box3().setFromObject(inner);
+  inner.position.y -= footBox.min.y;
   const g = new THREE.Group();
   g.add(inner);
   g.position.copy(origin);
@@ -7543,23 +7568,17 @@ function buildImportedPlayer(origin, scale, srcAsset, srcClips) {
   player.activeAction = player.actions.Idle || null;
   if (player.activeAction) player.activeAction.reset().play();
   const heroParts = {};
-  const tintHex = CHAR_SKIN_TINT[state.selectedCharacter || "scout"];
-  const tintCol = tintHex != null ? new THREE.Color(tintHex) : null;
   inner.traverse(function(c) {
     if (c.isMesh) {
       c.castShadow = true;
       c.receiveShadow = true;
       if (c.name.startsWith("Mosswatch_")) heroParts[c.name] = c;
-      if (tintCol && c.material && c.material.color) {
-        c.material = c.material.clone();
-        c.material.color.lerp(tintCol, 0.22);
-      }
     }
   });
-  if (typeof applyVoxelLook === "function") applyVoxelLook(inner);
   player.heroParts = heroParts;
   player.mesh = g;
-  const heroRim = new THREE.PointLight(0xfff0d8, 1.55, 14, 1.8);
+  g.userData.orientedUp = true;
+  const heroRim = new THREE.PointLight(0xffe6c0, 2.15, 16, 1.6);
   heroRim.position.set(0, 1.7, 0.35);
   g.add(heroRim);
   attachPlayerShield(g);
@@ -8265,13 +8284,15 @@ document.addEventListener("keyup", (e) => {
 
   if (playBtn) playBtn.addEventListener("click", () => {
     state.requestedStartMode = "story";
+    const dockChar = document.querySelector(".menuCharTile.is-selected:not(.isLocked), .menuCharTile.isOn:not(.isLocked)");
+    const dockCharId = dockChar && dockChar.getAttribute("data-char");
     const charRadio = document.querySelector('input[name="lobbyChar"]:checked');
-    if (charRadio) {
-      state.selectedCharacter = charRadio.value;
-      if (typeof pickLobbyCharacter === "function") pickLobbyCharacter(charRadio.value);
-    }
+    const charId = dockCharId || (charRadio && charRadio.value) || state.selectedCharacter || "scout";
+    if (typeof pickLobbyCharacter === "function") pickLobbyCharacter(charId);
+    else state.selectedCharacter = charId;
+    const dockMap = document.querySelector(".menuMapTile.isOn");
     const mapRadio = document.querySelector('input[name="lobbyMap"]:checked');
-    const selectedMap = mapRadio ? mapRadio.value : "classic";
+    const selectedMap = (dockMap && dockMap.getAttribute("data-map")) || (mapRadio && mapRadio.value) || "classic";
     startScreen.classList.add("hidden");
     startRun(1, selectedMap);
   });
@@ -9724,12 +9745,15 @@ function createEnemy(tier, cfg, opts) {
     const glbKey = resolveCreatureGlbKey(normalBeastType) || (tier !== "normal" ? resolveCreatureGlbKey(["wolf", "bear", "boar", "fox", "skeleton", "slime", "horror", "goblin"][Math.floor(Math.random() * 8)]) : null);
     if (glbKey && creatureCache[glbKey]) {
       const cached = creatureCache[glbKey].clone();
+      if (typeof orientImportedActor === "function") orientImportedActor(cached);
       const box = new THREE.Box3().setFromObject(cached);
       const size = new THREE.Vector3();
       box.getSize(size);
       const scale = (cfg.height * 0.95) / Math.max(size.y, 0.01);
       cached.scale.setScalar(scale);
-      cached.position.y = 0;
+      cached.updateMatrixWorld(true);
+      const foot = new THREE.Box3().setFromObject(cached);
+      cached.position.y -= foot.min.y;
       cached.rotation.y = CREATURE_FACE_YAW[glbKey] != null ? CREATURE_FACE_YAW[glbKey] : 0;
       g.add(cached);
       g.userData.fromGlb = true;
@@ -10393,7 +10417,7 @@ function createEnemy(tier, cfg, opts) {
   speed *= 0.95;
 
   if (!g.userData.fromGlb && normalBeastType && typeof applyBeastLook === "function") applyBeastLook(g, normalBeastType, cfg);
-  if (typeof applyVoxelLook === "function") applyVoxelLook(g);
+  if (!g.userData.fromGlb && typeof applyVoxelLook === "function") applyVoxelLook(g);
   const affixRoll = !isBoss && Math.random() < 0.10;
   const affix = affixRoll ? (Math.random() < 0.6 ? "lifeStealAura" : "slowAura") : null;
   const isBatFlying = tier === "normal" && (normalBeastType === "bat" || normalBeastType === "redBat");
