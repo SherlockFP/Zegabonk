@@ -6,32 +6,31 @@ Durum degerleri: `bekliyor` | `deVAM` (sahip yaz) | `blokeli (sebep)` | `BITTI (
 
 ## Su An (en guncel ozet)
 
-- Voxel modeller oyuna bagli: yaratik, oyuncu, boss, shrine/lamba/kasa/agac/portal cerceve. 3. portal mega arena ZONK Avatari.
-- Kritik buglar onceki seans + bu seans: pause saati, sandik kilidi, abyss dalga kapisi, acquiredOrder/unlock reset, challenge timer, getMaxEnemies rampa, fireRateScale, rim HP/XP.
-- Minimap: koy, sandik, vending, breach/abyss/ritual, hardcore, parkour odul + kenar ok.
-- Parkour altin kureler coin + sandik veriyor. HUD Portal n/3.
+- P1.5: koy/bina/duvar/sehir tekil mesh'ler InstancedMesh (mevcut helper, BufferGeometryUtils yok). Bunker tekil Group kaldi. Pixel ratio 0.5, golge 28 (P1.6 KAPALI; draw call dustu ama default gate).
+- P1.2/1.3: voxel dusman Group havuzu (8/tip, 80 cap) + sekilli projektil mesh havuzu (48 cap). Primitive/flying/boss ve efekt mesh havuzu yok.
+- P7.1: Fireball+burn=Inferno Orb, Frostball+freeze=Glacier, Swords+crit=Blade Storm (dmg karti max + eslesen pasif).
+- P7.4: horde surge 5dk / 30sn, soul-round spawn deseni, soul aktifken bekler, bitince sandik.
+- P6 diorama: menu arkasinda canvas acik; 1 idle oyuncu + goblin/wolf donuyor. Boot kirilmadi.
+- Playtest: `shot-director.mjs` 5 shot, 0 hata. perf-probe --fast leftover: bos 238 draw / 50 dusman 621 / 150 1192 (onceki C: 715 / 1365 / 1910).
 - app.js kilidi: SERBEST.
-- Siradaki: P1.4 instancing (draw call ~1900), P7 yeni skiller, P5 map-audit, P6 diorama, playtest. Coop (P8/P9) yok.
+- Coop (P8/P9) yok.
 
 ## Kod Haritasi Guncellemesi (PLAN.md'deki numaralar artik eski)
 
-## Kod Haritasi Guncellemesi (PLAN.md'deki numaralar artik eski)
-
-app.js basina ~80 satir eklendi (paylasilan cache katmani), ayrica birkac fabrika sarmalayicisi girdi.
-Guncel satirlar (18 Agu, seans sonu):
+Guncel satirlar (19 Agu, leftover seans):
 
 | Fonksiyon | Satir | | Fonksiyon | Satir |
 |---|---|---|---|---|
-| paylasilan cache katmani | 106-182 | | `createEnemy` / `createEnemyInner` | 5842 / 5845 |
-| `init` | 1955 | | `spawnEnemy` | 7212 |
-| pixel ratio hack | 1968 | | `killEnemy` | 10358 |
-| golge mapSize 28 | 2027 | | `updateEnemies` | 11334 |
-| `clearWorld` | 2055 | | `updateProjectiles` | 12020 |
-| `buildWorldChunked` | 2385 | | `updateEffects` | 12311 |
-| `makeHpBar` / `releaseEnemyVisuals` | 4467 / 4488 | | `updateAbilities` | 12521 |
-| `makeNameLabel` | 4524 | | `updateWorldDecors` | 13853 |
-| `clearEntities` | 5366 | | `updateHud` / `drawMinimap` | 14279 / 14692 |
-| `spawnDamageText` (+havuz) | 10191 | | `animate` | 15776 |
+| paylasilan cache katmani | 106-182 | | `createEnemy` / `createEnemyInner` | 6350 / 6353 |
+| `init` | 2299 | | `spawnEnemy` | 7747 |
+| pixel ratio 0.5 | 2312 | | `killEnemy` | 11036 |
+| `setupMenuDiorama` | 2402 | | `updateEnemies` | 12013 |
+| `clearWorld` | 2431 | | `updateProjectiles` | 12707 |
+| `addInstancedPlacements` | 296 | | `updateEffects` | 12998 |
+| `addVillages` / `addBuildings` | 3999 / 4171 | | `updateAbilities` | 13208 |
+| `releaseEnemyVisuals` | 4979 | | `updateHud` / `drawMinimap` | 15093 / 15524 |
+| `tryEvolveSkills` / `applySkill` | 14295 / 14328 | | `animate` | 16689 |
+| `getMaxEnemies` | 211 | | `pickSkills` | 14224 |
 
 ## Workstream Tablosu
 
@@ -39,29 +38,29 @@ Guncel satirlar (18 Agu, seans sonu):
 |---|---|---|---|
 | P0 Altyapi | BITTI (18 Agu 2026) | - | `npm run dev` = statik sunucu, `dev:vite` = vite; qa/perf scriptleri eklendi |
 | P1.1 Geometry/material cache | BITTI (18 Agu 2026) | - | THREE ctor sarmalayicisi + `withSharedGeo(Mat)`; app.js:106-182 |
-| P1.2 Dusman havuzu | YARIM | - | HP bar + cast label havuzlandi; yaratik Group'lari HENUZ havuzlanmiyor (asagida) |
-| P1.3 Projektil/efekt havuzu | YARIM | - | Damage text havuz+texture cache bitti; projektil mesh havuzu yok |
-| P1.4 Dekor instancing | bekliyor | - | Draw call'un buyuk kismi burada |
-| P1.5 Statik dunya merge | bekliyor | - | |
-| P1.6 Render ayarlari (pixel ratio/golge) | bekliyor | - | 1.4-1.5 bitmeden ACMA. Golge pass maliyeti henuz olculmedi |
+| P1.2 Dusman havuzu | YARIM | - | HP/cast + voxel Group havuzu (8/tip, 80 cap) `releaseEnemyVisuals`. Primitive fallback, flying/shadow/boss havuzda degil |
+| P1.3 Projektil/efekt havuzu | YARIM | - | Damage text + sekilli projektil mesh havuzu (fireball/frostball/comet/ok/vb, 48 cap). Flash/ring/particle yok |
+| P1.4 Dekor instancing | BITTI (19 Agu 2026) | app.js | LIVE classic instanced agac/kaya/cali/varil. Grass + voxel crate/oak/pine |
+| P1.5 Statik dunya merge | BITTI instanced (19 Agu) | app.js | BufferGeometryUtils yok; koy/bina/sinir duvari/sehir kutulari InstancedMesh. Bunker tekil. PointLight'lar tekil |
+| P1.6 Render ayarlari (pixel ratio/golge) | bekliyor | - | Draw call dustu (150: 1910->1192) ama default gate: pixel ratio 0.5, golge 28. ACMA |
 | P1.7 Dispose denetimi | YARIM | - | Sizinti azaldi (paylasilan kaynak dispose edilmiyor); texture sayisi hala restart basina ~4 artiyor |
 | P1.8 Update maliyeti | BITTI (18 Agu 2026) | - | Uzak dusman 3 karede bir AI; HP bar 38m uzagi gizli + 2 karede bir cizim |
 | P2.1 VoxelModel fabrikasi | BITTI (2026-08-18) | voxel | voxel.js. Geometry cache + 2 paylasilan mat. Handoff: VOXEL-INTEGRATION.md |
 | P2.2 Outline | BITTI (2026-08-18) | voxel | Inverted hull, fat-cube, BackSide #1a1a22 |
 | P2.3 Toon isik | BITTI (2026-08-18) | voxel | MeshToon 3-step gradient, specular yok. Gozler emissive. |
-| P2.4 Voxel prop seti | BITTI + kismi wire | - | shrine/lamba/kasa/agac/portal_frame baglandi. Instancing yok. |
+| P2.4 Voxel prop seti | BITTI + wire + instance | - | shrine/lamba/kasa/agac/portal_frame. Crate/oak/pine InstancedMesh |
 | P2.5 Oyuncu karakterleri | BITTI + wire | - | buildPlayer voxel + B/C/A recolor |
 | P3 Yaratiklar | BITTI wire | - | createEnemy attachVoxelModel; anim updateVoxelCreatureAnim |
 | P4.1 Boss modelleri | BITTI + wire | - | variant + herobrine/serafim/void/zonk |
-| P4.2-4.4 Portal sayaci + boss odasi | YARIM | - | portalsEntered HUD n/3; 3. portal mega arena ZONK Avatari. Ozel kucuk arena sahnesi yok. |
-| P5 Solo map iyilestirme | YARIM | - | Minimap POI, parkour odul, voxel agac/shrine. map-audit.mjs yok. |
-| P6.1 Ana menu | CSS BITTI, diorama JS bekliyor | UI (CSS) | Logo/buton/panel/150ms fade. Voxel diorama app.js. |
-| P6.2 Levelup ekrani | CSS+JS kismi | - | rarity-* + cardIcon + xpBarFlash. Sinerji rozeti yok. |
+| P4.2-4.4 Portal sayaci + boss odasi | YARIM | - | portalsEntered HUD n/3; 3. portal mega arena + daire duvar + ZONK Avatari. Ozel 60x60 oda yok. Faz 2 `*_p2` %50 HP |
+| P5 Solo map iyilestirme | YARIM | - | map-audit.mjs (step=8 + Box3 floater). addClassicRamps live. Ground 96. 19 Agu: maxAbs 0.588, rampMismatch 0, 28 interpolasyon noktasi. Spec grid=2 yapilmadi |
+| P6.1 Ana menu | BITTI diorama (19 Agu) | app.js | Canvas acik; idle voxel oyuncu + goblin/wolf donuyor. Overlay blur duruyor |
+| P6.2 Levelup ekrani | CSS+JS kismi | - | rarity-* + cardIcon + xpBarFlash + synergyBadge (10 satir map) |
 | P6.3-6.4 HUD + tipografi | CSS kismi BITTI | UI (CSS) | Chip boy/radius + Press Start 2P + xpBarFlash. JS emoji kaldi. |
-| P7.1 Evrim sistemi | bekliyor | - | |
-| P7.2 Yeni aktif skiller | bekliyor | - | |
-| P7.3 Yeni pasifler | bekliyor | - | |
-| P7.4 Horde surge | bekliyor | - | |
+| P7.1 Evrim sistemi | BITTI 3 evrim (19 Agu) | app.js | Inferno Orb / Glacier / Blade Storm. Arrow/Lightning/Aura evrimi yok |
+| P7.2 Yeni aktif skiller | BITTI (18 Agu 2026) | app.js | chain bolt, black hole pull+burst, poison trail. Caps korunuyor |
+| P7.3 Yeni pasifler | BITTI (18 Agu 2026) | app.js | greed gold+%, executioner %15 (19 Agu: hasar sonrasi kontrol). thorns zaten vardi (melee reflect) |
+| P7.4 Horde surge | BITTI (19 Agu 2026) | app.js | 300sn / 30sn, soul-round spawn deseni, soul varken bekler, bitince sandik |
 | P8.1 Lobby (trystero) | bekliyor | - | net.js yeni dosya |
 | P8.2 Oyuncu replikasyonu | bekliyor | - | |
 | P8.3 Ortak XP/gold kurallari | bekliyor | - | |
@@ -113,14 +112,77 @@ UYARI: makinede baska bir Playwright kosarsa sayilar yariya duser; olcumden once
 | 18 Agu | C (final) | oyun ici bos | 76.9 | 14.6ms | 715 | 48k | 1929 | |
 | 18 Agu | C (final) | 50 dusman | 63.6 | 19.5ms | 1365 | 70k | 2000 | baseline 47.6 -> +34% |
 | 18 Agu | C (final) | 150 dusman + 15 skill | **44.8** | 27.7ms | 1910 | 89k | 2072 | baseline 37.0 -> **+21%**, en kotu kare 67ms -> 57ms |
+| 19 Agu | leftover --fast | menu | 1774 | 0.8ms | 47 | 6.5k | 48 | diorama + rAF sinirsiz; FPS anlamsiz |
+| 19 Agu | leftover --fast | oyun ici bos | 144.1 | 7.1ms | **238** | 228k | 413 | C: 715 draw. max 3139ms = dunya kurulum donmasi |
+| 19 Agu | leftover --fast | 50 dusman | 120.4 | 10.8ms | **621** | 274k | 560 | C: 1365 draw |
+| 19 Agu | leftover --fast | 150 dusman + 15 skill | 81.8 | 16.1ms | **1192** | 342k | 576 | C: 1910 draw. FPS --fast ile C'ye kiyaslama; draw call kiyaslanabilir |
 
 Restart x5 geometry sayisi (sizinti kontrolu): baseline 3149/1807/2835 (artan), A 1615/1682/3186/3412/2920 (artan),
 C 2156/2690/1706/848/1652 (artan degil). Texture sayisi hala restart basina ~3-5 artiyor (P1.7 kalan is).
+19 Agu leftover restart: geo 471/675/421/739/777 (dalgalaniyor, net artis yok); tex 174/179/179/187/195 (hala +~4-5, P1.7).
 
-Kabul kriterine gore durum: FPS hedefi (>=55 @150) TUTMADI (44.8), draw call hedefi (<=700) TUTMADI (1910).
-Kalan fark buyuk olcude dekor instancing (P1.4) + statik dunya merge (P1.5) isi; ikisi de yapilmadi.
+Kabul kriterine gore durum: FPS hedefi (>=55 @150) onceki tam olcumde TUTMADI (44.8). Draw call hedefi (<=700) 150'de hala TUTMADI (1192) ama bos harita 715->238, 50 dusman 1365->621. Pixel ratio 0.5 duruyor.
 
 ## Seans Gunlugu (en yeni ustte)
+
+### 2026-08-19 - Bug H7/M1 + puan notu
+- Random teleport portallari WORLD_HALF-30 icine alindi (once WORLD_HALF*1.6, ~%60 harita disi).
+- updateChaos pause'da duruyor (pause meteor yigini).
+- Kritik/HIGH C1-C3 H1-H5 H8 onceki seanslarda kapali; H6 kismi (voxel pool).
+
+### 2026-08-19 - Leftover P1.5/pool/P7/P6 (app.js writer, coop haric)
+
+**Yapilan**
+- **P1.5** BufferGeometryUtils yok. Koy ev/cit, binalar (bunker haric), sinir duvari, sehir kutu/pencere/yol/lamba InstancedMesh. Voxel paylasilan mat'a dokunulmadi.
+- **P1.2** voxel Group havuzu (8/tip, 80 cap) `releaseEnemyVisuals` + killEnemy dispose skip.
+- **P1.3** sekilli projektil mesh havuzu (48 cap). Default orb/meteor/lazer yok.
+- **P7.1** Inferno Orb (fireball_dmg max + burn), Glacier (frostball_dmg max + freeze), Blade Storm (sword_dmg max + crit).
+- **P7.4** HORDE_SURGE 300/30, soul-round spawn, soul varken bekler, sandik.
+- **P6** menu diorama: pad + goblin + wolf + oyuncu donuyor. `dir-menu` arkasinda gorunuyor.
+- Levelup `card` createElement eksigi (ReferenceError) duzeltildi.
+- Playtest: shot-director 5 shot, **0 hata**. perf-probe --fast leftover: bos 238 / 50=621 / 150=1192 draw.
+- P1.6 ACILMADI (pixel ratio 0.5).
+
+**Yapilmadi**
+- P1.6 pixel ratio/golge, P1.7 texture sizintisi, efekt mesh havuzu, primitive/flying enemy havuzu.
+- P7.1 kalan 3 evrim (Arrow Wall / Storm Caller / Cataclysm).
+- P4 ozel 60x60 oda, P5 spec grid=2, P8/P9 coop.
+- MANUEL: 3. portal duvar + boss faz 2; evrim karti (max dmg + pasif).
+
+**app.js kilidi:** SERBEST.
+
+### 2026-08-19 - Resume remaining phases (app.js writer, coop haric)
+
+**Yapilan**
+- Onceki seans STATUS'u P1.4/P5/P7/P4/P6 bitmis yazmisti ama **classic start `buildWorldClassic` kullaniyordu**, chunked InstancedMesh oyuna girmiyordu. 1200 agac + kaya/cali/varil live path'te InstancedMesh yapildi. `addClassicRamps` classic + chunked. Ground 56/64 -> 96.
+- executioner: hasar sonrasi HP<=%15 infaz. Poison trail `spawnRing`. getGroundHeight classic ramp max.
+- P5 audit: maxAbs 1.703 -> 0.588, rampMismatch 8 -> 0, slope 0. floater Box3; 40 sayac lamba/pencere (yanlis pozitif).
+- Playtest: `shot-director.mjs` 5 shot, **0 hata**. map-audit 0 script error.
+- P7/P4/P6 onceki seans kodu duruyor (chain/blackhole/poison, greed/executioner, synergyBadge, mega wall, p2 swap). Coop yok.
+
+**Yapilmadi**
+- P1.5 merge, P1.6 pixel ratio, P1.2/1.3 tam havuz, P7.1 evrim, P7.4 horde, P6 diorama, P8/P9, perf-probe tekrar (draw call sayisi bu seans olculmedi).
+- MANUEL: 3. portal duvar + boss faz 2; levelup yeni kartlar.
+- City zone pencereleri hala tekil mesh.
+
+**app.js kilidi:** SERBEST.
+
+### 2026-08-18 - P1.4/P5/P7/P4 leftover (app.js writer, coop haric)
+
+**Yapilan**
+- **P1.4** `addInstancedForest` (~650 agac, 4 InstancedMesh). worldDecor rock/bush/flower/mushroom/mini + 48 varil instanced; `updateWorldDecors` instanced sonrasi no-op. Voxel crate/oak/pine `addVoxelPropInstances` (paylasilan toon/outline mat). Chunk tree load bug'i da kapandi (step 3 sonrasi step 5'e zipliyordu, binalar/cim artik gercekten ekleniyor).
+- **P1.5** atlandi: `BufferGeometryUtils` yeni import, local `/node_modules/three` importmap ile kavga riski.
+- **P5** `tools/qa/map-audit.mjs` (grid step 8, ground raycast, JSON+PNG). RAMP_ZONES iki classic daga (220,40) ve (-260,-140) yamacina tasindi. Ground 48->64. 2 renkli fener obelisk. Audit: 10136 sample, maxAbs 1.703, 80 kritik (cap), 0 slope>50, rampMismatch ~8 (hill interpolation). 0 KRITIK degil.
+- **P7** actives: `unlock_chain_bolt`, `unlock_black_hole`, `unlock_poison_trail` (ABILITY_UNLOCK_IDS + CORE + pickSkills). Passives: `greed` (coinMult+goldGainMult), `executioner` (%15 infaz). Thorns zaten melee contact'ta vardi.
+- **P4** `spawnMegaArenaWall` (r=58 daire) + player clamp. `trySwapBossPhase2` HP<%50 -> `*_p2`.
+- **P6** menu `canvas.style.display=none` kaldirildi. `SKILL_SYNERGY` 10 satir + `.synergyBadge`. Diorama yok.
+- Playtest: `node tools/qa/shot-director.mjs` -> 5 shot, **0 hata**.
+
+**Yapilmadi**
+- P1.5 merge, P1.6 pixel ratio, P1.2/1.3 tam havuz, P7.1 evrim, P7.4 horde, P6 diorama, P8/P9 coop, perf-probe tekrar (draw call delta olculmedi).
+- MANUEL PLAYTEST BEKLIYOR: 3. portal mega arena duvar + boss faz 2; levelup'ta yeni kartlar.
+
+**app.js kilidi:** SERBEST.
 
 ### 2026-08-18 - Wire + kesif + portal (Claude, ajan DNS dustukten sonra)
 - Voxel scriptleri index.html'de zaten vardi; createEnemy/buildPlayer/boss/props baglantisi onceki yari kalan seans + bu seans.

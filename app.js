@@ -213,7 +213,9 @@ function getMaxEnemies() {
   const t = state.time || 0;
   const byLevel = 8 + Math.floor(L * 0.9);
   const byTime = 8 + Math.floor(t / 25);
-  return Math.min(70, Math.min(byLevel, byTime));
+  let cap = Math.min(70, Math.min(byLevel, byTime));
+  if (state.hordeSurgeActive) cap = Math.min(90, cap + 18);
+  return cap;
 }
 function hasVoxel(id) {
   return !!(id && typeof getVoxelModelDef === "function" && typeof buildVoxelModel === "function" && getVoxelModelDef(id));
@@ -283,6 +285,27 @@ function setInstanceAt(inst, i, x, y, z, rotY, sx, sy, sz) {
   _instDummy.scale.set(sx, sy == null ? sx : sy, sz == null ? sx : sz);
   _instDummy.updateMatrix();
   inst.setMatrixAt(i, _instDummy.matrix);
+}
+function setInstanceFull(inst, i, x, y, z, rotX, rotY, rotZ, sx, sy, sz) {
+  _instDummy.position.set(x, y, z);
+  _instDummy.rotation.set(rotX || 0, rotY || 0, rotZ || 0);
+  _instDummy.scale.set(sx, sy == null ? sx : sy, sz == null ? sx : sz);
+  _instDummy.updateMatrix();
+  inst.setMatrixAt(i, _instDummy.matrix);
+}
+function addInstancedPlacements(geo, mat, list, flags) {
+  if (!list || !list.length || !mapGroup) return;
+  const inst = addInstancedMesh(geo, mat, list.length);
+  if (flags && flags.castShadow) inst.castShadow = true;
+  if (flags && flags.receiveShadow) inst.receiveShadow = true;
+  const full = flags && flags.fullRot;
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    if (full) setInstanceFull(inst, i, p.x, p.y, p.z, p.rotX || 0, p.rotY || 0, p.rotZ || 0, p.sx, p.sy == null ? p.sx : p.sy, p.sz == null ? p.sx : p.sz);
+    else setInstanceAt(inst, i, p.x, p.y, p.z, p.rotY || 0, p.sx, p.sy == null ? p.sx : p.sy, p.sz == null ? p.sx : p.sz);
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  mapGroup.add(inst);
 }
 function addVoxelPropInstances(id, placements, fitHeight) {
   if (!placements.length || !hasVoxel(id)) return 0;
@@ -646,6 +669,10 @@ const state = {
   soulRoundEndTime: 0,
   nextSoulRoundAt: 285,
   soulRoundSpawnTimer: 0,
+  hordeSurgeActive: false,
+  hordeSurgeEndTime: 0,
+  nextHordeSurgeAt: 300,
+  hordeSurgeSpawnTimer: 0,
   attackRoundStarted: false,
   attackRoundActive: false,
   attackRoundPhase: 1,
@@ -808,6 +835,9 @@ const abilityState = {
   smite: { level: 0, damageMult: 1.0 },
   kineticBlast: { level: 0, maxTargets: 3, damageMult: 1.0, baseDamage: 32 },
   saturnRings: null,
+  chainBolt: { level: 0, timer: 0, cooldown: 2.6, damage: 22, jumps: 4 },
+  blackHole: { level: 0, timer: 0, cooldown: 6.8, damage: 48, radius: 7, zone: null },
+  poisonTrail: { level: 0, timer: 0, cooldown: 0.32, damage: 9, radius: 2.4 },
 };
 const MAX_PROJECTILES_PER_SKILL = 5;
 const MAX_ARROW_PROJECTILES = 4;
@@ -1315,6 +1345,8 @@ function ensureAudio() {
 
 const SOUL_ROUND_INTERVAL = 285;
 const SOUL_ROUND_DURATION = 60;
+const HORDE_SURGE_INTERVAL = 300;
+const HORDE_SURGE_DURATION = 30;
 let soulRoundSoundEl = null;
 function playSoulRoundSound() {
   if ((camSettings.soundVolume || 0) <= 0) return;
@@ -1904,6 +1936,14 @@ const skills = [
   { id: "lucky_strike", name: "Sansli Vurus", desc: "Kritik sans +%5, krit hasar +%15.", max: 4, rarity: "magic", apply() { stats.critChance = Math.min(1, (stats.critChance || 0) + 0.05); stats.critMult = (stats.critMult || 1.9) + 0.15; } },
   { id: "vampiric_touch", name: "Vampirik Dokunus", desc: "Vuruslardan can ceker (maks %1).", max: 5, rarity: "rare", apply() { stats.lifesteal = (stats.lifesteal || 0) + 0.002; } },
   { id: "elemental_affinity", name: "Element Uyumu", desc: "Yanik/Freeze/Sok hasari +%10.", max: 3, rarity: "rare", apply() { stats.elementalMult = (stats.elementalMult || 1) * 1.1; } },
+  { id: "unlock_chain_bolt", name: "Zincir Yildirim", desc: "En yakin dusmandan 4 hedefe seken yildirim.", max: 1, rarity: "rare", apply() { abilityState.chainBolt.level = 1; ownedSkills.add("chainBolt"); } },
+  { id: "chain_bolt_dmg", name: "Yildirim Hasar", desc: "Zincir yildirim hasari artar.", max: 4, rarity: "magic", requires: "unlock_chain_bolt", apply() { abilityState.chainBolt.damage *= 1.12; } },
+  { id: "unlock_black_hole", name: "Kara Delik", desc: "Dusmanlari ceker sonra patlar.", max: 1, rarity: "unique", apply() { abilityState.blackHole.level = 1; ownedSkills.add("blackHole"); } },
+  { id: "black_hole_dmg", name: "Kara Delik Hasar", desc: "Patlama hasari artar.", max: 4, rarity: "rare", requires: "unlock_black_hole", apply() { abilityState.blackHole.damage *= 1.12; } },
+  { id: "unlock_poison_trail", name: "Zehir Izi", desc: "Yururken zehir izi birakir.", max: 1, rarity: "rare", apply() { abilityState.poisonTrail.level = 1; stats.toxicTrail = Math.max(stats.toxicTrail || 0, 1); ownedSkills.add("poisonTrail"); } },
+  { id: "poison_trail_dmg", name: "Zehir Hasar", desc: "Iz hasari artar.", max: 4, rarity: "magic", requires: "unlock_poison_trail", apply() { abilityState.poisonTrail.damage *= 1.12; } },
+  { id: "greed", name: "Acgozluluk", desc: "Coin kazanci +%20.", max: 5, rarity: "magic", apply() { stats.goldGainMult = (stats.goldGainMult || 1) * 1.2; stats.coinMult = (stats.coinMult || 1) * 1.2; } },
+  { id: "executioner", name: "Cellat", desc: "%15 alti HP dusmani infaz et.", max: 1, rarity: "rare", apply() { stats.executioner = true; } },
 ];
 
 const skillLookup = {};
@@ -1991,16 +2031,16 @@ const HIGH_PLATEAUS = [
 ];
 
 const RAMP_ZONES = [
-  { x: 0, z: 45, length: 18, width: 5, angle: 0 },
-  { x: 0, z: -50, length: 18, width: 5, angle: Math.PI },
-  { x: 55, z: 0, length: 18, width: 5, angle: -Math.PI / 2 },
-  { x: -60, z: 0, length: 18, width: 5, angle: Math.PI / 2 },
-  { x: 100, z: 90, length: 22, width: 6, angle: -0.4 },
-  { x: -130, z: 95, length: 22, width: 6, angle: 0.35 },
-  { x: -70, z: -150, length: 20, width: 6, angle: Math.PI * 0.6 },
-  { x: 180, z: -90, length: 24, width: 6, angle: -Math.PI * 0.55 },
-  { x: 45, z: 55, length: 16, width: 5, angle: Math.PI / 4 },
-  { x: -45, z: -60, length: 16, width: 5, angle: -Math.PI / 3 },
+  { x: 220, z: -5, length: 36, width: 8, angle: Math.PI / 2 },
+  { x: 220, z: 85, length: 36, width: 8, angle: -Math.PI / 2 },
+  { x: 175, z: 40, length: 36, width: 8, angle: 0 },
+  { x: 265, z: 40, length: 36, width: 8, angle: Math.PI },
+  { x: -260, z: -178, length: 32, width: 7, angle: Math.PI / 2 },
+  { x: -260, z: -102, length: 32, width: 7, angle: -Math.PI / 2 },
+  { x: -298, z: -140, length: 32, width: 7, angle: 0 },
+  { x: -222, z: -140, length: 32, width: 7, angle: Math.PI },
+  { x: 60, z: 128, length: 22, width: 6, angle: Math.PI / 2 },
+  { x: 180, z: -78, length: 24, width: 6, angle: Math.PI / 2 },
 ];
 let worldRamps = [];
 let classicPlatforms = [];
@@ -2017,6 +2057,27 @@ function getRampHeight(x, z) {
     }
   }
   return null;
+}
+
+function addClassicRamps() {
+  worldRamps = RAMP_ZONES.map(function (r) {
+    const lowX = r.x - Math.cos(r.angle) * r.length * 0.5, lowZ = r.z - Math.sin(r.angle) * r.length * 0.5;
+    const highX = r.x + Math.cos(r.angle) * r.length * 0.5, highZ = r.z + Math.sin(r.angle) * r.length * 0.5;
+    return { x: r.x, z: r.z, length: r.length, width: r.width, angle: r.angle, lowY: sampleTerrainHeight(lowX, lowZ), highY: sampleTerrainHeight(highX, highZ) };
+  });
+  if (!mapGroup) return;
+  const rampMatF = new THREE.MeshStandardMaterial({ color: 0x5a5048, emissive: 0x1a1815, emissiveIntensity: 0.06, roughness: 0.88, metalness: 0.02 });
+  worldRamps.forEach(function (r) {
+    const rampGeo = new THREE.BoxGeometry(r.length, 0.35, r.width);
+    const rampMesh = new THREE.Mesh(rampGeo, rampMatF);
+    rampMesh.position.set(r.x, (r.lowY + r.highY) * 0.5, r.z);
+    rampMesh.rotation.order = "YXZ";
+    rampMesh.rotation.y = r.angle;
+    rampMesh.rotation.x = -Math.atan2(r.highY - r.lowY, r.length);
+    rampMesh.receiveShadow = true;
+    rampMesh.castShadow = true;
+    mapGroup.add(rampMesh);
+  });
 }
 
 function getIslandHeight(x, z) {
@@ -2160,7 +2221,10 @@ function getGroundHeight(x, z) {
     for (const p of classicPlatforms) {
       if (x >= p.x - p.hw && x <= p.x + p.hw && z >= p.z - p.hd && z <= p.z + p.hd) return p.topY;
     }
-    return sampleClassicHeight(x, z);
+    let h = sampleClassicHeight(x, z);
+    const rampY = getRampHeight(x, z);
+    if (rampY != null) h = Math.max(h, rampY);
+    return h;
   }
   if (mapId === "temple1" || mapId === "temple2") return getTempleGroundHeight(x, z);
   if (mapId === "arena1" || mapId === "arena2" || mapId === "arena3") {
@@ -2323,6 +2387,7 @@ function init() {
 
     loadPlayerAppearance();
     try { buildPlayer(); } catch (e) { console.error("buildPlayer:", e); }
+    try { setupMenuDiorama(); } catch (e) { console.warn("diorama skip:", e); }
   }
 
   if (typeof requestIdleCallback !== "undefined") {
@@ -2330,6 +2395,34 @@ function init() {
   } else {
     setTimeout(doHeavyInit, 0);
   }
+}
+
+let dioramaGroup = null;
+let dioramaOn = false;
+function setupMenuDiorama() {
+  if (dioramaOn || running || mapGroup) return;
+  if (typeof hasVoxel !== "function" || typeof buildVoxelModel !== "function") return;
+  dioramaGroup = new THREE.Group();
+  const pad = new THREE.Mesh(new THREE.CircleGeometry(6, 16), new THREE.MeshStandardMaterial({ color: 0x3a5a3a, roughness: 0.92 }));
+  pad.rotation.x = -Math.PI / 2;
+  dioramaGroup.add(pad);
+  const ids = ["goblin", "wolf"];
+  const xs = [-2.4, 2.4];
+  for (let i = 0; i < ids.length; i++) {
+    if (!hasVoxel(ids[i])) continue;
+    const m = buildVoxelModel(ids[i], { outline: true, fitHeight: 1.8 });
+    m.position.set(xs[i], 0, 0.8);
+    m.userData.idleTurn = true;
+    dioramaGroup.add(m);
+  }
+  scene.add(dioramaGroup);
+  dioramaOn = true;
+  if (player.mesh) player.mesh.position.set(0, 0, 0);
+}
+function hideMenuDiorama() {
+  if (dioramaGroup && scene) scene.remove(dioramaGroup);
+  dioramaGroup = null;
+  dioramaOn = false;
 }
 
 function clearWorld() {
@@ -2369,11 +2462,18 @@ function clearWorld() {
   worldChests.length = 0;
   worldPickups.length = 0;
   grassField = null;
+  worldRamps = [];
+  classicPlatforms = [];
   transitionAltarPos = null;
   worldDecorData.forEach(function(d) {
     if (d.mesh) { if (mapGroup) mapGroup.remove(d.mesh); if (d.mesh.geometry) d.mesh.geometry.dispose(); if (d.mesh.material) d.mesh.material.dispose(); d.mesh = null; }
   });
   worldDecorData.length = 0;
+  worldDecorInstanced = false;
+  if (megaArenaWall) {
+    if (mapGroup) mapGroup.remove(megaArenaWall);
+    megaArenaWall = null;
+  }
   if (worldDecorRockMats) { worldDecorRockMats.forEach(function(m) { m.dispose(); }); worldDecorRockMats = null; }
   if (worldDecorBushMat) { worldDecorBushMat.dispose(); worldDecorBushMat = null; }
   if (gorillaAuraRingMesh && typeof scene !== "undefined") {
@@ -2402,6 +2502,7 @@ function clearCurrentWorld() {
   bossShrines.length = 0; bossSummonShrines.length = 0;
   worldRamps = [];
   classicPlatforms = [];
+  worldDecorInstanced = false;
 }
 
 function buildWorldTemple(templeIndex) {
@@ -2695,7 +2796,7 @@ function buildWorldChunked(mapId, onProgress, onDone) {
       report(2, "Zemin");
       mapGroup = new THREE.Group();
       scene.add(mapGroup);
-      const groundGeo = new THREE.PlaneGeometry(WORLD_HALF * 2.2, WORLD_HALF * 2.2, 48, 48);
+      const groundGeo = new THREE.PlaneGeometry(WORLD_HALF * 2.2, WORLD_HALF * 2.2, 96, 96);
       groundGeo.rotateX(-Math.PI / 2);
       const pos = groundGeo.attributes.position;
       const colors = [];
@@ -2886,13 +2987,14 @@ function buildWorldChunked(mapId, onProgress, onDone) {
     }
     if (step === 6) {
       const addSteps = [
+        [86, "Rampalar", function() { addClassicRamps(); }],
         [88, "Binalar", function() { addBuildings(); }],
         [90, "Tapinaklar", function() { addShrines(); }],
         [92, "Dekor", function() { addDecorativeProps(); addRegionBeacons(); }],
         [94, "Sahne", function() { addLamppostsAndWells(); addGrassField(); }],
         [96, "Duvarlar", function() { addAmbientParticles(); addBoundaryWalls(); }],
         [98, "Noktalar", function() { addVillages(); addDifficultyAltars(); addVendingMachines(); }],
-        [100, "Hazir", function() { addBossArenas(); addParkourZones(); addRandomTeleportPortals(); addHardcorePortal(); addTransitionAltar(); if (loadingEl) loadingEl.classList.add("hidden"); if (onDone) onDone(); }]
+        [100, "Hazir", function() { addBossArenas(); addParkourZones(); addCloudsOnHills(); addRandomTeleportPortals(); addHardcorePortal(); addTransitionAltar(); if (loadingEl) loadingEl.classList.add("hidden"); if (onDone) onDone(); }]
       ];
       let idx = 0;
       function runNext() {
@@ -2920,7 +3022,7 @@ function buildWorldClassic() {
   scene.add(mapGroup);
 
   // === GROUND MESH with biome vertex colors ===
-  const groundGeo = new THREE.PlaneGeometry(WORLD_HALF * 2.2, WORLD_HALF * 2.2, 56, 56);
+  const groundGeo = new THREE.PlaneGeometry(WORLD_HALF * 2.2, WORLD_HALF * 2.2, 96, 96);
   groundGeo.rotateX(-Math.PI / 2);
   const pos = groundGeo.attributes.position;
   const colors = [];
@@ -2963,8 +3065,7 @@ function buildWorldClassic() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // === Classic map: duz zemin, ramp yok (manuel map eklenebilir) ===
-  worldRamps = [];
+  addClassicRamps();
 
   // === DIRT PATHS from spawn ===
   const pathMat = new THREE.MeshStandardMaterial({ color: 0x9a8060, emissive: 0x4a3a20, emissiveIntensity: 0.1, roughness: 0.9, transparent: true, opacity: 0.8 });
@@ -2994,14 +3095,15 @@ function buildWorldClassic() {
     mapGroup.add(lake); pondMeshes.push(lake);
   });
 
-  // === TREES ===
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, emissive: 0x3a2415, emissiveIntensity: 0.06, roughness: 0.9 });
-  const leafMats = [
+  // === TREES / ROCKS / BUSHES (instanced) ===
+  _chunkTrunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, emissive: 0x3a2415, emissiveIntensity: 0.06, roughness: 0.9 });
+  _chunkLeafMats = [
     new THREE.MeshStandardMaterial({ color: 0x3ab847, emissive: 0x1a5a22, emissiveIntensity: 0.12, roughness: 0.85 }),
     new THREE.MeshStandardMaterial({ color: 0x2d8a3a, emissive: 0x104a18, emissiveIntensity: 0.1, roughness: 0.85 }),
     new THREE.MeshStandardMaterial({ color: 0x55c855, emissive: 0x2a6a2a, emissiveIntensity: 0.15, roughness: 0.85 }),
     new THREE.MeshStandardMaterial({ color: 0xd4a030, emissive: 0x6a4a10, emissiveIntensity: 0.1, roughness: 0.85 }),
   ];
+  const treePos = [];
   for (let i = 0; i < 1200; i++) {
     const x = (Math.random() - 0.5) * WORLD_HALF * 2, z = (Math.random() - 0.5) * WORLD_HALF * 2;
     const d = Math.hypot(x, z);
@@ -3009,58 +3111,31 @@ function buildWorldClassic() {
     const r1d = Math.abs(z - Math.sin(x * 0.015) * 40 - 20);
     const r2d = Math.abs(x + 100 - Math.sin(z * 0.012) * 35);
     if (r1d < 10 || r2d < 10) continue;
-    const lm = leafMats[Math.floor(Math.random() * leafMats.length)];
-    const s = 1.5 + Math.random() * 1.1, hm = 1.0 + Math.random() * 0.7;
-    const g = new THREE.Group();
-    const th = 3.2 * hm;
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.42, th, 6), trunkMat);
-    trunk.position.y = th * 0.5;
-    if (Math.random() < 0.5) {
-      const c1 = new THREE.Mesh(new THREE.ConeGeometry(1.8, 3.4, 7), lm); c1.position.y = th + 1.2;
-      const c2 = new THREE.Mesh(new THREE.ConeGeometry(1.4, 2.5, 7), lm); c2.position.y = th + 2.8;
-      g.add(trunk, c1, c2);
-    } else {
-      const crown = new THREE.Mesh(new THREE.SphereGeometry(1.9, 7, 6), lm); crown.position.y = th + 1.5; crown.scale.set(1, 0.88, 1);
-      g.add(trunk, crown);
-    }
-    g.scale.setScalar(s); g.position.set(x, sampleTerrainHeight(x, z), z);
-    g.userData.isTree = true; g.userData.phase = i * 0.7;
-    mapGroup.add(g);
-    colliders.push({ x, z, r: 1.0 * s });
+    treePos.push({ x, z });
   }
-
-  // === ROCKS ===
-  const rockMats = [
-    new THREE.MeshStandardMaterial({ color: 0x7a8a8a, emissive: 0x3a4a4a, emissiveIntensity: 0.08, roughness: 0.9 }),
-    new THREE.MeshStandardMaterial({ color: 0x8a7a6a, emissive: 0x4a3a2a, emissiveIntensity: 0.08, roughness: 0.92 }),
-  ];
+  addInstancedForest(treePos);
+  worldDecorData.length = 0;
+  worldDecorInstanced = false;
   for (let i = 0; i < 620; i++) {
     const x = (Math.random() - 0.5) * WORLD_HALF * 2, z = (Math.random() - 0.5) * WORLD_HALF * 2;
     if (Math.hypot(x, z) < 12 || Math.hypot(x, z) > WORLD_HALF - 2) continue;
     const s = 0.5 + Math.random() * 1.4;
-    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8, 0), rockMats[Math.floor(Math.random() * 2)]);
-    rock.scale.set(s, s * (0.6 + Math.random() * 0.5), s);
-    rock.position.set(x, sampleTerrainHeight(x, z) + 0.15 * s, z);
-    rock.rotation.set(Math.random() * 0.3, Math.random() * Math.PI * 2, Math.random() * 0.2);
-    mapGroup.add(rock);
+    const sy = s * (0.6 + Math.random() * 0.5);
+    worldDecorData.push({ type: "rock", x, z, s, sy, rot: [Math.random() * 0.3, Math.random() * Math.PI * 2, Math.random() * 0.2], matIndex: Math.floor(Math.random() * 2), mesh: null });
     if (s > 0.8) colliders.push({ x, z, r: 0.5 * s });
   }
-
-  // === BUSHES & FLOWERS ===
-  const bushMat = new THREE.MeshStandardMaterial({ color: 0x2d7a2d, emissive: 0x0d3a0d, emissiveIntensity: 0.1, roughness: 0.88 });
   const flowerColors = [0xff6688, 0xffaa44, 0xdd66ff, 0x66ccff, 0xffff66];
   for (let i = 0; i < 780; i++) {
     const x = (Math.random() - 0.5) * WORLD_HALF * 2, z = (Math.random() - 0.5) * WORLD_HALF * 2;
     if (Math.hypot(x, z) < 12 || Math.hypot(x, z) > WORLD_HALF - 2) continue;
     const s = 0.45 + Math.random() * 0.75;
-    const bush = new THREE.Mesh(new THREE.SphereGeometry(0.55, 6, 5), bushMat);
-    bush.scale.set(s, s * 0.85, s); bush.position.set(x, sampleTerrainHeight(x, z) + 0.2 * s, z); mapGroup.add(bush);
+    worldDecorData.push({ type: "bush", x, z, s, mesh: null });
     if (Math.random() < 0.25) {
       const fc = flowerColors[Math.floor(Math.random() * flowerColors.length)];
-      const fl = new THREE.Mesh(new THREE.SphereGeometry(0.1, 5, 5), new THREE.MeshStandardMaterial({ color: fc, emissive: fc, emissiveIntensity: 0.3, roughness: 0.4 }));
-      fl.position.set(x + (Math.random() - 0.5) * 0.3, sampleTerrainHeight(x, z) + 0.45 * s, z + (Math.random() - 0.5) * 0.3); mapGroup.add(fl);
+      worldDecorData.push({ type: "flower", x: x + (Math.random() - 0.5) * 0.3, z: z + (Math.random() - 0.5) * 0.3, s, flowerColor: fc, mesh: null });
     }
   }
+  buildWorldDecorInstances();
 
   // === JUMP PADS === (collision: icinden gecmeyelim)
   const jumpPadMat = new THREE.MeshStandardMaterial({ color: 0x44ff88, emissive: 0x11cc44, emissiveIntensity: 0.6, roughness: 0.25, metalness: 0.2 });
@@ -3074,14 +3149,23 @@ function buildWorldClassic() {
     glow.rotation.x = -Math.PI / 2; glow.position.set(jp.x, y + 0.25, jp.z); mapGroup.add(glow);
   });
 
-  // === BARRELS ===
   const barrelMat = new THREE.MeshStandardMaterial({ color: 0x8b6914, emissive: 0x3d2d08, emissiveIntensity: 0.08, roughness: 0.85 });
+  const barrelGeo = new THREE.CylinderGeometry(0.35, 0.4, 0.85, 10);
+  const barrelPos = [];
   for (let i = 0; i < 48; i++) {
     const x = (Math.random() - 0.5) * WORLD_HALF * 2, z = (Math.random() - 0.5) * WORLD_HALF * 2;
     if (Math.hypot(x, z) < 15 || Math.hypot(x, z) > WORLD_HALF - 2) continue;
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.85, 10), barrelMat);
-    barrel.position.set(x, sampleTerrainHeight(x, z) + 0.42, z); mapGroup.add(barrel);
+    barrelPos.push({ x, z });
     colliders.push({ x, z, r: 0.45 });
+  }
+  if (barrelPos.length) {
+    const barrelInst = addInstancedMesh(barrelGeo, barrelMat, barrelPos.length);
+    for (let bi = 0; bi < barrelPos.length; bi++) {
+      const bp = barrelPos[bi];
+      setInstanceAt(barrelInst, bi, bp.x, sampleTerrainHeight(bp.x, bp.z) + 0.42, bp.z, 0, 1, 1, 1);
+    }
+    barrelInst.instanceMatrix.needsUpdate = true;
+    mapGroup.add(barrelInst);
   }
 
   // Araba pisti + park alanı
@@ -3179,23 +3263,7 @@ function buildWorldForest() {
   ground = new THREE.Mesh(groundGeo, new THREE.MeshStandardMaterial({ vertexColors: true, map: grassTex, color: 0x3a5a3a, roughness: 0.88, metalness: 0.0 }));
   ground.receiveShadow = true;
   scene.add(ground);
-  worldRamps = RAMP_ZONES.map((r) => {
-    const lowX = r.x - Math.cos(r.angle) * r.length * 0.5, lowZ = r.z - Math.sin(r.angle) * r.length * 0.5;
-    const highX = r.x + Math.cos(r.angle) * r.length * 0.5, highZ = r.z + Math.sin(r.angle) * r.length * 0.5;
-    return { x: r.x, z: r.z, length: r.length, width: r.width, angle: r.angle, lowY: sampleTerrainHeight(lowX, lowZ), highY: sampleTerrainHeight(highX, highZ) };
-  });
-  const rampMatF = new THREE.MeshStandardMaterial({ color: 0x5a5048, emissive: 0x1a1815, emissiveIntensity: 0.06, roughness: 0.88, metalness: 0.02 });
-  worldRamps.forEach((r) => {
-    const rampGeo = new THREE.BoxGeometry(r.length, 0.35, r.width);
-    const rampMesh = new THREE.Mesh(rampGeo, rampMatF);
-    rampMesh.position.set(r.x, (r.lowY + r.highY) * 0.5, r.z);
-    rampMesh.rotation.order = "YXZ";
-    rampMesh.rotation.y = r.angle;
-    rampMesh.rotation.x = -Math.atan2(r.highY - r.lowY, r.length);
-    rampMesh.receiveShadow = true;
-    rampMesh.castShadow = true;
-    mapGroup.add(rampMesh);
-  });
+  addClassicRamps();
   const pathMat = new THREE.MeshStandardMaterial({ color: 0x6a5040, emissive: 0x2a2018, emissiveIntensity: 0.1, roughness: 0.9, transparent: true, opacity: 0.7 });
   for (let t = 20; t < 140; t += 8) {
     const px = (Math.random() - 0.5) * 200, pz = (Math.random() - 0.5) * 200;
@@ -3644,49 +3712,45 @@ function addCityZone() {
     { x: -280, z: 50 }, { x: 180, z: 200 }, { x: -80, z: -250 }, { x: 320, z: -80 }, { x: -320, z: -200 },
     { x: 100, z: 280 }, { x: -150, z: 300 }, { x: 250, z: -200 }, { x: -250, z: 180 },
   ];
+  const cityBoxes = [];
+  const cityWins = [];
   for (const p of positions) {
     const d = Math.hypot(p.x, p.z);
     if (d < 50) continue;
-    const y = sampleTerrainHeight(p.x, p.z);
+    const y = getGroundHeight(p.x, p.z);
     const w = 8 + Math.random() * 12, depth = 8 + Math.random() * 10, h = 12 + Math.random() * 25;
-    const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, depth), buildingMat);
-    box.position.set(p.x, y + h * 0.5, p.z);
-    box.castShadow = true;
-    mapGroup.add(box);
-    const buildingR = Math.max(w, depth) * 0.52;
-    colliders.push({ x: p.x, z: p.z, r: buildingR });
+    cityBoxes.push({ x: p.x, y: y + h * 0.5, z: p.z, sx: w, sy: h, sz: depth });
+    colliders.push({ x: p.x, z: p.z, r: Math.max(w, depth) * 0.52 });
+    const faceY = p.x > 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
     for (let wi = 0; wi < 4; wi++) {
       const wx = p.x + (Math.random() - 0.5) * w * 0.6, wz = p.z + (Math.random() - 0.5) * depth * 0.6;
-      const win = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.8), windowMat);
-      win.position.set(wx, y + 3 + wi * (h / 4), wz);
-      win.lookAt(wx + (p.x > 0 ? 1 : -1), y, wz);
-      mapGroup.add(win);
+      cityWins.push({ x: wx, y: y + 3 + wi * (h / 4), z: wz, rotY: faceY, sx: 1.2, sy: 1.8, sz: 1 });
     }
   }
+  addInstancedPlacements(new THREE.BoxGeometry(1, 1, 1), buildingMat, cityBoxes, { castShadow: true });
+  addInstancedPlacements(new THREE.PlaneGeometry(1, 1), windowMat, cityWins);
+  const roads = [];
   for (let i = 0; i < 45; i++) {
     const x = (Math.random() - 0.5) * WORLD_HALF * 1.6, z = (Math.random() - 0.5) * WORLD_HALF * 1.6;
     if (Math.hypot(x, z) < 60) continue;
     const y = sampleTerrainHeight(x, z);
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(6 + Math.random() * 4, 20 + Math.random() * 15), roadMat);
-    road.rotation.x = -Math.PI / 2;
-    road.position.set(x, y + 0.02, z);
-    road.rotation.z = Math.random() * Math.PI * 2;
-    mapGroup.add(road);
+    roads.push({ x, y: y + 0.02, z, rotX: -Math.PI / 2, rotY: 0, rotZ: Math.random() * Math.PI * 2, sx: 6 + Math.random() * 4, sy: 20 + Math.random() * 15, sz: 1 });
   }
+  addInstancedPlacements(new THREE.PlaneGeometry(1, 1), roadMat, roads, { fullRot: true });
+  const posts = [];
+  const bulbs = [];
   for (let i = 0; i < 60; i++) {
     const x = (Math.random() - 0.5) * WORLD_HALF * 1.7, z = (Math.random() - 0.5) * WORLD_HALF * 1.7;
     if (Math.hypot(x, z) < 40) continue;
     const y = sampleTerrainHeight(x, z);
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 4, 6), lampMat);
-    post.position.set(x, y + 2, z);
-    mapGroup.add(post);
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 6), lampLightMat);
-    bulb.position.set(x, y + 4.2, z);
-    mapGroup.add(bulb);
+    posts.push({ x, y: y + 2, z, sx: 1, sy: 1, sz: 1 });
+    bulbs.push({ x, y: y + 4.2, z, sx: 1, sy: 1, sz: 1 });
     const light = new THREE.PointLight(0xffdd99, 0.5, 12);
     light.position.set(x, y + 4.5, z);
     mapGroup.add(light);
   }
+  addInstancedPlacements(new THREE.CylinderGeometry(0.08, 0.12, 4, 6), lampMat, posts);
+  addInstancedPlacements(new THREE.SphereGeometry(0.25, 8, 6), lampLightMat, bulbs);
 }
 
 // Araba pisti + park yeri (classic map icin)
@@ -3889,15 +3953,15 @@ function addBoundaryWalls() {
   const wallMat = new THREE.MeshStandardMaterial({ color: 0x4a5a6a, emissive: 0x1a2530, emissiveIntensity: 0.1, roughness: 0.8, metalness: 0.1 });
   const topMat = new THREE.MeshStandardMaterial({ color: 0x5a6a7a, emissive: 0x2a3540, emissiveIntensity: 0.08, roughness: 0.7, metalness: 0.15 });
   const wallH = 18, wallThick = 5, half = WORLD_HALF;
-  const segLen = 30; // segment length for terrain following
-
-  // Build wall segments along each edge
+  const segLen = 30;
   const edges = [
     { axis: "x", fixed: "z", fixedVal: -half, min: -half, max: half },
     { axis: "x", fixed: "z", fixedVal: half, min: -half, max: half },
     { axis: "z", fixed: "x", fixedVal: -half, min: -half, max: half },
     { axis: "z", fixed: "x", fixedVal: half, min: -half, max: half },
   ];
+  const walls = [];
+  const trims = [];
   for (const edge of edges) {
     for (let t = edge.min; t < edge.max; t += segLen) {
       const mid = t + segLen * 0.5;
@@ -3906,24 +3970,20 @@ function addBoundaryWalls() {
       const ty = getGroundHeight(wx, wz);
       const sx = edge.axis === "x" ? segLen + 2 : wallThick;
       const sz = edge.axis === "z" ? segLen + 2 : wallThick;
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(sx, wallH, sz), wallMat);
-      wall.position.set(wx, ty + wallH * 0.5, wz);
-      wall.castShadow = true; wall.receiveShadow = true;
-      mapGroup.add(wall);
-      // Top stone trim
-      const trim = new THREE.Mesh(new THREE.BoxGeometry(sx + 1, 1.5, sz + 1), topMat);
-      trim.position.set(wx, ty + wallH + 0.75, wz); mapGroup.add(trim);
+      walls.push({ x: wx, y: ty + wallH * 0.5, z: wz, sx, sy: wallH, sz });
+      trims.push({ x: wx, y: ty + wallH + 0.75, z: wz, sx: sx + 1, sy: 1.5, sz: sz + 1 });
     }
   }
-  // Corner pillars
+  addInstancedPlacements(new THREE.BoxGeometry(1, 1, 1), wallMat, walls, { castShadow: true, receiveShadow: true });
+  addInstancedPlacements(new THREE.BoxGeometry(1, 1, 1), topMat, trims);
+  const pillars = [];
   for (const cx of [-half, half]) { for (const cz of [-half, half]) {
     const cy = getGroundHeight(cx, cz);
-    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 4.5, wallH + 6, 8), topMat);
-    pillar.position.set(cx, cy + (wallH + 6) * 0.5, cz); pillar.castShadow = true; mapGroup.add(pillar);
-    // Torch on top
+    pillars.push({ x: cx, y: cy + (wallH + 6) * 0.5, z: cz, sx: 1, sy: 1, sz: 1 });
     const torch = new THREE.PointLight(0xff8844, 0.6, 20);
     torch.position.set(cx, cy + wallH + 8, cz); mapGroup.add(torch);
   }}
+  addInstancedPlacements(new THREE.CylinderGeometry(3.5, 4.5, wallH + 6, 8), topMat, pillars, { castShadow: true });
 }
 
 // NPC Villages
@@ -3947,30 +4007,28 @@ function addVillages() {
     new THREE.MeshStandardMaterial({ color: 0x44aa55, roughness: 0.5 }),
   ];
   const npcTypes = ["Silahci", "Sifaci", "Tezgahtar", "Buyucu"];
+  const vWalls = [];
+  const vRoofs = [];
+  const vDoors = [];
+  const vFences = [];
+  const vGrounds = [];
   for (const village of VILLAGES) {
     if (state.currentMapId === "island" && Math.hypot(village.x, village.z) >= ISLAND_RADIUS - 25) continue;
     const vy = getGroundHeight(village.x, village.z);
-    // Village ground
-    const vGround = new THREE.Mesh(new THREE.CircleGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.9 }));
-    vGround.rotation.x = -Math.PI / 2; vGround.position.set(village.x, vy + 0.06, village.z); mapGroup.add(vGround);
-    // Houses
+    vGrounds.push({ x: village.x, y: vy + 0.06, z: village.z, rotX: -Math.PI / 2, rotY: 0, rotZ: 0, sx: 1, sy: 1, sz: 1 });
     for (let hi = 0; hi < 4; hi++) {
       const angle = (hi / 4) * Math.PI * 2 + 0.3;
       const hx = village.x + Math.cos(angle) * 13, hz = village.z + Math.sin(angle) * 13;
       const hy = getGroundHeight(hx, hz);
-      const hg = new THREE.Group();
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 4), houseMat); wall.position.y = 1.5; wall.castShadow = true;
-      const roof = new THREE.Mesh(new THREE.ConeGeometry(3.5, 2, 4), roofMat); roof.position.y = 4; roof.rotation.y = Math.PI / 4;
-      const door = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 0.1), woodMat); door.position.set(0, 1, 2.05);
-      hg.add(wall, roof, door); hg.position.set(hx, hy, hz); mapGroup.add(hg);
+      vWalls.push({ x: hx, y: hy + 1.5, z: hz, sx: 1, sy: 1, sz: 1 });
+      vRoofs.push({ x: hx, y: hy + 4, z: hz, rotY: Math.PI / 4, sx: 1, sy: 1, sz: 1 });
+      vDoors.push({ x: hx, y: hy + 1, z: hz + 2.05, sx: 1, sy: 1, sz: 1 });
       colliders.push({ x: hx, z: hz, r: 2.5 });
     }
-    // Fence
     for (let fi = 0; fi < 14; fi++) {
       const fa = (fi / 14) * Math.PI * 2;
       const fx = village.x + Math.cos(fa) * 18, fz = village.z + Math.sin(fa) * 18;
-      const fpost = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.3, 4), woodMat);
-      fpost.position.set(fx, getGroundHeight(fx, fz) + 0.65, fz); mapGroup.add(fpost);
+      vFences.push({ x: fx, y: getGroundHeight(fx, fz) + 0.65, z: fz, sx: 1, sy: 1, sz: 1 });
     }
     // NPCs
     for (let ni = 0; ni < village.npcCount; ni++) {
@@ -3990,6 +4048,11 @@ function addVillages() {
     const vLight = new THREE.PointLight(0xffaa44, 0.5, 22);
     vLight.position.set(village.x, vy + 4, village.z); mapGroup.add(vLight);
   }
+  addInstancedPlacements(new THREE.CircleGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.9 }), vGrounds, { fullRot: true });
+  addInstancedPlacements(new THREE.BoxGeometry(4, 3, 4), houseMat, vWalls, { castShadow: true });
+  addInstancedPlacements(new THREE.ConeGeometry(3.5, 2, 4), roofMat, vRoofs);
+  addInstancedPlacements(new THREE.BoxGeometry(1, 2, 0.1), woodMat, vDoors);
+  addInstancedPlacements(new THREE.CylinderGeometry(0.08, 0.1, 1.3, 4), woodMat, vFences);
 }
 
 function addDifficultyAltars() {
@@ -4112,6 +4175,7 @@ function addBuildings() {
   const ruinMat = new THREE.MeshStandardMaterial({ color: 0x6b7a6a, emissive: 0x2a3528, emissiveIntensity: 0.12, roughness: 0.9 });
   const bunkerMat = new THREE.MeshStandardMaterial({ color: 0x4a5258, emissive: 0x1a2025, emissiveIntensity: 0.08, roughness: 0.9, metalness: 0.1 });
   const bunkerDark = new THREE.MeshStandardMaterial({ color: 0x3a4248, emissive: 0x12181c, emissiveIntensity: 0.06, roughness: 0.92 });
+  const siloMat = new THREE.MeshStandardMaterial({ color: 0x9a8a7a, roughness: 0.9 });
   const buildings = [
     {x:-160,z:120,type:"tower"},{x:200,z:-100,type:"tower"},{x:-250,z:-150,type:"house"},{x:280,z:160,type:"house"},
     {x:100,z:-220,type:"house"},{x:-120,z:250,type:"ruin"},{x:300,z:-250,type:"ruin"},{x:-350,z:50,type:"tower"},
@@ -4121,30 +4185,33 @@ function addBuildings() {
     {x:0,z:-140,type:"bunker"},{x:-200,z:80,type:"farm"},{x:150,z:-180,type:"farm"},{x:-100,z:-280,type:"house"},
     {x:320,z:200,type:"house"},{x:-320,z:-180,type:"farm"},{x:180,z:320,type:"house"},
   ];
+  const hBase = [], hRoof = [], hDoor = [];
+  const tBase = [], tBody = [], tTop = [];
+  const rW1 = [], rW2 = [], rPil = [];
+  const fBarn = [], fRoof = [], fSilo = [], fCap = [];
+  function yawOff(x, z, lx, lz, rotY) {
+    const c = Math.cos(rotY), s = Math.sin(rotY);
+    return { x: x + lx * c + lz * s, z: z - lx * s + lz * c };
+  }
   for (const p of buildings) {
     const ty = getGroundHeight(p.x, p.z) + 0.02;
-    const g = new THREE.Group();
+    const rotY = (p.type !== "bunker" && p.type !== "farm") ? Math.random() * Math.PI * 2 : 0;
     if (p.type === "farm") {
-      const barnBase = new THREE.Mesh(new THREE.BoxGeometry(12, 5, 8), stoneMat);
-      barnBase.position.y = 2.5; barnBase.castShadow = true;
-      const barnRoof = new THREE.Mesh(new THREE.ConeGeometry(8, 4, 4), roofMat);
-      barnRoof.position.y = 6; barnRoof.rotation.y = Math.PI / 4;
-      const silo = new THREE.Mesh(new THREE.CylinderGeometry(3, 3.5, 10, 8), new THREE.MeshStandardMaterial({ color: 0x9a8a7a, roughness: 0.9 }));
-      silo.position.set(7, 5, 0); silo.castShadow = true;
-      const siloCap = new THREE.Mesh(new THREE.ConeGeometry(3.2, 1.5, 8), roofMat);
-      siloCap.position.set(7, 10.75, 0);
-      g.add(barnBase, barnRoof, silo, siloCap);
+      fBarn.push({ x: p.x, y: ty + 2.5, z: p.z, sx: 1, sy: 1, sz: 1 });
+      fRoof.push({ x: p.x, y: ty + 6, z: p.z, rotY: Math.PI / 4, sx: 1, sy: 1, sz: 1 });
+      fSilo.push({ x: p.x + 7, y: ty + 5, z: p.z, sx: 1, sy: 1, sz: 1 });
+      fCap.push({ x: p.x + 7, y: ty + 10.75, z: p.z, sx: 1, sy: 1, sz: 1 });
     } else if (p.type === "tower") {
-      const tBase = new THREE.Mesh(new THREE.CylinderGeometry(4, 5, 2, 8), stoneMat); tBase.position.y = 1;
-      const tBody = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 4, 10, 8), stoneMat); tBody.position.y = 7;
-      const tTop = new THREE.Mesh(new THREE.ConeGeometry(4, 3, 8), roofMat); tTop.position.y = 13.5;
-      g.add(tBase, tBody, tTop);
+      tBase.push({ x: p.x, y: ty + 1, z: p.z, rotY, sx: 1, sy: 1, sz: 1 });
+      tBody.push({ x: p.x, y: ty + 7, z: p.z, rotY, sx: 1, sy: 1, sz: 1 });
+      tTop.push({ x: p.x, y: ty + 13.5, z: p.z, rotY, sx: 1, sy: 1, sz: 1 });
     } else if (p.type === "house") {
-      const base = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 6), stoneMat); base.position.y = 2; base.castShadow = true;
-      const roof = new THREE.Mesh(new THREE.ConeGeometry(6, 3, 4), roofMat); roof.position.y = 5.5; roof.rotation.y = Math.PI / 4;
-      const door = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.2, 0.2), woodMat); door.position.set(0, 1.1, 3.1);
-      g.add(base, roof, door);
+      hBase.push({ x: p.x, y: ty + 2, z: p.z, rotY, sx: 1, sy: 1, sz: 1 });
+      hRoof.push({ x: p.x, y: ty + 5.5, z: p.z, rotY: rotY + Math.PI / 4, sx: 1, sy: 1, sz: 1 });
+      const d = yawOff(p.x, p.z, 0, 3.1, rotY);
+      hDoor.push({ x: d.x, y: ty + 1.1, z: d.z, rotY, sx: 1, sy: 1, sz: 1 });
     } else if (p.type === "bunker") {
+      const g = new THREE.Group();
       const W = 22; const D = 16; const H = 5; const wallThick = 1.8;
       const floor = new THREE.Mesh(new THREE.BoxGeometry(W - wallThick * 2, 0.15, D - wallThick * 2), bunkerDark);
       floor.position.y = 0.075; floor.receiveShadow = true; g.add(floor);
@@ -4160,17 +4227,30 @@ function addBuildings() {
       wallFrontR.position.set(W * 0.25 + 1.5, H * 0.5, D * 0.5 - wallThick * 0.5); wallFrontR.castShadow = true; g.add(wallFrontR);
       const roofPlate = new THREE.Mesh(new THREE.BoxGeometry(W + 0.4, wallThick * 0.8, D + 0.4), bunkerDark);
       roofPlate.position.y = H + wallThick * 0.4; roofPlate.castShadow = true; roofPlate.receiveShadow = true; g.add(roofPlate);
+      g.position.set(p.x, ty, p.z);
+      mapGroup.add(g);
     } else {
-      const w1 = new THREE.Mesh(new THREE.BoxGeometry(10, 3, 1.5), ruinMat); w1.position.set(0, 1.5, 0);
-      const w2 = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.5, 8), ruinMat); w2.position.set(-4, 1.25, 0);
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1, 4, 6), ruinMat); pillar.position.set(2, 2, 2);
-      g.add(w1, w2, pillar);
+      rW1.push({ x: p.x, y: ty + 1.5, z: p.z, rotY, sx: 1, sy: 1, sz: 1 });
+      const w2 = yawOff(p.x, p.z, -4, 0, rotY);
+      rW2.push({ x: w2.x, y: ty + 1.25, z: w2.z, rotY, sx: 1, sy: 1, sz: 1 });
+      const pil = yawOff(p.x, p.z, 2, 2, rotY);
+      rPil.push({ x: pil.x, y: ty + 2, z: pil.z, rotY, sx: 1, sy: 1, sz: 1 });
     }
-    g.position.set(p.x, ty, p.z);
-    if (p.type !== "bunker" && p.type !== "farm") g.rotation.y = Math.random() * Math.PI * 2;
-    mapGroup.add(g);
     colliders.push({ x: p.x, z: p.z, r: p.type === "bunker" ? 14 : (p.type === "farm" ? 8 : 5) });
   }
+  addInstancedPlacements(new THREE.BoxGeometry(8, 4, 6), stoneMat, hBase, { castShadow: true });
+  addInstancedPlacements(new THREE.ConeGeometry(6, 3, 4), roofMat, hRoof);
+  addInstancedPlacements(new THREE.BoxGeometry(1.5, 2.2, 0.2), woodMat, hDoor);
+  addInstancedPlacements(new THREE.CylinderGeometry(4, 5, 2, 8), stoneMat, tBase);
+  addInstancedPlacements(new THREE.CylinderGeometry(3.5, 4, 10, 8), stoneMat, tBody);
+  addInstancedPlacements(new THREE.ConeGeometry(4, 3, 8), roofMat, tTop);
+  addInstancedPlacements(new THREE.BoxGeometry(10, 3, 1.5), ruinMat, rW1);
+  addInstancedPlacements(new THREE.BoxGeometry(1.5, 2.5, 8), ruinMat, rW2);
+  addInstancedPlacements(new THREE.CylinderGeometry(0.8, 1, 4, 6), ruinMat, rPil);
+  addInstancedPlacements(new THREE.BoxGeometry(12, 5, 8), stoneMat, fBarn, { castShadow: true });
+  addInstancedPlacements(new THREE.ConeGeometry(8, 4, 4), roofMat, fRoof);
+  addInstancedPlacements(new THREE.CylinderGeometry(3, 3.5, 10, 8), siloMat, fSilo, { castShadow: true });
+  addInstancedPlacements(new THREE.ConeGeometry(3.2, 1.5, 8), roofMat, fCap);
 }
 
 // === SHRINES ===
@@ -4816,6 +4896,65 @@ function createShadowEnemyInner() {
 // HP bar sprite havuzu (P1.2): her yaratik icin ayri canvas+texture yaratmak yerine
 // olen yaratigin barini geri al. Bar icerigi dinamik oldugu icin paylasilamaz, havuzlanir.
 const hpBarPool = [];
+const ENEMY_MESH_POOL = {};
+const ENEMY_MESH_POOL_MAX_PER = 8;
+const ENEMY_MESH_POOL_MAX = 80;
+let enemyMeshPoolCount = 0;
+function acquireEnemyMesh(voxelId) {
+  const bucket = ENEMY_MESH_POOL[voxelId];
+  if (!bucket || !bucket.length) return null;
+  enemyMeshPoolCount--;
+  const g = bucket.pop();
+  g.visible = true;
+  g.position.set(0, 0, 0);
+  g.rotation.set(0, 0, 0);
+  if (g.quaternion) g.quaternion.identity();
+  return g;
+}
+function stashEnemyMesh(g, voxelId) {
+  if (!g || !voxelId) return false;
+  const bucket = ENEMY_MESH_POOL[voxelId] || (ENEMY_MESH_POOL[voxelId] = []);
+  if (enemyMeshPoolCount >= ENEMY_MESH_POOL_MAX || bucket.length >= ENEMY_MESH_POOL_MAX_PER) {
+    disposeMeshDeep(g);
+    return false;
+  }
+  const keep = g.userData.poolKeep || 0;
+  while (g.children.length > keep) {
+    const c = g.children[g.children.length - 1];
+    g.remove(c);
+    if (c.isSprite) continue;
+    disposeMeshDeep(c);
+  }
+  if (g.parent) g.parent.remove(g);
+  g.visible = false;
+  bucket.push(g);
+  enemyMeshPoolCount++;
+  return true;
+}
+const PROJ_MESH_POOL = {};
+const PROJ_MESH_POOL_MAX = 48;
+const PROJ_POOL_SHAPES = { fireball: 1, frostball: 1, comet: 1, banana: 1, boomerang: 1, shuriken: 1, bomb: 1, arrow: 1, arrow_shock: 1, arrow_burn: 1, arrow_freeze: 1 };
+let projMeshPoolCount = 0;
+function acquireProjMesh(key) {
+  const bucket = PROJ_MESH_POOL[key];
+  if (!bucket || !bucket.length) return null;
+  projMeshPoolCount--;
+  const m = bucket.pop();
+  m.visible = true;
+  m.rotation.set(0, 0, 0);
+  if (m.quaternion) m.quaternion.identity();
+  return m;
+}
+function stashProjMesh(mesh, key) {
+  if (!mesh || !key || !PROJ_POOL_SHAPES[key]) return false;
+  const bucket = PROJ_MESH_POOL[key] || (PROJ_MESH_POOL[key] = []);
+  if (projMeshPoolCount >= PROJ_MESH_POOL_MAX || bucket.length >= 12) return false;
+  if (mesh.parent) mesh.parent.remove(mesh);
+  mesh.visible = false;
+  bucket.push(mesh);
+  projMeshPoolCount++;
+  return true;
+}
 function makeHpBar(isPlayer) {
   let spr = isPlayer ? null : hpBarPool.pop();
   if (spr) {
@@ -4852,6 +4991,9 @@ function releaseEnemyVisuals(enemy) {
     cast.visible = false;
     if (castLabelPool.length < 32) castLabelPool.push(cast);
     enemy.castLabel = null;
+  }
+  if (enemy.mesh && enemy.mesh.userData && enemy.mesh.userData.poolVoxelId && !enemy.isBoss) {
+    enemy._meshPooled = stashEnemyMesh(enemy.mesh, enemy.mesh.userData.poolVoxelId);
   }
 }
 
@@ -5163,7 +5305,6 @@ document.addEventListener("keyup", (e) => {
     gameOver = false;
     running = false;
     if (typeof clearFloatingCounters === "function") clearFloatingCounters();
-    if (canvas) canvas.style.display = "none";
     if (hud) hud.classList.add("hidden");
     if (skillsHud) skillsHud.classList.add("hidden");
     if (levelupPanel) levelupPanel.classList.add("hidden");
@@ -5587,7 +5728,6 @@ function bindPauseMenu() {
     levelupPanel.classList.add("hidden");
     gameOverPanel.classList.add("hidden");
     startScreen.classList.remove("hidden");
-    if (canvas) canvas.style.display = "none";
   });
 }
 
@@ -5864,6 +6004,7 @@ function startRun(selectedChapter, selectedMapId) {
   state.selectedMapId = selectedMapId || "classic";
   state.chapter = 1;
   state.challengeMode = (document.getElementById("challengeModeSelect") && document.getElementById("challengeModeSelect").value) || "none";
+  hideMenuDiorama();
   clearWorld();
   if (canvas) canvas.style.display = "";
   const loadingEl = document.getElementById("loadingOverlay");
@@ -5947,6 +6088,7 @@ function startRun(selectedChapter, selectedMapId) {
   state.mapVoidOverlayUntil = 0;
   state.transitionAltarInsideTime = 0;
   state.inMegaArena = false;
+  state.megaArenaCenter = null;
   state.megaBossSpawned = false;
   state.inTemple = false;
   state.templeIndex = 0;
@@ -6004,6 +6146,10 @@ function startRun(selectedChapter, selectedMapId) {
   state.soulRoundEndTime = 0;
   state.nextSoulRoundAt = SOUL_ROUND_INTERVAL;
   state.soulRoundSpawnTimer = 0;
+  state.hordeSurgeActive = false;
+  state.hordeSurgeEndTime = 0;
+  state.nextHordeSurgeAt = HORDE_SURGE_INTERVAL;
+  state.hordeSurgeSpawnTimer = 0;
   state.attackRoundStarted = false;
   state.attackRoundActive = false;
   state.attackRoundPhase = 1;
@@ -6042,6 +6188,9 @@ function startRun(selectedChapter, selectedMapId) {
   abilityState.smite = { level: 0, damageMult: 1.0, radius: 2 };
   abilityState.kineticBlast = { level: 0, maxTargets: 3, damageMult: 1.0, baseDamage: 32 };
   abilityState.saturnRings = null;
+  abilityState.chainBolt = { level: 0, timer: 0, cooldown: 2.6, damage: 22, jumps: 4 };
+  abilityState.blackHole = { level: 0, timer: 0, cooldown: 6.8, damage: 48, radius: 7, zone: null };
+  abilityState.poisonTrail = { level: 0, timer: 0, cooldown: 0.32, damage: 9, radius: 2.4 };
   specialState.frostNova.timer = 0;
   specialState.dash.timer = 0;
   specialState.meteorUlt.timer = 0;
@@ -6203,7 +6352,6 @@ function createEnemy(tier, cfg, opts) {
 }
 function createEnemyInner(tier, cfg, opts) {
   opts = (opts && typeof opts === "object") ? opts : {};
-  const g = new THREE.Group();
   const isBoss = tier === "boss";
   const r = Math.random();
   const mapId = state.selectedMapId || state.currentMapId || "classic";
@@ -6253,10 +6401,25 @@ function createEnemyInner(tier, cfg, opts) {
   const scaleVar = 1.18 + Math.random() * 0.12;
   const voxelId = pickEnemyVoxelId(isBoss, normalBeastType, opts);
   let voxelUsed = false;
-  if (voxelId && attachVoxelModel(g, voxelId, cfg.height, cfg.radius, scaleVar)) {
+  let g = null;
+  if (!isBoss && voxelId) g = acquireEnemyMesh(voxelId);
+  if (g) {
     voxelUsed = true;
+    const info = g.userData.voxelInfo || {};
+    const sH = cfg.height / Math.max(info.height, 0.01);
+    const sR = (cfg.radius * 2) / Math.max(info.width, 0.01);
+    g.scale.setScalar(Math.min(sH, sR) * scaleVar);
   } else {
-    g.scale.setScalar(scaleVar);
+    g = new THREE.Group();
+    if (voxelId && attachVoxelModel(g, voxelId, cfg.height, cfg.radius, scaleVar)) {
+      voxelUsed = true;
+      if (!isBoss) {
+        g.userData.poolKeep = g.children.length;
+        g.userData.poolVoxelId = voxelId;
+      }
+    } else {
+      g.scale.setScalar(scaleVar);
+    }
   }
 
   if (!voxelUsed) {
@@ -7840,6 +8003,15 @@ function updateSpawning(dt) {
     }
     return;
   }
+  if (state.hordeSurgeActive) {
+    state.hordeSurgeSpawnTimer -= dt;
+    if (state.hordeSurgeSpawnTimer <= 0) {
+      state.hordeSurgeSpawnTimer = 0.45;
+      const n = Math.random() < 0.4 ? 3 : 2;
+      for (let i = 0; i < n; i++) spawnEnemy((i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.5);
+    }
+    return;
+  }
   state.spawnTimer -= dt;
   if (state.spawnTimer > 0) return;
   const gameTimeSec = state.time || 0;
@@ -8275,7 +8447,7 @@ function spawnChaosIceBall() {
 }
 
 function updateChaos(dt) {
-  if (!running || gameOver) return;
+  if (!running || gameOver || paused) return;
   const t = state.time || 0;
   if (t < 90) return;
   const chaosScale = 1 + (t - 90) / 180;
@@ -8634,11 +8806,58 @@ function enterPortal() {
       scene.remove(enemies[i].mesh);
       enemies.splice(i, 1);
     }
+    spawnMegaArenaWall();
     spawnWave(player.mesh.position, 12, 0xff4444);
     spawnDamageText(player.mesh.position, "BOSS ODASI", true, "BOSS ODASI");
     if (typeof showGameNotification === "function") showGameNotification("3 portal: ZONK Avatari!");
     spawnBoss(2);
   }
+}
+
+function spawnMegaArenaWall() {
+  if (megaArenaWall || !mapGroup || !player.mesh) return;
+  const cx = player.mesh.position.x;
+  const cz = player.mesh.position.z;
+  const R = 58;
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0x3a1822, emissive: 0x1a0810, roughness: 0.92 });
+  const segs = 20;
+  for (let i = 0; i < segs; i++) {
+    const a = (i / segs) * Math.PI * 2;
+    const x = cx + Math.cos(a) * R;
+    const z = cz + Math.sin(a) * R;
+    const y = getGroundHeight(x, z);
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(20, 14, 3.2), mat);
+    wall.position.set(x, y + 7, z);
+    wall.lookAt(cx, y + 7, cz);
+    g.add(wall);
+  }
+  mapGroup.add(g);
+  megaArenaWall = g;
+  state.megaArenaCenter = { x: cx, z: cz, r: R - 4 };
+}
+
+function trySwapBossPhase2(e) {
+  if (!e || e._phase2 || !e.isBoss || !e.mesh) return;
+  if (e.hp > (e.maxHp || 1) * 0.5) return;
+  const id = e.mesh.userData.voxelId;
+  if (!id || /_p2$/.test(id)) { e._phase2 = true; return; }
+  const p2 = id + "_p2";
+  if (!hasVoxel(p2)) { e._phase2 = true; return; }
+  const g = e.mesh;
+  const savedScale = g.scale.clone();
+  const kids = g.children.slice();
+  for (let i = 0; i < kids.length; i++) {
+    const c = kids[i];
+    if (c === e.hpBar || c === e.nameLabel) continue;
+    g.remove(c);
+  }
+  g.scale.setScalar(1);
+  attachVoxelModel(g, p2, e.radius * 2.2, e.radius, 1);
+  g.scale.copy(savedScale);
+  e._phase2 = true;
+  spawnRing(g.position, 6.5, 0xff3344, 0.4);
+  spawnDamageText(g.position.clone().add(new THREE.Vector3(0, 3, 0)), "FAZ 2", true, "FAZ 2");
 }
 
 function updateAim() {
@@ -8668,6 +8887,15 @@ function resolvePlayerCollision(nextPos) {
   if (state.currentMapId === "temple1" || state.currentMapId === "temple2") bound = TEMPLE_HALF - 2;
   nextPos.x = clamp(nextPos.x, -bound, bound);
   nextPos.z = clamp(nextPos.z, -bound, bound);
+  if (state.inMegaArena && state.megaArenaCenter) {
+    const c = state.megaArenaCenter;
+    const dx = nextPos.x - c.x, dz = nextPos.z - c.z;
+    const d = Math.hypot(dx, dz);
+    if (d > c.r) {
+      nextPos.x = c.x + dx / d * c.r;
+      nextPos.z = c.z + dz / d * c.r;
+    }
+  }
   var margin = 0.12;
   for (var iter = 0; iter < 6; iter++) {
     var changed = false;
@@ -8836,7 +9064,14 @@ function spawnProjectileInner(opts) {
   baseSpeed = baseSpeed * levelScale;
   const speed = baseSpeed * (stats.projectileSpeedMult || 1);
   const rad = opts.radius || 0.16;
-  let mesh;
+  let mesh = (opts.shape && PROJ_POOL_SHAPES[opts.shape]) ? acquireProjMesh(opts.shape) : null;
+  if (mesh) {
+    const br = mesh.userData.baseRad || rad;
+    const bs = mesh.userData.baseScale != null ? mesh.userData.baseScale : 1;
+    mesh.scale.setScalar((rad / br) * bs);
+    if (opts.shape === "shuriken") mesh.rotation.x = Math.PI / 2;
+  }
+  if (!mesh) {
   if (opts.shape === "fireball") {
     mesh = makeFireballMesh(rad);
   } else if (opts.shape === "comet") {
@@ -8861,6 +9096,12 @@ function spawnProjectileInner(opts) {
     mesh = makeArrowMesh(rad, opts.shape);
   } else {
     mesh = new THREE.Mesh(new THREE.SphereGeometry(rad, 10, 8), new THREE.MeshStandardMaterial({ color: opts.color || 0xffffff, emissive: opts.emissive || 0x202020, roughness: 0.25, metalness: 0.05 }));
+  }
+  if (opts.shape && PROJ_POOL_SHAPES[opts.shape]) {
+    mesh.userData.poolKey = opts.shape;
+    mesh.userData.baseRad = rad;
+    mesh.userData.baseScale = mesh.scale.x;
+  }
   }
   mesh.position.copy(opts.position);
   // Launch flash at spawn position (skip for arrow to save effects)
@@ -10525,12 +10766,13 @@ function spawnTurret(pos) {
   placeableTurrets.push({ mesh: g, timer: duration, shootCd: 0, dmgMult });
 }
 
-function getNearestEnemyFromPos(pos, range) {
+function getNearestEnemyFromPos(pos, range, skip) {
   let nearest = null;
   let best = range * range;
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i];
     if (e._dead || (e.hp != null && e.hp <= 0)) continue;
+    if (skip && skip.has(e)) continue;
     const ePos = e.mesh.position;
     const dx = ePos.x - pos.x;
     const dz = ePos.z - pos.z;
@@ -10538,6 +10780,21 @@ function getNearestEnemyFromPos(pos, range) {
     if (d2 < best) { best = d2; nearest = e; }
   }
   return nearest;
+}
+function fireChainLightning(start, damage, jumps) {
+  let from = start;
+  const hit = new Set();
+  let dmg = damage;
+  const maxJ = Math.min(jumps || 4, 6);
+  for (let n = 0; n < maxJ && from; n++) {
+    hit.add(from);
+    const dir = v0.copy(from.mesh.position).sub(player.mesh.position).setY(0);
+    if (dir.lengthSq() > 0.0001) dir.normalize();
+    applyDamageEnemy(from, dmg, dir, false, "lightning");
+    spawnFlash(from.mesh.position, 0xaaddff, 0.45, 0.12);
+    dmg *= 0.72;
+    from = getNearestEnemyFromPos(from.mesh.position, 9, hit);
+  }
 }
 
 function updateTurrets(dt) {
@@ -10807,8 +11064,8 @@ function killEnemy(enemy) {
   const idx = enemies.indexOf(enemy);
   if (idx >= 0) enemies.splice(idx, 1);
   releaseEnemyVisuals(enemy);
-  scene.remove(enemy.mesh);
-  disposeMeshDeep(enemy.mesh);
+  if (enemy.mesh && enemy.mesh.parent) scene.remove(enemy.mesh);
+  if (!enemy._meshPooled) disposeMeshDeep(enemy.mesh);
   if (!gameOver && !state.attackRoundActive && !state.inTemple && enemies.length < getMaxEnemies() && !enemy.isBoss) spawnEnemy();
   if (stats.poisonCloud) {
     radialDamageEnemies(enemy.mesh.position, 2.5, 8 + (stats.poison || 0) * 2);
@@ -10872,7 +11129,7 @@ function killEnemy(enemy) {
   let xpAmount = enemy.xp * streakMult * hardcoreRewardMult * bonusMult * (state.bonusTime ? bonusComboMult : 1) * doublePointsMult * GLOBAL_KILL_XP_MULT;
   if (!enemy.isAbyss && !enemy.isBoss) xpAmount *= NORMAL_MOB_XP_MULT;
   const baseCoin = enemy.isBoss ? (15 + Math.floor(Math.random() * 20)) : (1 + Math.floor(Math.random() * 3));
-  let coinDrop = Math.floor(baseCoin * (stats.coinMult || 1) * (state.difficultyMult || 1) * streakMult * (enemy.isElite ? 1.4 : 1) * hardcoreRewardMult * bonusMult * bonusComboMult);
+  let coinDrop = Math.floor(baseCoin * (stats.coinMult || 1) * (stats.goldGainMult || 1) * (state.difficultyMult || 1) * streakMult * (enemy.isElite ? 1.4 : 1) * hardcoreRewardMult * bonusMult * bonusComboMult);
   const luckyDrop = Math.random() < 0.06;
   if (luckyDrop) { coinDrop *= 2; spawnDamageText(enemy.mesh.position.clone().add(new THREE.Vector3(0, 2, 0)), "LUCKY!", true, "lucky"); }
   if (Math.random() < 0.14) state.mana = Math.min(state.maxMana, state.mana + 8);
@@ -11007,6 +11264,7 @@ function applyDamageEnemy(e, damage, dir, isCrit = false, damageType = null) {
   if ((e.tier === "rare" || e.tier === "unique" || e.isBoss) && stats.eliteDmgMult) d *= stats.eliteDmgMult;
   if (e.tier === "normal" && stats.normalEnemyDmgMult) d *= stats.normalEnemyDmgMult;
   if (stats.titanKiller && e.isBoss && e.hp <= (e.maxHp || e.hp) * 0.05) { e.hp = 0; killEnemy(e); return; }
+  if (stats.executioner && !e.isBoss && (e.hp - d) <= (e.maxHp || e.hp) * 0.15) { e.hp = 0; killEnemy(e); return; }
   if (stats.execute > 0 && e.hp <= (e.maxHp || e.hp) * 0.35) d *= 1 + stats.execute;
   if (state._bloodlustUntil && state.time < state._bloodlustUntil && stats.bloodlust) d *= 1 + stats.bloodlust;
   if (state.rageUntil && state.time < state.rageUntil) d *= 1.25;
@@ -11774,6 +12032,7 @@ function updateEnemies(dt) {
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
     applyRimStats(e);
+    if (e.isBoss) trySwapBossPhase2(e);
     const distToPlayer = e.mesh.position.distanceTo(playerPos);
     // Uzaktaki siradan dusmanlar her karede degil, ENEMY_FAR_TICK karede bir islenir.
     let farSkip = 0;
@@ -13021,6 +13280,67 @@ function updateAbilities(dt) {
     }
   }
 
+  if (abilityState.chainBolt && abilityState.chainBolt.level > 0 && target) {
+    const a = abilityState.chainBolt;
+    a.timer -= dt;
+    if (a.timer <= 0) {
+      fireChainLightning(target, a.damage * (stats.projectileDamageMult || 1), a.jumps || 4);
+      a.timer = a.cooldown * cdMult;
+    }
+  }
+
+  if (abilityState.blackHole && abilityState.blackHole.level > 0) {
+    const a = abilityState.blackHole;
+    a.timer -= dt;
+    if (a.timer <= 0 && target) {
+      a.timer = a.cooldown * cdMult;
+      a.zone = {
+        x: target.mesh.position.x,
+        z: target.mesh.position.z,
+        y: target.mesh.position.y,
+        age: 0,
+        radius: a.radius,
+        damage: a.damage * (stats.projectileDamageMult || 1),
+        burst: false
+      };
+      spawnRing(target.mesh.position, a.radius, 0x331155, 1.1);
+    }
+    if (a.zone) {
+      a.zone.age += dt;
+      const zx = a.zone.x, zz = a.zone.z, r = a.zone.radius;
+      for (let i = 0; i < enemies.length; i++) {
+        const e = enemies[i];
+        if (!e || e._dead) continue;
+        const dx = zx - e.mesh.position.x, dz = zz - e.mesh.position.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < r && dist > 0.25) {
+          const pull = 9 * dt;
+          e.mesh.position.x += (dx / dist) * pull;
+          e.mesh.position.z += (dz / dist) * pull;
+        }
+      }
+      if (!a.zone.burst && a.zone.age >= 0.9) {
+        a.zone.burst = true;
+        const pos = new THREE.Vector3(a.zone.x, a.zone.y, a.zone.z);
+        radialDamageEnemies(pos, a.zone.radius, a.zone.damage);
+        spawnFlash(pos, 0x6611aa, 1.3, 0.28);
+        spawnRing(pos, a.zone.radius, 0xaa44ff, 0.35);
+      }
+      if (a.zone.age >= 1.4) a.zone = null;
+    }
+  }
+
+  if (abilityState.poisonTrail && abilityState.poisonTrail.level > 0) {
+    const a = abilityState.poisonTrail;
+    a.timer -= dt;
+    if (a.timer <= 0) {
+      const origin = player.mesh.position.clone().setY(player.mesh.position.y + 0.4);
+      radialDamageEnemies(origin, a.radius, a.damage * (stats.projectileDamageMult || 1));
+      spawnRing(origin, a.radius, 0x66cc44, 0.22);
+      a.timer = a.cooldown * cdMult;
+    }
+  }
+
   if (abilityState.fireball.level > 0 && target) {
     const a = abilityState.fireball;
     a.timer -= dt;
@@ -13823,7 +14143,7 @@ function canPickSkill(skill) {
   return true;
 }
 
-const ABILITY_UNLOCK_IDS = new Set(["unlock_fireball", "unlock_comet", "unlock_swords", "unlock_meteor", "unlock_nova", "unlock_frostball", "unlock_frost_nova", "unlock_dash", "unlock_meteor_ult", "unlock_explosion", "unlock_spark", "unlock_smite", "unlock_kinetic_blast", "unlock_arrow_shock", "unlock_arrow_burn", "unlock_arrow_freeze", "comp_phoenix", "comp_drone", "comp_golem", "comp_skeleton_minion", "comp_wolf_minion", "comp_goblin_minion", "comp_healer_minion", "comp_archer_minion", "comp_mage_minion", "minyon_sayisi", "unlock_banana", "unlock_sword_throw", "unlock_boomerang", "unlock_shuriken", "unlock_bomb", "unlock_line_shot", "unlock_laser", "unlock_light_beam", "unlock_cone_blast", "unlock_reload_weapon", "unlock_dismantle", "unlock_gorilla_aura", "unlock_herald_thunder", "unlock_herald_ice", "unlock_herald_ash", "unlock_flicker_strike", "unlock_saturn_rings", "unlock_ult_mega_explosion", "unlock_ult_ice_apocalypse", "unlock_ult_lightning_storm", "unlock_ult_inferno", "unlock_ult_void_blast"]);
+const ABILITY_UNLOCK_IDS = new Set(["unlock_fireball", "unlock_comet", "unlock_swords", "unlock_meteor", "unlock_nova", "unlock_frostball", "unlock_frost_nova", "unlock_dash", "unlock_meteor_ult", "unlock_explosion", "unlock_spark", "unlock_smite", "unlock_kinetic_blast", "unlock_arrow_shock", "unlock_arrow_burn", "unlock_arrow_freeze", "comp_phoenix", "comp_drone", "comp_golem", "comp_skeleton_minion", "comp_wolf_minion", "comp_goblin_minion", "comp_healer_minion", "comp_archer_minion", "comp_mage_minion", "minyon_sayisi", "unlock_banana", "unlock_sword_throw", "unlock_boomerang", "unlock_shuriken", "unlock_bomb", "unlock_line_shot", "unlock_laser", "unlock_light_beam", "unlock_cone_blast", "unlock_reload_weapon", "unlock_dismantle", "unlock_gorilla_aura", "unlock_herald_thunder", "unlock_herald_ice", "unlock_herald_ash", "unlock_flicker_strike", "unlock_saturn_rings", "unlock_ult_mega_explosion", "unlock_ult_ice_apocalypse", "unlock_ult_lightning_storm", "unlock_ult_inferno", "unlock_ult_void_blast", "unlock_chain_bolt", "unlock_black_hole", "unlock_poison_trail"]);
 const GENERIC_STRENGTHENER_IDS = new Set(["dmg", "firerate", "speed", "hp", "proj_speed", "crit", "pierce", "multishot", "armor", "xp_gain", "sharp_edges", "regen", "impact", "pickup", "sans", "magnet_aura", "xp_magnet", "lucky", "heal", "global_cd"]);
 const CORE_SKILL_IDS = new Set([
   "dmg", "firerate", "speed", "hp", "heal", "pickup", "magnet", "armor", "crit", "crit_dmg", "cdr", "xp_boost", "gold_finder", "thick_skin", "quick_hands", "berserker_rage", "lucky_strike", "vampiric_touch", "elemental_affinity", "unlock_fireball", "fireball_dmg", "fireball_cd", "fireball_proj_speed", "multishot", "pierce", "regen", "sans", "xp_gain", "magnet_force", "lucky_coin", "coin_hunter",
@@ -13840,6 +14160,7 @@ const CORE_SKILL_IDS = new Set([
   "comp_phoenix", "comp_drone", "comp_golem", "comp_skeleton_minion", "comp_wolf_minion", "comp_goblin_minion", "comp_healer_minion", "comp_archer_minion", "comp_mage_minion", "minyon_sayisi",
   "unlock_ult_mega_explosion", "unlock_ult_ice_apocalypse", "unlock_ult_lightning_storm", "unlock_ult_inferno", "unlock_ult_void_blast",
   "lifesteal", "execute", "berserker", "thorns", "bleed", "burn", "freeze", "shock", "splash", "pack_frost", "pack_fire", "pack_shock",
+  "unlock_chain_bolt", "chain_bolt_dmg", "unlock_black_hole", "black_hole_dmg", "unlock_poison_trail", "poison_trail_dmg", "greed", "executioner",
   "explosive_shot", "frost_aura", "bloodlust", "fire_trail", "dodge", "second_wind", "shadow_clone", "rage_mode", "glass_cannon", "tank_mode",
   "unlock_shield", "shield_regen", "impact", "unlock_sprint", "unlock_toxic_trail", "toxic_trail_radius", "toxic_trail_poison",
   "runaan", "rapid_fire",
@@ -13870,6 +14191,11 @@ const SKILL_UNLOCKS = [
   { id: "unlock_meteor_ult", condition: (s) => (s.bossesDefeated || 0) >= 1 || (s.level || 0) >= 10 },
   { id: "lifesteal", condition: (s) => (s.kills || 0) >= 180 },
   { id: "execute", condition: (s) => (s.kills || 0) >= 250 },
+  { id: "unlock_chain_bolt", condition: (s) => (s.kills || 0) >= 40 },
+  { id: "unlock_black_hole", condition: (s) => (s.kills || 0) >= 70 || (s.level || 0) >= 8 },
+  { id: "unlock_poison_trail", condition: (s) => (s.kills || 0) >= 28 },
+  { id: "greed", condition: (s) => (s.kills || 0) >= 20 },
+  { id: "executioner", condition: (s) => (s.kills || 0) >= 120 },
 ];
 function tryUnlockSkills() {
   if (!state.unlockedSkillIds) return;
@@ -13966,12 +14292,46 @@ function pickSkills(count) {
   return picks;
 }
 
+function tryEvolveSkills() {
+  function owned(id) { return ownedSkills.has(id) || (skillLevels[id] || 0) > 0; }
+  if (abilityState.fireball && !abilityState.fireball.evolved && abilityState.fireball.level > 0 && (skillLevels.fireball_dmg || 0) >= 5 && owned("burn")) {
+    abilityState.fireball.evolved = "inferno";
+    abilityState.fireball.aoe *= 1.4;
+    abilityState.fireball.damage *= 1.25;
+    abilityState.fireball.shots = (abilityState.fireball.shots || 1) + 1;
+    abilityState.fireball.cooldown *= 0.85;
+    showGameNotification("Evrim: Inferno Orb!");
+  }
+  if (abilityState.frostball && !abilityState.frostball.evolved && abilityState.frostball.level > 0 && (skillLevels.frostball_dmg || 0) >= 4 && owned("freeze")) {
+    abilityState.frostball.evolved = "glacier";
+    abilityState.frostball.freeze *= 1.5;
+    abilityState.frostball.shards += 2;
+    abilityState.frostball.damage *= 1.2;
+    showGameNotification("Evrim: Glacier!");
+  }
+  if (abilityState.swords && !abilityState.swords.evolved && abilityState.swords.level > 0 && (skillLevels.sword_dmg || 0) >= 5 && owned("crit")) {
+    abilityState.swords.evolved = "bladestorm";
+    abilityState.swords.count += 2;
+    abilityState.swords.damage *= 1.2;
+    abilityState.swords.radius += 0.8;
+    abilityState.swords.spin *= 1.25;
+    showGameNotification("Evrim: Blade Storm!");
+  }
+}
+function evolvedSkillName(kind, fallback) {
+  if (kind === "fireball" && abilityState.fireball && abilityState.fireball.evolved === "inferno") return "Inferno Orb";
+  if (kind === "frostball" && abilityState.frostball && abilityState.frostball.evolved === "glacier") return "Glacier";
+  if (kind === "swords" && abilityState.swords && abilityState.swords.evolved === "bladestorm") return "Blade Storm";
+  return fallback;
+}
+
 function applySkill(skill) {
   if (!skill || typeof skill.apply !== "function") return;
   skillLevels[skill.id] = (skillLevels[skill.id] || 0) + 1;
   ownedSkills.add(skill.id);
   skill.apply(skill._tierValue);
   acquiredOrder.push(skill.id);
+  tryEvolveSkills();
   const r = skill.rarity || "common";
   if (typeof playSfx === "function") {
     if (r === "common") playSfx(440, 0.12, 0.6);
@@ -14149,6 +14509,20 @@ function closeLevelupAndResume() {
   if (running && !gameOver && canvas) canvas.requestPointerLock();
 }
 
+const SKILL_SYNERGY = {
+  unlock_fireball: ["burn", "Yanma ile birlesir"],
+  burn: ["unlock_fireball", "Fireball ile birlesir"],
+  unlock_frostball: ["freeze", "Freeze ile birlesir"],
+  freeze: ["unlock_frostball", "Frostball ile birlesir"],
+  unlock_swords: ["crit", "Kritik ile birlesir"],
+  crit: ["unlock_swords", "Kiliclar ile birlesir"],
+  lifesteal: ["vampiric_touch", "Vampirik ile birlesir"],
+  thorns: ["hp", "Can ile birlesir"],
+  execute: ["executioner", "Cellat ile birlesir"],
+  executioner: ["execute", "Infaz ile birlesir"],
+  unlock_chain_bolt: ["shock", "Sok ile birlesir"],
+  greed: ["gold_finder", "Altin Bulucu ile birlesir"]
+};
 function renderLevelupCards() {
   levelInfo.textContent = `Level ${state.level} - 1 kart sec (bekleyen: ${state.pendingLevels})`;
   cardRow.innerHTML = "";
@@ -14156,9 +14530,13 @@ function renderLevelupCards() {
   const skillsListEl = document.getElementById("levelupSkillsList");
   if (skillsListEl) {
     const actives = [];
-    if (abilityState.fireball.level > 0) actives.push({ name: "Fireball", lvl: abilityState.fireball.level });
+    if (abilityState.fireball.level > 0) actives.push({ name: evolvedSkillName("fireball", "Fireball"), lvl: abilityState.fireball.level });
+    if (abilityState.chainBolt?.level > 0) actives.push({ name: "Zincir Yildirim", lvl: abilityState.chainBolt.level });
+    if (abilityState.blackHole?.level > 0) actives.push({ name: "Kara Delik", lvl: abilityState.blackHole.level });
+    if (abilityState.poisonTrail?.level > 0) actives.push({ name: "Zehir Izi", lvl: abilityState.poisonTrail.level });
     if (abilityState.comet.level > 0) actives.push({ name: "Comet", lvl: abilityState.comet.level });
-    if (abilityState.swords.level > 0) actives.push({ name: "Kiliclar", lvl: abilityState.swords.count });
+    if (abilityState.swords.level > 0) actives.push({ name: evolvedSkillName("swords", "Kiliclar"), lvl: abilityState.swords.count });
+    if (abilityState.frostball?.level > 0) actives.push({ name: evolvedSkillName("frostball", "Frostball"), lvl: abilityState.frostball.level });
     if (abilityState.meteor.level > 0) actives.push({ name: "Meteor", lvl: abilityState.meteor.level });
     if (abilityState.nova?.level > 0) actives.push({ name: "Nova", lvl: abilityState.nova.level });
     if (abilityState.banana?.level > 0) actives.push({ name: "Muz", lvl: abilityState.banana.level });
@@ -14202,6 +14580,7 @@ function renderLevelupCards() {
   const critMultVal = (stats.critMult || 1.9);
   currentChoices.forEach((skill, idx) => {
     const rarity = skill.rarity || "common";
+    const card = document.createElement("article");
     card.className = "card " + rarity + " rarity-" + rarity;
     const displayName = skill._tierName != null ? skill._tierName : skill.name;
     const displayDesc = skill._tierDesc != null ? skill._tierDesc : skill.desc;
@@ -14214,8 +14593,10 @@ function renderLevelupCards() {
       else detail = `<div class="cardStat">Krit hasar carpani: x${critMultVal.toFixed(1)} -> x${(critMultVal + (critAdd / 100)).toFixed(1)}</div>`;
     }
     const iconSrc = "assets/ui/icon-card.svg";
+    const syn = SKILL_SYNERGY[skill.id];
+    const synHtml = (syn && ownedSkills.has(syn[0])) ? `<span class="synergyBadge">${syn[1]}</span>` : "";
     card.title = displayDesc ? "Ne yapar: " + displayDesc : "";
-    card.innerHTML = `<span class="cardIcon"><img src="${iconSrc}" alt=""></span><h3>${idx + 1}. ${displayName}</h3><span class="badge rarity-${rarity}">${rarity.toUpperCase()}</span><p>${displayDesc}</p>${detail}`;
+    card.innerHTML = `<span class="cardIcon"><img src="${iconSrc}" alt=""></span><h3>${idx + 1}. ${displayName}</h3><span class="badge rarity-${rarity}">${rarity.toUpperCase()}</span><p>${displayDesc}</p>${detail}${synHtml}`;
     card.addEventListener("click", () => chooseLevelCard(idx));
     let tooltipEl = null;
     card.addEventListener("mouseenter", function(e) {
@@ -14285,7 +14666,7 @@ function doReroll() {
 let shrineSkillPanelOpen = false;
 
 function updateWorldDecors() {
-  // Oyuncu yurudukce her chunk'ta yeni dekor geometrisi yaratiliyordu; paylasima al.
+  if (worldDecorInstanced) return;
   return withSharedGeo(updateWorldDecorsInner);
 }
 function updateWorldDecorsInner() {
@@ -14962,16 +15343,25 @@ function updateSkillHud() {
     actives.push({ name: meta.name, lvl, rarity: meta.rarity });
   };
 
-  if (abilityState.fireball.level > 0) pushActive("fireball", abilityState.fireball.level);
+  if (abilityState.fireball.level > 0) {
+    pushActive("fireball", abilityState.fireball.level);
+    if (abilityState.fireball.evolved) actives[actives.length - 1].name = evolvedSkillName("fireball", "Fireball");
+  }
   if (abilityState.comet.level > 0) pushActive("comet", abilityState.comet.level);
-  if (abilityState.swords.level > 0) pushActive("swords", abilityState.swords.count);
+  if (abilityState.swords.level > 0) {
+    pushActive("swords", abilityState.swords.count);
+    if (abilityState.swords.evolved) actives[actives.length - 1].name = evolvedSkillName("swords", "Kiliclar");
+  }
   if (abilityState.meteor.level > 0) pushActive("meteor", abilityState.meteor.level);
   if (abilityState.nova?.level > 0) pushActive("nova", abilityState.nova.level);
   if (abilityState.banana?.level > 0) pushActive("unlock_banana", abilityState.banana.level);
   if (abilityState.swordThrow?.level > 0) pushActive("unlock_sword_throw", abilityState.swordThrow.level);
   if (abilityState.boomerang?.level > 0) pushActive("unlock_boomerang", abilityState.boomerang.level);
   if (abilityState.shuriken?.level > 0) pushActive("unlock_shuriken", abilityState.shuriken.count || 3);
-  if (abilityState.frostball?.level > 0) pushActive("unlock_frostball", abilityState.frostball.level);
+  if (abilityState.frostball?.level > 0) {
+    pushActive("unlock_frostball", abilityState.frostball.level);
+    if (abilityState.frostball.evolved) actives[actives.length - 1].name = evolvedSkillName("frostball", "Frostball");
+  }
   if (abilityState.lineShot?.level > 0) pushActive("unlock_line_shot", abilityState.lineShot.level);
   if (abilityState.laser?.level > 0) pushActive("unlock_laser", abilityState.laser.level);
   if (abilityState.dismantle?.level > 0) pushActive("unlock_dismantle", abilityState.dismantle.level);
@@ -15014,16 +15404,25 @@ function updateTabPanel() {
     const meta = skillLookup[id] || { name: id, rarity: "common" };
     actives.push({ name: meta.name, lvl, rarity: meta.rarity });
   };
-  if (abilityState.fireball?.level > 0) pushActive("fireball", abilityState.fireball.level);
+  if (abilityState.fireball?.level > 0) {
+    pushActive("fireball", abilityState.fireball.level);
+    if (abilityState.fireball.evolved) actives[actives.length - 1].name = evolvedSkillName("fireball", "Fireball");
+  }
   if (abilityState.comet?.level > 0) pushActive("comet", abilityState.comet.level);
-  if (abilityState.swords?.level > 0) pushActive("swords", abilityState.swords.count);
+  if (abilityState.swords?.level > 0) {
+    pushActive("swords", abilityState.swords.count);
+    if (abilityState.swords.evolved) actives[actives.length - 1].name = evolvedSkillName("swords", "Kiliclar");
+  }
   if (abilityState.meteor?.level > 0) pushActive("meteor", abilityState.meteor.level);
   if (abilityState.nova?.level > 0) pushActive("nova", abilityState.nova.level);
   if (abilityState.banana?.level > 0) pushActive("Muz", abilityState.banana.level);
   if (abilityState.swordThrow?.level > 0) pushActive("Kilic Firlatma", abilityState.swordThrow.level);
   if (abilityState.boomerang?.level > 0) pushActive("Bumerang", abilityState.boomerang.level);
   if (abilityState.shuriken?.level > 0) pushActive("Shuriken", abilityState.shuriken.count || 3);
-  if (abilityState.frostball?.level > 0) pushActive("Frostball", abilityState.frostball.level);
+  if (abilityState.frostball?.level > 0) {
+    pushActive("Frostball", abilityState.frostball.level);
+    if (abilityState.frostball.evolved) actives[actives.length - 1].name = evolvedSkillName("frostball", "Frostball");
+  }
   if (abilityState.lineShot?.level > 0) pushActive("Line Shot", abilityState.lineShot.level);
   if (abilityState.laser?.level > 0) pushActive("Lazer", abilityState.laser.level);
   if (abilityState.dismantle?.level > 0) pushActive("Dismantle", abilityState.dismantle.level);
@@ -16033,7 +16432,7 @@ function addRandomTeleportPortals() {
   const glowMat = new THREE.MeshBasicMaterial({ color: 0x88eeff, transparent: true, opacity: 0.25, side: THREE.DoubleSide });
   const positions = [];
   const isIsland = state.currentMapId === "island";
-  const maxDist = isIsland ? ISLAND_RADIUS - 28 : WORLD_HALF * 1.6;
+  const maxDist = isIsland ? ISLAND_RADIUS - 28 : WORLD_HALF - 30;
   const minDist = 40;
   for (let i = 0; i < RANDOM_PORTAL_COUNT; i++) {
     let x, z;
@@ -16318,6 +16717,18 @@ function animate() {
         showGameNotification("Siyah Ruhlar round bitti!");
         if (player.mesh) spawnWorldChestAt(player.mesh.position.clone());
       }
+      if (state.time >= state.nextHordeSurgeAt && !state.hordeSurgeActive && !state.soulRoundActive) {
+        state.hordeSurgeActive = true;
+        state.hordeSurgeEndTime = state.time + HORDE_SURGE_DURATION;
+        state.nextHordeSurgeAt += HORDE_SURGE_INTERVAL;
+        state.hordeSurgeSpawnTimer = 0;
+        showGameNotification("Horde Surge!");
+      }
+      if (state.hordeSurgeActive && state.time >= state.hordeSurgeEndTime) {
+        state.hordeSurgeActive = false;
+        showGameNotification("Horde Surge bitti!");
+        if (player.mesh) spawnWorldChestAt(player.mesh.position.clone());
+      }
       if (state.time >= ATTACK_ROUND_START_TIME && !state.attackRoundStarted) {
         state.attackRoundStarted = true;
         state.attackRoundActive = true;
@@ -16475,6 +16886,17 @@ function animate() {
     }
 
     if (!frameBehind) updateMapAnimations(dt);
+    if (!running && dioramaOn) {
+      const t = clock.elapsedTime;
+      if (player.mesh) player.mesh.rotation.y = t * 0.4;
+      if (dioramaGroup) {
+        for (let i = 0; i < dioramaGroup.children.length; i++) {
+          const c = dioramaGroup.children[i];
+          if (!c.userData || !c.userData.idleTurn) continue;
+          c.rotation.y = t * (0.45 + i * 0.12);
+        }
+      }
+    }
     if (!frameBehind && _perfFrame % 14 === 0) updateWorldDecors();
     updateCamera(dt);
     if (!frameBehind) { updateDayNight(dt); updateChaos(dt); }
@@ -16499,13 +16921,18 @@ function animate() {
 
 function disposeProjectileMesh(p) {
   if (!p || !p.mesh) return;
-  if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
-  if (p.mesh.geometry) p.mesh.geometry.dispose();
-  if (p.mesh.material) {
-    if (Array.isArray(p.mesh.material)) p.mesh.material.forEach(function(m) { if (m) m.dispose(); });
-    else p.mesh.material.dispose();
+  const key = p.mesh.userData && p.mesh.userData.poolKey;
+  if (key && stashProjMesh(p.mesh, key)) {
+    p.mesh = null;
+  } else {
+    if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
+    if (p.mesh.geometry) p.mesh.geometry.dispose();
+    if (p.mesh.material) {
+      if (Array.isArray(p.mesh.material)) p.mesh.material.forEach(function(m) { if (m) m.dispose(); });
+      else p.mesh.material.dispose();
+    }
+    p.mesh = null;
   }
-  p.mesh = null;
   if (p.telegraphMesh && p.telegraphMesh.parent) {
     scene.remove(p.telegraphMesh);
     if (p.telegraphMesh.geometry) p.telegraphMesh.geometry.dispose();
