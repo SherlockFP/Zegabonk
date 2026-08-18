@@ -4422,21 +4422,21 @@ function preloadCreatureModels() {
   });
 }
 
-const PLAYER_GLB_PATH = "assets/models/production/mosswatch_hero.glb";
+const PLAYER_GLB_PATH = "assets/models/production/hero_scout_toon.glb";
 const PLAYER_GLB_SCALE = 1.28;
 let playerAsset = null;
 let playerAnimationClips = [];
 let playerAssetLoading = false;
 const CHAR_GLB_PATHS = {
-  scout: "assets/models/production/verdant_ranger.glb",
-  archer: "assets/models/production/verdant_ranger_ual.glb",
-  brawler: "assets/models/production/verdant_warrior.glb",
-  paladin: "assets/models/production/hero_hammer_v1.glb",
-  mage: "assets/models/production/crown_runner_v2.glb",
-  monk: "assets/models/production/crown_runner_v1.glb",
-  samurai: "assets/models/production/kenney_runner.glb",
-  survivor: "assets/models/production/mosswatch_hero.glb",
-  gorilla: "assets/models/production/mosswatch_hero_refined.glb",
+  scout: "assets/models/production/hero_scout_toon.glb",
+  archer: "assets/models/production/hero_archer_toon.glb",
+  brawler: "assets/models/production/hero_brawler_toon.glb",
+  paladin: "assets/models/production/hero_paladin_toon.glb",
+  mage: "assets/models/production/hero_mage_toon.glb",
+  monk: "assets/models/production/hero_monk_toon.glb",
+  samurai: "assets/models/production/hero_samurai_toon.glb",
+  survivor: "assets/models/production/hero_survivor_toon.glb",
+  gorilla: "assets/models/production/hero_gorilla_toon.glb",
 };
 const CHAR_GLB_ALIAS = { kabukcu: "mage", yaprakci: "samurai", kaykayci: "scout" };
 let charAssetCache = {};
