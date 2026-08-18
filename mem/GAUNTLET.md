@@ -95,8 +95,35 @@ Shots: `gameplay.png`, `hud-pause.png`, `gameplay-levelup.png`, `lobby.png`.
 
 Overall **6.6/10**. HUD is the visible win. Audio still the floor.
 
+## This pass (creature box-kit) 2026-08-18
+
+Named ch1 beasts were still SphereGeometry. Same loop. Raise creature silhouettes.
+
+1. Procedural box-kit for wolf/bear/boar/fox/ghost/spider/beetle/crow/bat/slime/skeleton and the rest of the named roster. Flat `voxelStd` materials.
+2. Blender voxel GLBs: `assets/models/creatures/voxel_{wolf,boar,spider,goblin,slime}.glb`. Wired wolf/boar/spider. Goblin stays rattlecap. Missing GLB no longer falls back to goblin (so fox/bear actually use their kits).
+3. Playtest: `tests/artifacts/creatures-lineup.png` + `gameplay.png`. `megabonk-pass.spec.js` green.
+
+## Honest scores (after creature box-kit)
+
+Shots: `creatures-lineup.png`, `gameplay.png`.
+
+| Slice | Prev | Now | Why |
+| --- | --- | --- | --- |
+| Loop | 7.0 | 7.0 | Unchanged |
+| Opening | 6.6 | 6.6 | Unchanged |
+| Juice | 6.5 | 6.5 | Unchanged |
+| HUD/menu | 8.1 | 8.1 | Unchanged |
+| Map / art | 6.1 | 6.1 | Unchanged |
+| Creatures | 5.8 | 6.4 | Wolves/boars/spiders read as stacked boxes. Still not MEGABONK unique sculpts. |
+| Boss | 6.2 | 6.2 | Procedural boss spider still spheres |
+| Perf | 5.8 | 5.8 | Unchanged |
+| Audio | 4.2 | 4.2 | Unchanged |
+
+Overall **6.7/10**. Creatures are the visible win. Audio still the floor.
+
 ## Still next
 
-- Box-kit remaining SphereGeometry mobs (wolf/bear/spider)
 - Recorded SFX
+- Denser POI clutter
 - FPS overlay actually ticking in stills
+- Boss procedural spider still spheres

@@ -32,6 +32,41 @@ test('lobby and first combat frame', async ({ page }) => {
         : player.mesh.position.y;
     }
   });
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => {
+    const types = ["goblin", "wolf", "bear", "boar", "fox", "spider", "slime", "beetle", "crow", "ghost"];
+    if (typeof createEnemy !== "function" || !player || !player.mesh) return;
+    if (enemies && enemies.length) {
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        if (e && e.mesh && typeof scene !== "undefined") scene.remove(e.mesh);
+      }
+      enemies.length = 0;
+    }
+    const px = player.mesh.position.x;
+    const pz = player.mesh.position.z;
+    const fwd = new THREE.Vector3();
+    camera.getWorldDirection(fwd);
+    fwd.y = 0;
+    if (fwd.lengthSq() < 0.001) fwd.set(0, 0, -1);
+    else fwd.normalize();
+    const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
+    types.forEach(function(t, i) {
+      const e = createEnemy("normal", tierConfig.normal, { forceBeastType: t });
+      e.speed = 0;
+      e.spawnDelay = 0;
+      const side = (i - (types.length - 1) / 2) * 2.2;
+      const x = px + fwd.x * 9 + right.x * side;
+      const z = pz + fwd.z * 9 + right.z * side;
+      const y = (typeof getGroundHeight === "function") ? getGroundHeight(x, z) : player.mesh.position.y;
+      e.mesh.position.set(x, y, z);
+      e.mesh.lookAt(px, y, pz);
+      enemies.push(e);
+      scene.add(e.mesh);
+    });
+  });
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: 'tests/artifacts/creatures-lineup.png', fullPage: true });
   await page.waitForTimeout(1800);
   await expect(page.locator('#topCenterTime')).toBeVisible();
   await page.screenshot({ path: 'tests/artifacts/gameplay.png', fullPage: true });

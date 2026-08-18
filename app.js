@@ -3739,11 +3739,20 @@ const CUSTOM_MAPS = {
 // Opsiyonel GLB modelleri: assets/creatures/<tip>.glb ve assets/player/character.glb
 // Dosya yoksa procedural mesh kullanilir. Indirme linkleri: assets/ASSETS_README.md
 const CREATURE_GLB_PATHS = {
-  wolf: "assets/creatures/wolf.glb", bear: "assets/creatures/bear.glb", spider: "assets/creatures/spider.glb",
-  skeleton: "assets/creatures/skeleton.glb", bat: "assets/creatures/bat.glb", slime: "assets/creatures/slime.glb",
-  fox: "assets/creatures/fox.glb", ghost: "assets/creatures/ghost.glb", scorpion: "assets/creatures/scorpion.glb",
-  boar: "assets/creatures/boar.glb", polarBear: "assets/creatures/polarBear.glb",
-  void: "assets/creatures/void.glb", horror: "assets/creatures/horror.glb", default: "assets/creatures/slime.glb",
+  wolf: "assets/models/creatures/voxel_wolf.glb",
+  bear: "assets/creatures/bear.glb",
+  spider: "assets/models/creatures/voxel_spider.glb",
+  skeleton: "assets/creatures/skeleton.glb",
+  bat: "assets/creatures/bat.glb",
+  slime: "assets/creatures/slime.glb",
+  fox: "assets/creatures/fox.glb",
+  ghost: "assets/creatures/ghost.glb",
+  scorpion: "assets/creatures/scorpion.glb",
+  boar: "assets/models/creatures/voxel_boar.glb",
+  polarBear: "assets/creatures/polarBear.glb",
+  void: "assets/creatures/void.glb",
+  horror: "assets/creatures/horror.glb",
+  default: "assets/models/creatures/voxel_goblin.glb",
   tree: "assets/creatures/tree.glb",
   goblin: "assets/models/production/rattlecap_runner_v1.glb",
   rattlecap: "assets/models/production/rattlecap_runner_v1.glb",
@@ -3808,17 +3817,14 @@ function applyBeastLook(g, beastType, cfg) {
   const ac = look.accentColor || look.tint || 0xffffff;
   const mat = new THREE.MeshStandardMaterial({ color: ac, emissive: look.emissive || 0x111111, emissiveIntensity: 0.35, roughness: 0.45 });
   if (look.accent === "ears") {
-    const earL = new THREE.Mesh(new THREE.ConeGeometry(r * 0.16, r * 0.42, 4), mat);
+    const earL = new THREE.Mesh(new THREE.BoxGeometry(r * 0.16, r * 0.32, r * 0.12), mat);
     earL.position.set(-r * 0.28, h * 1.08, r * 0.12);
-    earL.rotation.z = 0.35;
     const earR = earL.clone();
     earR.position.x *= -1;
-    earR.rotation.z = -0.35;
     g.add(earL, earR);
   } else if (look.accent === "tusks") {
-    const tL = new THREE.Mesh(new THREE.ConeGeometry(r * 0.07, r * 0.32, 4), mat);
+    const tL = new THREE.Mesh(new THREE.BoxGeometry(r * 0.08, r * 0.08, r * 0.28), mat);
     tL.position.set(-r * 0.16, h * 0.42, r * 0.48);
-    tL.rotation.x = 1.15;
     const tR = tL.clone();
     tR.position.x *= -1;
     g.add(tL, tR);
@@ -3911,10 +3917,6 @@ function resolveCreatureGlbKey(beastType) {
   if (beastType && creatureCache[beastType]) return beastType;
   const alias = beastType && CREATURE_GLB_ALIASES[beastType];
   if (alias && creatureCache[alias]) return alias;
-  const fallbacks = ["default", "goblin", "wolf", "slime"];
-  for (let i = 0; i < fallbacks.length; i++) {
-    if (creatureCache[fallbacks[i]]) return fallbacks[i];
-  }
   return null;
 }
 let creatureCache = {};
@@ -9082,6 +9084,29 @@ function addEnemyZoneOverlay(mesh, hexColor, throughWalls) {
   return ring;
 }
 
+function voxelStd(color, emissive) {
+  return new THREE.MeshStandardMaterial({
+    color: color,
+    emissive: emissive == null ? 0x111111 : emissive,
+    emissiveIntensity: 0.2,
+    roughness: 0.78,
+    metalness: 0.04,
+    flatShading: true
+  });
+}
+function addBoxPart(parent, w, h, d, mat, x, y, z) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  mesh.position.set(x || 0, y || 0, z || 0);
+  parent.add(mesh);
+  return mesh;
+}
+function addQuadBoxLegs(parent, mat, hx, hz, thick, len) {
+  addBoxPart(parent, thick, len, thick, mat, -hx, len * 0.5, hz);
+  addBoxPart(parent, thick, len, thick, mat, hx, len * 0.5, hz);
+  addBoxPart(parent, thick, len, thick, mat, -hx, len * 0.5, -hz);
+  addBoxPart(parent, thick, len, thick, mat, hx, len * 0.5, -hz);
+}
+
 function createEnemy(tier, cfg, opts) {
   opts = (opts && typeof opts === "object") ? opts : {};
   const g = new THREE.Group();
@@ -9233,315 +9258,128 @@ function createEnemy(tier, cfg, opts) {
       cached.position.y = 0;
       cached.rotation.y = CREATURE_FACE_YAW[glbKey] != null ? CREATURE_FACE_YAW[glbKey] : 0;
       g.add(cached);
+      g.userData.fromGlb = true;
     } else if (tier === "normal") {
       if (normalBeastType === "wolf") {
-        // Kurt: uzun ince gövde, sivri uzun burun, dik sivri kulaklar, tüylü kuyruk – köpek değil kurt oranı
-        const wolfColor = 0x5c4a3a;
-        const wolfMat = new THREE.MeshStandardMaterial({ color: wolfColor, emissive: 0x1a1510, emissiveIntensity: 0.2, roughness: 0.5, metalness: 0.05 });
-        const wolfDark = new THREE.MeshStandardMaterial({ color: 0x3d3228, roughness: 0.6 });
-        const r = cfg.radius * 1.05;
-        const h = cfg.height * 1.02;
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.38, r * 0.5, h * 0.72, 8), wolfMat);
-        body.scale.set(1, 1.05, 1.55);
-        body.position.y = h * 0.46;
-        const chest = new THREE.Mesh(new THREE.SphereGeometry(r * 0.34, 8, 6), wolfMat);
-        chest.position.set(0, h * 0.5, r * 0.22);
-        const head = new THREE.Mesh(new THREE.SphereGeometry(r * 0.3, 10, 8), wolfMat);
-        head.scale.set(1, 0.95, 1.25);
-        head.position.set(0, h * 0.92, r * 0.5);
-        const snout = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.07, r * 0.11, r * 0.52, 6), wolfDark);
-        snout.position.set(0, h * 0.86, r * 0.82);
-        snout.rotation.x = 0.12;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(r * 0.05, 5, 5), eyeMat);
-        eyeL.position.set(-r * 0.12, h * 0.94, r * 0.58);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const mouth = new THREE.Mesh(new THREE.BoxGeometry(r * 0.14, r * 0.035, r * 0.07), new THREE.MeshBasicMaterial({ color: 0x111111 }));
-        mouth.position.set(0, h * 0.84, r * 0.88);
-        const earL = new THREE.Mesh(new THREE.ConeGeometry(r * 0.11, r * 0.38, 4), wolfDark);
-        earL.position.set(-r * 0.24, h * 1.14, r * 0.38);
-        earL.rotation.z = 0.35;
-        earL.rotation.x = -0.25;
-        const earR = earL.clone();
-        earR.position.x *= -1;
-        earR.rotation.z *= -0.35;
-        const tail = new THREE.Mesh(new THREE.ConeGeometry(r * 0.09, r * 0.58, 5), wolfMat);
-        tail.position.set(0, h * 0.38, -r * 0.72);
-        tail.rotation.x = 0.45;
-        const legFL = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.075, r * 0.1, h * 0.22, 6), wolfDark);
-        legFL.position.set(-r * 0.24, h * 0.11, r * 0.28);
-        const legFR = legFL.clone();
-        legFR.position.x *= -1;
-        const legBL = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.085, r * 0.105, h * 0.20, 6), wolfDark);
-        legBL.position.set(-r * 0.22, h * 0.10, -r * 0.24);
-        const legBR = legBL.clone();
-        legBR.position.x *= -1;
-        g.add(body, chest, head, snout, eyeL, eyeR, mouth, earL, earR, tail, legFL, legFR, legBL, legBR);
+        const r = cfg.radius * 1.05, h = cfg.height * 1.02;
+        const wolfMat = voxelStd(0x5c4a3a, 0x1a1510);
+        const wolfDark = voxelStd(0x3d3228, 0x151008);
+        addBoxPart(g, r * 1.1, h * 0.42, r * 1.55, wolfMat, 0, h * 0.46, 0);
+        addBoxPart(g, r * 0.62, r * 0.5, r * 0.72, wolfMat, 0, h * 0.9, r * 0.52);
+        addBoxPart(g, r * 0.28, r * 0.2, r * 0.5, wolfDark, 0, h * 0.84, r * 0.92);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, -r * 0.14, h * 0.94, r * 0.78);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, r * 0.14, h * 0.94, r * 0.78);
+        addBoxPart(g, r * 0.16, r * 0.32, r * 0.12, wolfDark, -r * 0.24, h * 1.16, r * 0.4);
+        addBoxPart(g, r * 0.16, r * 0.32, r * 0.12, wolfDark, r * 0.24, h * 1.16, r * 0.4);
+        addBoxPart(g, r * 0.16, r * 0.16, r * 0.58, wolfMat, 0, h * 0.4, -r * 0.88);
+        addQuadBoxLegs(g, wolfDark, r * 0.28, r * 0.32, r * 0.16, h * 0.22);
       } else if (normalBeastType === "bear") {
-        // Ayı: tıknaz gövde, yuvarlak kulaklar, kısa burun, kalın bacaklar
-        const bearColor = 0x4a3c2e;
-        const bearMat = new THREE.MeshStandardMaterial({ color: bearColor, emissive: 0x151008, emissiveIntensity: 0.15, roughness: 0.6, metalness: 0.02 });
-        const bearDark = new THREE.MeshStandardMaterial({ color: 0x2d241a, roughness: 0.65 });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.55, 10, 8), bearMat);
-        body.scale.set(1.15, 1.1, 1.1);
-        body.position.y = cfg.height * 0.5;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.38, 10, 8), bearMat);
-        head.position.set(0, cfg.height * 0.98, cfg.radius * 0.32);
-        const snout = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.14, 6, 6), bearDark);
-        snout.position.set(0, cfg.height * 0.92, cfg.radius * 0.5);
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.06, 5, 5), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.14, cfg.height * 1.02, cfg.radius * 0.38);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const mouth = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.18, cfg.radius * 0.05, cfg.radius * 0.06), new THREE.MeshBasicMaterial({ color: 0x111111 }));
-        mouth.position.set(0, cfg.height * 0.9, cfg.radius * 0.48);
-        const earL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.12, 6, 6), bearDark);
-        earL.position.set(-cfg.radius * 0.3, cfg.height * 1.2, 0);
-        const earR = earL.clone();
-        earR.position.x *= -1;
-        const legFL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.14, cfg.radius * 0.18, cfg.height * 0.35, 6), bearDark);
-        legFL.position.set(-cfg.radius * 0.35, cfg.height * 0.16, cfg.radius * 0.28);
-        const legFR = legFL.clone();
-        legFR.position.x *= -1;
-        const legBL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.15, cfg.radius * 0.2, cfg.height * 0.33, 6), bearDark);
-        legBL.position.set(-cfg.radius * 0.32, cfg.height * 0.17, -cfg.radius * 0.25);
-        const legBR = legBL.clone();
-        legBR.position.x *= -1;
-        g.add(body, head, snout, eyeL, eyeR, mouth, earL, earR, legFL, legFR, legBL, legBR);
+        const r = cfg.radius, h = cfg.height;
+        const bearMat = voxelStd(0x4a3c2e, 0x151008);
+        const bearDark = voxelStd(0x2d241a, 0x0c0804);
+        addBoxPart(g, r * 1.35, h * 0.62, r * 1.2, bearMat, 0, h * 0.5, 0);
+        addBoxPart(g, r * 0.72, r * 0.68, r * 0.7, bearMat, 0, h * 0.98, r * 0.32);
+        addBoxPart(g, r * 0.32, r * 0.24, r * 0.32, bearDark, 0, h * 0.9, r * 0.58);
+        addBoxPart(g, r * 0.12, r * 0.12, r * 0.08, eyeMat, -r * 0.16, h * 1.02, r * 0.55);
+        addBoxPart(g, r * 0.12, r * 0.12, r * 0.08, eyeMat, r * 0.16, h * 1.02, r * 0.55);
+        addBoxPart(g, r * 0.22, r * 0.22, r * 0.16, bearDark, -r * 0.32, h * 1.22, r * 0.12);
+        addBoxPart(g, r * 0.22, r * 0.22, r * 0.16, bearDark, r * 0.32, h * 1.22, r * 0.12);
+        addQuadBoxLegs(g, bearDark, r * 0.38, r * 0.32, r * 0.28, h * 0.32);
       } else if (normalBeastType === "boar") {
-        // Yaban domuzu: tıknaz gövde, kısa burun, dişler, küçük kulaklar
-        const boarColor = 0x3d3228;
-        const boarMat = new THREE.MeshStandardMaterial({ color: boarColor, emissive: 0x0f0c08, emissiveIntensity: 0.12, roughness: 0.65, metalness: 0.02 });
-        const boarDark = new THREE.MeshStandardMaterial({ color: 0x2a2218, roughness: 0.7 });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.5, 10, 8), boarMat);
-        body.scale.set(1.2, 1.05, 1.15);
-        body.position.y = cfg.height * 0.48;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.35, 10, 8), boarMat);
-        head.position.set(0, cfg.height * 0.9, cfg.radius * 0.38);
-        const snout = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.12, cfg.radius * 0.18, cfg.radius * 0.35, 6), boarDark);
-        snout.position.set(0, cfg.height * 0.88, cfg.radius * 0.55);
-        snout.rotation.x = 0.1;
-        const tuskL = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.04, cfg.radius * 0.2, 4), new THREE.MeshStandardMaterial({ color: 0xeeddcc, roughness: 0.5 }));
-        tuskL.position.set(-cfg.radius * 0.12, cfg.height * 0.82, cfg.radius * 0.58);
-        tuskL.rotation.x = 0.3;
-        const tuskR = tuskL.clone();
-        tuskR.position.x *= -1;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.055, 5, 5), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.13, cfg.height * 0.94, cfg.radius * 0.4);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const mouth = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.16, cfg.radius * 0.04, cfg.radius * 0.06), new THREE.MeshBasicMaterial({ color: 0x111111 }));
-        mouth.position.set(0, cfg.height * 0.86, cfg.radius * 0.52);
-        const earL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.1, 6, 6), boarDark);
-        earL.position.set(-cfg.radius * 0.28, cfg.height * 1.0, 0);
-        const earR = earL.clone();
-        earR.position.x *= -1;
-        const legFL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.12, cfg.radius * 0.16, cfg.height * 0.32, 6), boarDark);
-        legFL.position.set(-cfg.radius * 0.3, cfg.height * 0.15, cfg.radius * 0.3);
-        const legFR = legFL.clone();
-        legFR.position.x *= -1;
-        const legBL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.13, cfg.radius * 0.17, cfg.height * 0.3, 6), boarDark);
-        legBL.position.set(-cfg.radius * 0.28, cfg.height * 0.16, -cfg.radius * 0.22);
-        const legBR = legBL.clone();
-        legBR.position.x *= -1;
-        g.add(body, head, snout, tuskL, tuskR, eyeL, eyeR, mouth, earL, earR, legFL, legFR, legBL, legBR);
+        const r = cfg.radius, h = cfg.height;
+        const boarMat = voxelStd(0x3d3228, 0x0f0c08);
+        const boarDark = voxelStd(0x2a2218, 0x0a0804);
+        const ivory = voxelStd(0xeeddcc, 0x443322);
+        addBoxPart(g, r * 1.25, h * 0.55, r * 1.2, boarMat, 0, h * 0.48, 0);
+        addBoxPart(g, r * 0.68, r * 0.55, r * 0.62, boarMat, 0, h * 0.88, r * 0.38);
+        addBoxPart(g, r * 0.32, r * 0.24, r * 0.38, boarDark, 0, h * 0.84, r * 0.62);
+        addBoxPart(g, r * 0.08, r * 0.08, r * 0.22, ivory, -r * 0.14, h * 0.78, r * 0.72);
+        addBoxPart(g, r * 0.08, r * 0.08, r * 0.22, ivory, r * 0.14, h * 0.78, r * 0.72);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, -r * 0.14, h * 0.94, r * 0.55);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, r * 0.14, h * 0.94, r * 0.55);
+        addBoxPart(g, r * 0.18, r * 0.18, r * 0.12, boarDark, -r * 0.28, h * 1.05, r * 0.18);
+        addBoxPart(g, r * 0.18, r * 0.18, r * 0.12, boarDark, r * 0.28, h * 1.05, r * 0.18);
+        addQuadBoxLegs(g, boarDark, r * 0.32, r * 0.3, r * 0.22, h * 0.3);
       } else if (normalBeastType === "fox") {
-        // Tilki: ince gövde, sivri burun, büyük kuyruk, dik kulaklar
-        const foxColor = 0xc45c2a;
-        const foxMat = new THREE.MeshStandardMaterial({ color: foxColor, emissive: 0x2a1008, emissiveIntensity: 0.18, roughness: 0.5, metalness: 0.03 });
-        const foxWhite = new THREE.MeshStandardMaterial({ color: 0xe8d8c8, roughness: 0.55 });
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.38, cfg.radius * 0.48, cfg.height * 0.65, 8), foxMat);
-        body.scale.set(1, 1.05, 1.35);
-        body.position.y = cfg.height * 0.42;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.3, 10, 8), foxMat);
-        head.scale.set(1, 1, 1.15);
-        head.position.set(0, cfg.height * 0.88, cfg.radius * 0.42);
-        const snout = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.06, cfg.radius * 0.1, cfg.radius * 0.38, 6), foxWhite);
-        snout.position.set(0, cfg.height * 0.84, cfg.radius * 0.62);
-        snout.rotation.x = 0.12;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.05, 5, 5), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.1, cfg.height * 0.9, cfg.radius * 0.48);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const mouth = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.12, cfg.radius * 0.03, cfg.radius * 0.07), new THREE.MeshBasicMaterial({ color: 0x111111 }));
-        mouth.position.set(0, cfg.height * 0.82, cfg.radius * 0.65);
-        const earL = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.09, cfg.radius * 0.3, 4), foxMat);
-        earL.position.set(-cfg.radius * 0.2, cfg.height * 1.08, cfg.radius * 0.35);
-        earL.rotation.z = 0.35;
-        earL.rotation.x = -0.15;
-        const earR = earL.clone();
-        earR.position.x *= -1;
-        earR.rotation.z *= -0.35;
-        const tail = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.22, 8, 6), foxMat);
-        tail.scale.set(1, 1, 1.8);
-        tail.position.set(0, cfg.height * 0.45, -cfg.radius * 0.65);
-        tail.rotation.x = 0.25;
-        const legFL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.065, cfg.radius * 0.09, cfg.height * 0.20, 6), foxWhite);
-        legFL.position.set(-cfg.radius * 0.2, cfg.height * 0.10, cfg.radius * 0.22);
-        const legFR = legFL.clone();
-        legFR.position.x *= -1;
-        const legBL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.07, cfg.radius * 0.09, cfg.height * 0.18, 6), foxWhite);
-        legBL.position.set(-cfg.radius * 0.18, cfg.height * 0.09, -cfg.radius * 0.18);
-        const legBR = legBL.clone();
-        legBR.position.x *= -1;
-        g.add(body, head, snout, eyeL, eyeR, mouth, earL, earR, tail, legFL, legFR, legBL, legBR);
+        const r = cfg.radius, h = cfg.height;
+        const foxMat = voxelStd(0xc45c2a, 0x2a1008);
+        const foxWhite = voxelStd(0xe8d8c8, 0x332211);
+        addBoxPart(g, r * 0.85, h * 0.38, r * 1.25, foxMat, 0, h * 0.42, 0);
+        addBoxPart(g, r * 0.52, r * 0.42, r * 0.55, foxMat, 0, h * 0.86, r * 0.42);
+        addBoxPart(g, r * 0.22, r * 0.16, r * 0.38, foxWhite, 0, h * 0.82, r * 0.68);
+        addBoxPart(g, r * 0.09, r * 0.09, r * 0.07, eyeMat, -r * 0.12, h * 0.9, r * 0.58);
+        addBoxPart(g, r * 0.09, r * 0.09, r * 0.07, eyeMat, r * 0.12, h * 0.9, r * 0.58);
+        addBoxPart(g, r * 0.14, r * 0.28, r * 0.1, foxMat, -r * 0.2, h * 1.08, r * 0.32);
+        addBoxPart(g, r * 0.14, r * 0.28, r * 0.1, foxMat, r * 0.2, h * 1.08, r * 0.32);
+        addBoxPart(g, r * 0.28, r * 0.28, r * 0.85, foxMat, 0, h * 0.42, -r * 0.72);
+        addQuadBoxLegs(g, foxWhite, r * 0.22, r * 0.22, r * 0.14, h * 0.18);
       } else if (normalBeastType === "ghost") {
-        // Hayalet: beyaz yarı saydam, bacaksız, süzülen
-        const ghostMat = new THREE.MeshStandardMaterial({ color: 0xe8e8f0, emissive: 0x8899aa, emissiveIntensity: 0.35, roughness: 0.8, metalness: 0, transparent: true, opacity: 0.75 });
+        const r = cfg.radius, h = cfg.height;
+        const ghostMat = voxelStd(0xe8e8f0, 0x8899aa);
+        ghostMat.transparent = true; ghostMat.opacity = 0.78;
         const ghostEye = new THREE.MeshBasicMaterial({ color: 0x88ddff });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.5, 10, 8), ghostMat);
-        body.scale.set(1, 1.25, 0.9);
-        body.position.y = cfg.height * 0.55;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.38, 10, 8), ghostMat);
-        head.position.y = cfg.height * 1.02;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.08, 6, 6), ghostEye);
-        eyeL.position.set(-cfg.radius * 0.14, cfg.height * 1.04, cfg.radius * 0.3);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const mouth = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.2, cfg.radius * 0.04, cfg.radius * 0.08), new THREE.MeshBasicMaterial({ color: 0x4466aa, transparent: true, opacity: 0.8 }));
-        mouth.position.set(0, cfg.height * 0.94, cfg.radius * 0.32);
-        const tail = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.35, cfg.height * 0.6, 6), ghostMat);
-        tail.position.set(0, cfg.height * 0.2, -cfg.radius * 0.4);
-        tail.rotation.x = 0.5;
-        g.add(body, head, eyeL, eyeR, mouth, tail);
+        addBoxPart(g, r * 0.95, h * 0.7, r * 0.8, ghostMat, 0, h * 0.55, 0);
+        addBoxPart(g, r * 0.68, r * 0.62, r * 0.62, ghostMat, 0, h * 1.02, 0);
+        addBoxPart(g, r * 0.14, r * 0.14, r * 0.1, ghostEye, -r * 0.16, h * 1.04, r * 0.32);
+        addBoxPart(g, r * 0.14, r * 0.14, r * 0.1, ghostEye, r * 0.16, h * 1.04, r * 0.32);
+        addBoxPart(g, r * 0.55, h * 0.38, r * 0.4, ghostMat, 0, h * 0.18, -r * 0.22);
       } else if (normalBeastType === "skeleton") {
-        // İskelet: kafatası (kutu), kaburga kemikleri, omurga, kol ve bacak kemikleri
-        const boneMat = new THREE.MeshStandardMaterial({ color: 0xe8e4d8, emissive: 0x1a1812, roughness: 0.65, metalness: 0.02 });
-        const skull = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.5, cfg.radius * 0.42, cfg.radius * 0.38, 1, 1, 1), boneMat);
-        skull.position.y = cfg.height * 1.02;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.06, 4, 4), new THREE.MeshBasicMaterial({ color: 0x0a0a0a }));
-        eyeL.position.set(-cfg.radius * 0.16, cfg.height * 1.04, cfg.radius * 0.2);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const jaw = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.28, cfg.radius * 0.06, cfg.radius * 0.18), boneMat);
-        jaw.position.set(0, cfg.height * 0.88, cfg.radius * 0.22);
-        const spine = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.06, cfg.radius * 0.08, cfg.height * 0.45, 5), boneMat);
-        spine.position.set(0, cfg.height * 0.38, -cfg.radius * 0.15);
-        spine.rotation.x = 0.15;
-        const rib1 = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.04, cfg.radius * 0.04, cfg.radius * 0.5, 4), boneMat);
-        rib1.position.set(0, cfg.height * 0.62, 0);
-        rib1.rotation.z = Math.PI / 2;
-        const rib2 = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.035, cfg.radius * 0.035, cfg.radius * 0.42, 4), boneMat);
-        rib2.position.set(0, cfg.height * 0.52, 0);
-        rib2.rotation.z = Math.PI / 2;
-        const rib3 = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.03, cfg.radius * 0.03, cfg.radius * 0.38, 4), boneMat);
-        rib3.position.set(0, cfg.height * 0.42, 0);
-        rib3.rotation.z = Math.PI / 2;
-        const armL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.05, cfg.radius * 0.06, cfg.height * 0.32, 5), boneMat);
-        armL.position.set(-cfg.radius * 0.42, cfg.height * 0.58, 0);
-        armL.rotation.z = 0.4;
-        const armR = armL.clone();
-        armR.position.x *= -1;
-        armR.rotation.z *= -1;
-        const forearmL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.04, cfg.radius * 0.05, cfg.height * 0.22, 5), boneMat);
-        forearmL.position.set(-cfg.radius * 0.52, cfg.height * 0.42, cfg.radius * 0.1);
-        forearmL.rotation.z = 0.5;
-        const forearmR = forearmL.clone();
-        forearmR.position.x *= -1;
-        forearmR.rotation.z *= -1;
-        const legFL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.06, cfg.radius * 0.08, cfg.height * 0.36, 5), boneMat);
-        legFL.position.set(-cfg.radius * 0.2, cfg.height * 0.12, cfg.radius * 0.18);
-        const legFR = legFL.clone();
-        legFR.position.x *= -1;
-        const legBL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.055, cfg.radius * 0.07, cfg.height * 0.34, 5), boneMat);
-        legBL.position.set(-cfg.radius * 0.18, cfg.height * 0.13, -cfg.radius * 0.18);
-        const legBR = legBL.clone();
-        legBR.position.x *= -1;
-        g.add(skull, eyeL, eyeR, jaw, spine, rib1, rib2, rib3, armL, armR, forearmL, forearmR, legFL, legFR, legBL, legBR);
+        const r = cfg.radius, h = cfg.height;
+        const boneMat = voxelStd(0xe8e4d8, 0x1a1812);
+        const hole = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
+        addBoxPart(g, r * 0.5, r * 0.42, r * 0.38, boneMat, 0, h * 1.02, 0);
+        addBoxPart(g, r * 0.12, r * 0.12, r * 0.08, hole, -r * 0.14, h * 1.04, r * 0.2);
+        addBoxPart(g, r * 0.12, r * 0.12, r * 0.08, hole, r * 0.14, h * 1.04, r * 0.2);
+        addBoxPart(g, r * 0.28, r * 0.08, r * 0.18, boneMat, 0, h * 0.88, r * 0.18);
+        addBoxPart(g, r * 0.12, h * 0.42, r * 0.12, boneMat, 0, h * 0.52, -r * 0.08);
+        addBoxPart(g, r * 0.55, r * 0.08, r * 0.08, boneMat, 0, h * 0.62, 0);
+        addBoxPart(g, r * 0.48, r * 0.08, r * 0.08, boneMat, 0, h * 0.5, 0);
+        addBoxPart(g, r * 0.12, h * 0.32, r * 0.12, boneMat, -r * 0.38, h * 0.58, 0);
+        addBoxPart(g, r * 0.12, h * 0.32, r * 0.12, boneMat, r * 0.38, h * 0.58, 0);
+        addQuadBoxLegs(g, boneMat, r * 0.18, r * 0.16, r * 0.12, h * 0.28);
       } else if (normalBeastType === "beetle") {
-        const beetleMat = new THREE.MeshStandardMaterial({ color: 0x2a2218, emissive: 0x0a0805, roughness: 0.5, metalness: 0.15 });
-        const beetleShell = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.5, 6, 6), beetleMat);
-        beetleShell.scale.set(1.2, 0.9, 1.4);
-        beetleShell.position.y = cfg.height * 0.5;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.22, 6, 5), beetleMat);
-        head.position.set(0, cfg.height * 0.88, cfg.radius * 0.45);
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.05, 4, 4), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.1, cfg.height * 0.9, cfg.radius * 0.52);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const hornL = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.06, cfg.radius * 0.2, 4), beetleMat);
-        hornL.position.set(-cfg.radius * 0.18, cfg.height * 0.95, cfg.radius * 0.4);
-        hornL.rotation.z = 0.3;
-        const hornR = hornL.clone();
-        hornR.position.x *= -1;
-        hornR.rotation.z *= -1;
-        const legFL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.04, cfg.radius * 0.05, cfg.height * 0.28, 4), beetleMat);
-        legFL.position.set(-cfg.radius * 0.35, cfg.height * 0.18, cfg.radius * 0.25);
-        legFL.rotation.z = 0.25;
-        const legFR = legFL.clone();
-        legFR.position.x *= -1;
-        legFR.rotation.z *= -1;
-        const legBL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.04, cfg.radius * 0.05, cfg.height * 0.26, 4), beetleMat);
-        legBL.position.set(-cfg.radius * 0.32, cfg.height * 0.2, -cfg.radius * 0.22);
-        legBL.rotation.z = -0.2;
-        const legBR = legBL.clone();
-        legBR.position.x *= -1;
-        legBR.rotation.z *= 0.2;
-        g.add(beetleShell, head, eyeL, eyeR, hornL, hornR, legFL, legFR, legBL, legBR);
+        const r = cfg.radius, h = cfg.height;
+        const beetleMat = voxelStd(0x2a2218, 0x0a0805);
+        beetleMat.metalness = 0.18;
+        addBoxPart(g, r * 1.2, h * 0.42, r * 1.35, beetleMat, 0, h * 0.48, 0);
+        addBoxPart(g, r * 0.42, r * 0.32, r * 0.4, beetleMat, 0, h * 0.72, r * 0.55);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, -r * 0.12, h * 0.76, r * 0.72);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, r * 0.12, h * 0.76, r * 0.72);
+        addBoxPart(g, r * 0.1, r * 0.22, r * 0.1, beetleMat, -r * 0.16, h * 0.92, r * 0.55);
+        addBoxPart(g, r * 0.1, r * 0.22, r * 0.1, beetleMat, r * 0.16, h * 0.92, r * 0.55);
+        addQuadBoxLegs(g, beetleMat, r * 0.42, r * 0.32, r * 0.1, h * 0.22);
       } else if (normalBeastType === "crow") {
-        const crowMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, emissive: 0x050505, roughness: 0.8, metalness: 0.05 });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.38, 6, 6), crowMat);
-        body.scale.set(1.1, 1.2, 1.3);
-        body.position.y = cfg.height * 0.52;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.2, 6, 5), crowMat);
-        head.position.set(0, cfg.height * 0.88, cfg.radius * 0.35);
-        const beak = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.04, cfg.radius * 0.18, 4), new THREE.MeshStandardMaterial({ color: 0x2a2218 }));
-        beak.position.set(0, cfg.height * 0.86, cfg.radius * 0.48);
-        beak.rotation.x = 0.15;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.04, 4, 4), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.08, cfg.height * 0.9, cfg.radius * 0.4);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const wingMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.85, side: THREE.DoubleSide });
-        const wingL = new THREE.Mesh(new THREE.PlaneGeometry(cfg.radius * 0.7, cfg.radius * 0.35), wingMat);
-        wingL.position.set(-cfg.radius * 0.4, cfg.height * 0.58, -cfg.radius * 0.05);
-        wingL.rotation.y = 0.4;
-        wingL.rotation.z = 0.2;
-        const wingR = wingL.clone();
-        wingR.position.x *= -1;
-        wingR.rotation.y *= -1;
-        wingR.rotation.z *= -1;
-        g.add(body, head, beak, eyeL, eyeR, wingL, wingR);
+        const r = cfg.radius, h = cfg.height;
+        const crowMat = voxelStd(0x0a0a0a, 0x050505);
+        const beakMat = voxelStd(0x2a2218, 0x151008);
+        addBoxPart(g, r * 0.7, h * 0.38, r * 0.85, crowMat, 0, h * 0.52, 0);
+        addBoxPart(g, r * 0.38, r * 0.32, r * 0.38, crowMat, 0, h * 0.88, r * 0.28);
+        addBoxPart(g, r * 0.1, r * 0.08, r * 0.28, beakMat, 0, h * 0.84, r * 0.5);
+        addBoxPart(g, r * 0.08, r * 0.08, r * 0.06, eyeMat, -r * 0.1, h * 0.9, r * 0.42);
+        addBoxPart(g, r * 0.08, r * 0.08, r * 0.06, eyeMat, r * 0.1, h * 0.9, r * 0.42);
+        addBoxPart(g, r * 0.85, r * 0.1, r * 0.45, crowMat, -r * 0.55, h * 0.58, 0);
+        addBoxPart(g, r * 0.85, r * 0.1, r * 0.45, crowMat, r * 0.55, h * 0.58, 0);
       } else if (normalBeastType === "wraith") {
-        const wraithMat = new THREE.MeshStandardMaterial({ color: 0x4a5a6a, emissive: 0x1a2535, emissiveIntensity: 0.35, transparent: true, opacity: 0.88, roughness: 0.7, metalness: 0.02 });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.35, 6, 6), wraithMat);
-        body.scale.set(0.9, 1.3, 0.8);
-        body.position.y = cfg.height * 0.55;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.28, 6, 5), wraithMat);
-        head.position.set(0, cfg.height * 0.98, cfg.radius * 0.25);
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.05, 4, 4), new THREE.MeshBasicMaterial({ color: 0x88aacc }));
-        eyeL.position.set(-cfg.radius * 0.12, cfg.height * 1.0, cfg.radius * 0.3);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const tailMat = new THREE.MeshStandardMaterial({ color: 0x3a4a5a, emissive: 0x152030, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
-        const tail = new THREE.Mesh(new THREE.PlaneGeometry(cfg.radius * 0.5, cfg.height * 0.5), tailMat);
-        tail.position.set(0, cfg.height * 0.35, -cfg.radius * 0.35);
-        tail.rotation.x = 0.35;
-        g.add(body, head, eyeL, eyeR, tail);
+        const r = cfg.radius, h = cfg.height;
+        const wraithMat = voxelStd(0x4a5a6a, 0x1a2535);
+        wraithMat.transparent = true; wraithMat.opacity = 0.86;
+        const wraithEye = new THREE.MeshBasicMaterial({ color: 0x88aacc });
+        addBoxPart(g, r * 0.7, h * 0.7, r * 0.55, wraithMat, 0, h * 0.55, 0);
+        addBoxPart(g, r * 0.5, r * 0.48, r * 0.48, wraithMat, 0, h * 0.98, r * 0.12);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, wraithEye, -r * 0.12, h * 1.0, r * 0.32);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, wraithEye, r * 0.12, h * 1.0, r * 0.32);
+        addBoxPart(g, r * 0.45, h * 0.38, r * 0.28, wraithMat, 0, h * 0.22, -r * 0.22);
       } else if (normalBeastType === "snake") {
-        const snakeMat = new THREE.MeshStandardMaterial({ color: 0x2a6a2a, emissive: 0x0d2a0d, emissiveIntensity: 0.15, roughness: 0.6, metalness: 0.05 });
-        const snakeDark = new THREE.MeshStandardMaterial({ color: 0x1a4a1a, roughness: 0.65 });
-        const r = cfg.radius;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(r * 0.35, 6, 6), snakeMat);
-        head.scale.set(1, 0.9, 1.2);
-        head.position.set(0, r * 0.28, r * 0.5);
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(r * 0.05, 4, 4), eyeMat);
-        eyeL.position.set(-r * 0.12, r * 0.32, r * 0.56);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const tongue = new THREE.Mesh(new THREE.ConeGeometry(r * 0.03, r * 0.2, 4), new THREE.MeshBasicMaterial({ color: 0xcc2244 }));
-        tongue.position.set(0, r * 0.26, r * 0.68);
-        tongue.rotation.x = -0.2;
-        const body1 = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.28, r * 0.32, cfg.height * 0.35, 6), snakeMat);
-        body1.rotation.x = Math.PI / 2;
-        body1.position.set(0, r * 0.22, r * 0.12);
-        const body2 = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.24, r * 0.28, cfg.height * 0.3, 6), snakeDark);
-        body2.rotation.x = Math.PI / 2;
-        body2.position.set(0, r * 0.18, -r * 0.28);
-        const body3 = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.2, r * 0.24, cfg.height * 0.28, 6), snakeDark);
-        body3.rotation.x = Math.PI / 2;
-        body3.position.set(0, r * 0.14, -r * 0.58);
-        g.add(head, eyeL, eyeR, tongue, body1, body2, body3);
+        const r = cfg.radius, h = cfg.height;
+        const snakeMat = voxelStd(0x2a6a2a, 0x0d2a0d);
+        const snakeDark = voxelStd(0x1a4a1a, 0x081808);
+        addBoxPart(g, r * 0.55, r * 0.42, r * 0.62, snakeMat, 0, r * 0.32, r * 0.52);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, -r * 0.14, r * 0.38, r * 0.78);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, r * 0.14, r * 0.38, r * 0.78);
+        addBoxPart(g, r * 0.08, r * 0.06, r * 0.22, new THREE.MeshBasicMaterial({ color: 0xcc2244 }), 0, r * 0.26, r * 0.82);
+        addBoxPart(g, r * 0.48, r * 0.32, h * 0.38, snakeMat, 0, r * 0.24, r * 0.08);
+        addBoxPart(g, r * 0.42, r * 0.26, h * 0.32, snakeDark, 0, r * 0.2, -r * 0.28);
+        addBoxPart(g, r * 0.32, r * 0.2, h * 0.28, snakeDark, 0, r * 0.16, -r * 0.58);
       } else if (normalBeastType === "cactus") {
         const cactusMat = new THREE.MeshStandardMaterial({ color: 0x2a5a2a, emissive: 0x0d2a0d, emissiveIntensity: 0.08, roughness: 0.9 });
         const spineMat = new THREE.MeshStandardMaterial({ color: 0x4a4a3a, roughness: 0.95 });
@@ -9554,281 +9392,143 @@ function createEnemy(tier, cfg, opts) {
           spine.rotation.z = (si % 2 === 0 ? 0.3 : -0.3);
           g.add(spine);
         }
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.3, 6, 5), cactusMat);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.55, cfg.radius * 0.45, cfg.radius * 0.5), cactusMat);
         head.position.y = cfg.height * 0.88;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.05, 4, 4), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.1, cfg.height * 0.9, cfg.radius * 0.28);
+        const eyeL = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.1, cfg.radius * 0.1, cfg.radius * 0.06), eyeMat);
+        eyeL.position.set(-cfg.radius * 0.12, cfg.height * 0.9, cfg.radius * 0.28);
         const eyeR = eyeL.clone();
         eyeR.position.x *= -1;
         g.add(head, eyeL, eyeR);
       } else if (normalBeastType === "bat") {
-        // Yarasa: koyu gövde, kanatlar, küçük kafa, kulaklar
-        const batMat = new THREE.MeshStandardMaterial({ color: 0x2a2530, emissive: 0x0a0810, emissiveIntensity: 0.2, roughness: 0.7, metalness: 0.02 });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.4, 10, 8), batMat);
-        body.scale.set(1, 1.1, 1.2);
-        body.position.y = cfg.height * 0.5;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.28, 10, 8), batMat);
-        head.position.set(0, cfg.height * 0.92, cfg.radius * 0.35);
-        const earL = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.1, cfg.radius * 0.25, 4), batMat);
-        earL.position.set(-cfg.radius * 0.2, cfg.height * 1.08, cfg.radius * 0.2);
-        earL.rotation.z = 0.4;
-        const earR = earL.clone();
-        earR.position.x *= -1;
-        earR.rotation.z *= -0.4;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.05, 5, 5), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.1, cfg.height * 0.94, cfg.radius * 0.4);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const mouth = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.12, cfg.radius * 0.03, cfg.radius * 0.06), new THREE.MeshBasicMaterial({ color: 0x111111 }));
-        mouth.position.set(0, cfg.height * 0.88, cfg.radius * 0.42);
-        const wingMat = new THREE.MeshStandardMaterial({ color: 0x1a1520, emissive: 0x080608, roughness: 0.8, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
-        const wingL = new THREE.Mesh(new THREE.PlaneGeometry(cfg.radius * 1.1, cfg.radius * 0.6), wingMat);
-        wingL.position.set(-cfg.radius * 0.55, cfg.height * 0.6, -cfg.radius * 0.1);
-        wingL.rotation.y = 0.5;
-        wingL.rotation.z = 0.15;
-        const wingR = wingL.clone();
-        wingR.position.x *= -1;
-        wingR.rotation.y *= -0.5;
-        wingR.rotation.z *= -0.15;
-        g.add(body, head, earL, earR, eyeL, eyeR, mouth, wingL, wingR);
+        const r = cfg.radius, h = cfg.height;
+        const batMat = voxelStd(0x2a2530, 0x0a0810);
+        addBoxPart(g, r * 0.7, h * 0.42, r * 0.8, batMat, 0, h * 0.5, 0);
+        addBoxPart(g, r * 0.48, r * 0.42, r * 0.42, batMat, 0, h * 0.88, r * 0.22);
+        addBoxPart(g, r * 0.14, r * 0.22, r * 0.1, batMat, -r * 0.2, h * 1.08, r * 0.12);
+        addBoxPart(g, r * 0.14, r * 0.22, r * 0.1, batMat, r * 0.2, h * 1.08, r * 0.12);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, -r * 0.1, h * 0.9, r * 0.4);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, r * 0.1, h * 0.9, r * 0.4);
+        addBoxPart(g, r * 1.15, r * 0.12, r * 0.55, batMat, -r * 0.7, h * 0.58, 0);
+        addBoxPart(g, r * 1.15, r * 0.12, r * 0.55, batMat, r * 0.7, h * 0.58, 0);
       } else if (normalBeastType === "vampire") {
-        const vampMat = new THREE.MeshStandardMaterial({ color: 0xc8a8b8, emissive: 0x1a0a12, emissiveIntensity: 0.15, roughness: 0.6, metalness: 0.02 });
-        const capeMat = new THREE.MeshStandardMaterial({ color: 0x2a0a1a, emissive: 0x180808, roughness: 0.8, metalness: 0 });
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.35, cfg.radius * 0.45, cfg.height * 0.6, 8), vampMat);
-        body.position.y = cfg.height * 0.5;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.32, 10, 8), vampMat);
-        head.position.y = cfg.height * 0.98;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.05, 5, 5), new THREE.MeshBasicMaterial({ color: 0xaa2222 }));
-        eyeL.position.set(-cfg.radius * 0.12, cfg.height * 1.02, cfg.radius * 0.28);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const fangL = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.04, cfg.radius * 0.12, 4), vampMat);
-        fangL.position.set(-cfg.radius * 0.08, cfg.height * 0.88, cfg.radius * 0.38);
-        fangL.rotation.x = 0.4;
-        const fangR = fangL.clone();
-        fangR.position.x *= -1;
-        const cape = new THREE.Mesh(new THREE.PlaneGeometry(cfg.radius * 1.4, cfg.height * 0.9), capeMat);
-        cape.position.set(0, cfg.height * 0.5, -cfg.radius * 0.4);
-        cape.rotation.x = 0.1;
-        g.add(body, head, eyeL, eyeR, fangL, fangR, cape);
+        const r = cfg.radius, h = cfg.height;
+        const vampMat = voxelStd(0xc8a8b8, 0x1a0a12);
+        const capeMat = voxelStd(0x2a0a1a, 0x180808);
+        const vampEye = new THREE.MeshBasicMaterial({ color: 0xaa2222 });
+        addBoxPart(g, r * 0.7, h * 0.62, r * 0.5, vampMat, 0, h * 0.5, 0);
+        addBoxPart(g, r * 0.52, r * 0.5, r * 0.48, vampMat, 0, h * 0.98, 0);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, vampEye, -r * 0.12, h * 1.02, r * 0.26);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, vampEye, r * 0.12, h * 1.02, r * 0.26);
+        addBoxPart(g, r * 0.08, r * 0.16, r * 0.08, vampMat, -r * 0.08, h * 0.86, r * 0.32);
+        addBoxPart(g, r * 0.08, r * 0.16, r * 0.08, vampMat, r * 0.08, h * 0.86, r * 0.32);
+        addBoxPart(g, r * 0.95, h * 0.75, r * 0.18, capeMat, 0, h * 0.48, -r * 0.32);
       } else if (normalBeastType === "purpleShadow") {
-        const purpMat = new THREE.MeshStandardMaterial({ color: 0x1a0a2a, emissive: 0x440066, emissiveIntensity: 0.35, roughness: 0.9, metalness: 0, transparent: true, opacity: 0.88 });
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.35, cfg.radius * 0.5, cfg.height * 0.7, 8), purpMat);
-        body.position.y = cfg.height * 0.5;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.35, 8, 8), purpMat);
-        head.position.y = cfg.height * 0.98;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.06, 4, 4), new THREE.MeshBasicMaterial({ color: 0xaa66ff }));
-        eyeL.position.set(-cfg.radius * 0.12, cfg.height * 1.02, cfg.radius * 0.3);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        g.add(body, head, eyeL, eyeR);
+        const r = cfg.radius, h = cfg.height;
+        const purpMat = voxelStd(0x1a0a2a, 0x440066);
+        purpMat.transparent = true; purpMat.opacity = 0.88;
+        const purpEye = new THREE.MeshBasicMaterial({ color: 0xaa66ff });
+        addBoxPart(g, r * 0.75, h * 0.7, r * 0.55, purpMat, 0, h * 0.5, 0);
+        addBoxPart(g, r * 0.55, r * 0.5, r * 0.5, purpMat, 0, h * 0.98, 0);
+        addBoxPart(g, r * 0.12, r * 0.12, r * 0.08, purpEye, -r * 0.12, h * 1.02, r * 0.28);
+        addBoxPart(g, r * 0.12, r * 0.12, r * 0.08, purpEye, r * 0.12, h * 1.02, r * 0.28);
       } else if (normalBeastType === "purpleSkeleton") {
-        const boneMat = new THREE.MeshStandardMaterial({ color: 0xb8a0d0, emissive: 0x2a1840, emissiveIntensity: 0.2, roughness: 0.65, metalness: 0.02 });
-        const skull = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.5, cfg.radius * 0.42, cfg.radius * 0.38, 1, 1, 1), boneMat);
-        skull.position.y = cfg.height * 1.02;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.06, 4, 4), new THREE.MeshBasicMaterial({ color: 0x6611aa }));
-        eyeL.position.set(-cfg.radius * 0.16, cfg.height * 1.04, cfg.radius * 0.2);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const spine = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.06, cfg.radius * 0.08, cfg.height * 0.45, 5), boneMat);
-        spine.position.set(0, cfg.height * 0.38, -cfg.radius * 0.15);
-        spine.rotation.x = 0.15;
-        const rib1 = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.04, cfg.radius * 0.04, cfg.radius * 0.5, 4), boneMat);
-        rib1.position.set(0, cfg.height * 0.62, 0);
-        rib1.rotation.z = Math.PI / 2;
-        const armL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.05, cfg.radius * 0.06, cfg.height * 0.32, 5), boneMat);
-        armL.position.set(-cfg.radius * 0.42, cfg.height * 0.58, 0);
-        armL.rotation.z = 0.4;
-        const armR = armL.clone();
-        armR.position.x *= -1;
-        armR.rotation.z *= -1;
-        const legFL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.06, cfg.radius * 0.08, cfg.height * 0.36, 5), boneMat);
-        legFL.position.set(-cfg.radius * 0.2, cfg.height * 0.12, cfg.radius * 0.18);
-        const legFR = legFL.clone();
-        legFR.position.x *= -1;
-        g.add(skull, eyeL, eyeR, spine, rib1, armL, armR, legFL, legFR);
+        const r = cfg.radius, h = cfg.height;
+        const boneMat = voxelStd(0xb8a0d0, 0x2a1840);
+        const hole = new THREE.MeshBasicMaterial({ color: 0x6611aa });
+        addBoxPart(g, r * 0.5, r * 0.42, r * 0.38, boneMat, 0, h * 1.02, 0);
+        addBoxPart(g, r * 0.12, r * 0.12, r * 0.08, hole, -r * 0.14, h * 1.04, r * 0.2);
+        addBoxPart(g, r * 0.12, r * 0.12, r * 0.08, hole, r * 0.14, h * 1.04, r * 0.2);
+        addBoxPart(g, r * 0.12, h * 0.42, r * 0.12, boneMat, 0, h * 0.52, -r * 0.08);
+        addBoxPart(g, r * 0.5, r * 0.08, r * 0.08, boneMat, 0, h * 0.62, 0);
+        addBoxPart(g, r * 0.12, h * 0.32, r * 0.12, boneMat, -r * 0.38, h * 0.58, 0);
+        addBoxPart(g, r * 0.12, h * 0.32, r * 0.12, boneMat, r * 0.38, h * 0.58, 0);
+        addQuadBoxLegs(g, boneMat, r * 0.18, r * 0.16, r * 0.12, h * 0.28);
       } else if (normalBeastType === "purpleSlime") {
-        const slimeMat = new THREE.MeshStandardMaterial({ color: 0x6633aa, emissive: 0x220844, emissiveIntensity: 0.3, roughness: 0.3, metalness: 0.02, transparent: true, opacity: 0.75 });
-        const body = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 1.1, cfg.height * 0.7, cfg.radius * 1.0), slimeMat);
-        body.position.y = cfg.height * 0.45;
-        body.scale.set(1.05, 1, 1.05);
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.08, 6, 6), new THREE.MeshBasicMaterial({ color: 0xaa88ff }));
-        eyeL.position.set(-cfg.radius * 0.2, cfg.height * 0.72, cfg.radius * 0.35);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        g.add(body, eyeL, eyeR);
+        const r = cfg.radius, h = cfg.height;
+        const slimeMat = voxelStd(0x6633aa, 0x220844);
+        slimeMat.transparent = true; slimeMat.opacity = 0.75;
+        const slimeEye = new THREE.MeshBasicMaterial({ color: 0xaa88ff });
+        addBoxPart(g, r * 1.1, h * 0.7, r * 1.0, slimeMat, 0, h * 0.45, 0);
+        addBoxPart(g, r * 0.16, r * 0.16, r * 0.1, slimeEye, -r * 0.22, h * 0.62, r * 0.42);
+        addBoxPart(g, r * 0.16, r * 0.16, r * 0.1, slimeEye, r * 0.22, h * 0.62, r * 0.42);
       } else if (normalBeastType === "redBat") {
-        const batMat = new THREE.MeshStandardMaterial({ color: 0x6a2020, emissive: 0x330808, emissiveIntensity: 0.35, roughness: 0.7, metalness: 0.02 });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.4, 10, 8), batMat);
-        body.scale.set(1, 1.1, 1.2);
-        body.position.y = cfg.height * 0.5;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.28, 10, 8), batMat);
-        head.position.set(0, cfg.height * 0.92, cfg.radius * 0.35);
-        const earL = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.1, cfg.radius * 0.25, 4), batMat);
-        earL.position.set(-cfg.radius * 0.2, cfg.height * 1.08, cfg.radius * 0.2);
-        earL.rotation.z = 0.4;
-        const earR = earL.clone();
-        earR.position.x *= -1;
-        earR.rotation.z *= -0.4;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.05, 5, 5), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.1, cfg.height * 0.94, cfg.radius * 0.4);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const wingMat = new THREE.MeshStandardMaterial({ color: 0x4a1818, emissive: 0x220606, roughness: 0.8, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
-        const wingL = new THREE.Mesh(new THREE.PlaneGeometry(cfg.radius * 1.1, cfg.radius * 0.6), wingMat);
-        wingL.position.set(-cfg.radius * 0.55, cfg.height * 0.6, -cfg.radius * 0.1);
-        wingL.rotation.y = 0.5;
-        wingL.rotation.z = 0.15;
-        const wingR = wingL.clone();
-        wingR.position.x *= -1;
-        wingR.rotation.y *= -0.5;
-        wingR.rotation.z *= -0.15;
-        g.add(body, head, earL, earR, eyeL, eyeR, wingL, wingR);
+        const r = cfg.radius, h = cfg.height;
+        const batMat = voxelStd(0x6a2020, 0x330808);
+        addBoxPart(g, r * 0.7, h * 0.42, r * 0.8, batMat, 0, h * 0.5, 0);
+        addBoxPart(g, r * 0.48, r * 0.42, r * 0.42, batMat, 0, h * 0.88, r * 0.22);
+        addBoxPart(g, r * 0.14, r * 0.22, r * 0.1, batMat, -r * 0.2, h * 1.08, r * 0.12);
+        addBoxPart(g, r * 0.14, r * 0.22, r * 0.1, batMat, r * 0.2, h * 1.08, r * 0.12);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, -r * 0.1, h * 0.9, r * 0.4);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, r * 0.1, h * 0.9, r * 0.4);
+        addBoxPart(g, r * 1.15, r * 0.12, r * 0.55, batMat, -r * 0.7, h * 0.58, 0);
+        addBoxPart(g, r * 1.15, r * 0.12, r * 0.55, batMat, r * 0.7, h * 0.58, 0);
       } else if (normalBeastType === "polarBear") {
-        const polarMat = new THREE.MeshStandardMaterial({ color: 0xe8e8f0, emissive: 0x404060, emissiveIntensity: 0.12, roughness: 0.6, metalness: 0.02 });
-        const polarDark = new THREE.MeshStandardMaterial({ color: 0x606070, roughness: 0.65 });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.55, 10, 8), polarMat);
-        body.scale.set(1.15, 1.1, 1.1);
-        body.position.y = cfg.height * 0.5;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.38, 10, 8), polarMat);
-        head.position.set(0, cfg.height * 0.98, cfg.radius * 0.32);
-        const snout = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.14, 6, 6), polarDark);
-        snout.position.set(0, cfg.height * 0.92, cfg.radius * 0.5);
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.06, 5, 5), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.14, cfg.height * 1.02, cfg.radius * 0.38);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const mouth = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.18, cfg.radius * 0.05, cfg.radius * 0.06), new THREE.MeshBasicMaterial({ color: 0x111111 }));
-        mouth.position.set(0, cfg.height * 0.9, cfg.radius * 0.48);
-        const earL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.12, 6, 6), polarDark);
-        earL.position.set(-cfg.radius * 0.3, cfg.height * 1.2, 0);
-        const earR = earL.clone();
-        earR.position.x *= -1;
-        const legFL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.14, cfg.radius * 0.18, cfg.height * 0.35, 6), polarDark);
-        legFL.position.set(-cfg.radius * 0.35, cfg.height * 0.16, cfg.radius * 0.28);
-        const legFR = legFL.clone();
-        legFR.position.x *= -1;
-        const legBL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.15, cfg.radius * 0.2, cfg.height * 0.33, 6), polarDark);
-        legBL.position.set(-cfg.radius * 0.32, cfg.height * 0.17, -cfg.radius * 0.25);
-        const legBR = legBL.clone();
-        legBR.position.x *= -1;
-        g.add(body, head, snout, eyeL, eyeR, mouth, earL, earR, legFL, legFR, legBL, legBR);
+        const r = cfg.radius, h = cfg.height;
+        const polarMat = voxelStd(0xe8e8f0, 0x404060);
+        const polarDark = voxelStd(0x606070, 0x202028);
+        addBoxPart(g, r * 1.35, h * 0.62, r * 1.2, polarMat, 0, h * 0.5, 0);
+        addBoxPart(g, r * 0.72, r * 0.68, r * 0.7, polarMat, 0, h * 0.98, r * 0.32);
+        addBoxPart(g, r * 0.32, r * 0.24, r * 0.32, polarDark, 0, h * 0.9, r * 0.58);
+        addBoxPart(g, r * 0.12, r * 0.12, r * 0.08, eyeMat, -r * 0.16, h * 1.02, r * 0.55);
+        addBoxPart(g, r * 0.12, r * 0.12, r * 0.08, eyeMat, r * 0.16, h * 1.02, r * 0.55);
+        addBoxPart(g, r * 0.22, r * 0.22, r * 0.16, polarDark, -r * 0.32, h * 1.22, r * 0.12);
+        addBoxPart(g, r * 0.22, r * 0.22, r * 0.16, polarDark, r * 0.32, h * 1.22, r * 0.12);
+        addQuadBoxLegs(g, polarDark, r * 0.38, r * 0.32, r * 0.28, h * 0.32);
       } else if (normalBeastType === "scorpion") {
-        const scorpMat = new THREE.MeshStandardMaterial({ color: 0x6a4a3a, emissive: 0x1a1008, emissiveIntensity: 0.15, roughness: 0.65, metalness: 0.05 });
-        const scorpDark = new THREE.MeshStandardMaterial({ color: 0x3d2a20, roughness: 0.7 });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.45, 10, 8), scorpMat);
-        body.scale.set(1.2, 1, 1.4);
-        body.position.y = cfg.height * 0.45;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.28, 8, 6), scorpMat);
-        head.position.set(0, cfg.height * 0.88, cfg.radius * 0.5);
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.055, 5, 5), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.12, cfg.height * 0.9, cfg.radius * 0.55);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const clawL = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.35, cfg.radius * 0.12, cfg.radius * 0.2), scorpDark);
-        clawL.position.set(-cfg.radius * 0.5, cfg.height * 0.85, cfg.radius * 0.6);
-        clawL.rotation.z = 0.3;
-        const clawR = clawL.clone();
-        clawR.position.x *= -1;
-        clawR.rotation.z *= -0.3;
-        const tail = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.06, cfg.radius * 0.12, cfg.height * 0.5, 6), scorpDark);
-        tail.position.set(0, cfg.height * 0.35, -cfg.radius * 0.55);
-        tail.rotation.x = 0.6;
-        const stinger = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.08, cfg.radius * 0.25, 5), new THREE.MeshStandardMaterial({ color: 0x2a1515, emissive: 0x330808, emissiveIntensity: 0.3 }));
-        stinger.position.set(0, cfg.height * 0.15, -cfg.radius * 0.85);
-        stinger.rotation.x = 0.4;
-        tail.add(stinger);
-        const legFL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.05, cfg.radius * 0.07, cfg.height * 0.28, 5), scorpDark);
-        legFL.position.set(-cfg.radius * 0.3, cfg.height * 0.12, cfg.radius * 0.25);
-        const legFR = legFL.clone();
-        legFR.position.x *= -1;
-        const legBL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.05, cfg.radius * 0.07, cfg.height * 0.26, 5), scorpDark);
-        legBL.position.set(-cfg.radius * 0.28, cfg.height * 0.13, -cfg.radius * 0.2);
-        const legBR = legBL.clone();
-        legBR.position.x *= -1;
-        g.add(body, head, eyeL, eyeR, clawL, clawR, tail, legFL, legFR, legBL, legBR);
+        const r = cfg.radius, h = cfg.height;
+        const scorpMat = voxelStd(0x6a4a3a, 0x1a1008);
+        const scorpDark = voxelStd(0x3d2a20, 0x100808);
+        addBoxPart(g, r * 1.15, h * 0.32, r * 1.25, scorpMat, 0, h * 0.42, 0);
+        addBoxPart(g, r * 0.48, r * 0.32, r * 0.42, scorpMat, 0, h * 0.62, r * 0.55);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, -r * 0.12, h * 0.66, r * 0.72);
+        addBoxPart(g, r * 0.1, r * 0.1, r * 0.08, eyeMat, r * 0.12, h * 0.66, r * 0.72);
+        addBoxPart(g, r * 0.42, r * 0.14, r * 0.22, scorpDark, -r * 0.62, h * 0.58, r * 0.55);
+        addBoxPart(g, r * 0.42, r * 0.14, r * 0.22, scorpDark, r * 0.62, h * 0.58, r * 0.55);
+        addBoxPart(g, r * 0.16, h * 0.55, r * 0.16, scorpDark, 0, h * 0.7, -r * 0.55);
+        addBoxPart(g, r * 0.12, r * 0.22, r * 0.12, voxelStd(0x2a1515, 0x330808), 0, h * 1.0, -r * 0.55);
+        addQuadBoxLegs(g, scorpDark, r * 0.42, r * 0.32, r * 0.12, h * 0.22);
       } else if (normalBeastType === "spider") {
-        const spiderMat = new THREE.MeshStandardMaterial({ color: 0x2a1a12, emissive: 0x0a0502, emissiveIntensity: 0.2, roughness: 0.75, metalness: 0.02 });
-        const abdomen = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.55, 12, 10), spiderMat);
-        abdomen.scale.set(1.15, 1.1, 1.25);
-        abdomen.position.set(0, cfg.height * 0.42, -cfg.radius * 0.15);
-        const thorax = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.38, 10, 8), spiderMat);
-        thorax.position.y = cfg.height * 0.58;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.28, 8, 6), spiderMat);
-        head.position.set(0, cfg.height * 0.92, cfg.radius * 0.38);
+        const r = cfg.radius, h = cfg.height;
+        const spiderMat = voxelStd(0x2a1a12, 0x0a0502);
         const eyeMat2 = new THREE.MeshBasicMaterial({ color: 0x222200 });
-        for (let ei = 0; ei < 8; ei++) {
-          const row = ei < 4 ? 0 : 1;
-          const col = ei % 4;
-          const ex = (col % 2 === 0 ? -1 : 1) * cfg.radius * (0.08 + col * 0.04);
-          const ez = cfg.radius * (0.32 + row * 0.06);
-          const eye = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.035, 4, 4), eyeMat2);
-          eye.position.set(ex, cfg.height * 0.94 + row * 0.02, ez);
-          g.add(eye);
+        addBoxPart(g, r * 1.15, h * 0.38, r * 1.05, spiderMat, 0, h * 0.4, -r * 0.12);
+        addBoxPart(g, r * 0.7, h * 0.28, r * 0.62, spiderMat, 0, h * 0.55, r * 0.18);
+        addBoxPart(g, r * 0.48, r * 0.36, r * 0.42, spiderMat, 0, h * 0.72, r * 0.42);
+        for (let ei = 0; ei < 6; ei++) {
+          const col = ei % 3;
+          const row = ei < 3 ? 0 : 1;
+          addBoxPart(g, r * 0.08, r * 0.08, r * 0.06, eyeMat2, (col - 1) * r * 0.14, h * 0.78 + row * 0.06, r * 0.58);
         }
-        const legLen = cfg.radius * 0.55;
-        for (let li = 0; li < 8; li++) {
-          const side = li % 2 === 0 ? -1 : 1;
-          const group = (li / 2) | 0;
-          const angle = (group / 4) * Math.PI * 0.5 - Math.PI * 0.25;
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.035, cfg.radius * 0.045, legLen, 5), spiderMat);
-          const rx = side * cfg.radius * (0.32 + group * 0.08);
-          const rz = (group < 2 ? 1 : -1) * cfg.radius * (0.22 + (group % 2) * 0.12);
-          leg.position.set(rx, cfg.height * (0.38 - group * 0.04), rz);
-          leg.rotation.z = side * (0.5 + group * 0.08);
-          leg.rotation.x = (group < 2 ? -0.25 : 0.2) + group * 0.05;
-          g.add(leg);
+        for (let li = 0; li < 4; li++) {
+          const z = -r * 0.28 + li * r * 0.22;
+          addBoxPart(g, r * 0.7, r * 0.1, r * 0.1, spiderMat, -r * 0.7, h * 0.28, z);
+          addBoxPart(g, r * 0.7, r * 0.1, r * 0.1, spiderMat, r * 0.7, h * 0.28, z);
         }
-        g.add(abdomen, thorax, head);
       } else if (normalBeastType === "void") {
-        const voidMat = new THREE.MeshStandardMaterial({ color: 0x1a0a2a, emissive: 0x440088, emissiveIntensity: 0.5, roughness: 0.3, metalness: 0.2, transparent: true, opacity: 0.9 });
+        const r = cfg.radius, h = cfg.height;
+        const voidMat = voxelStd(0x1a0a2a, 0x440088);
+        voidMat.transparent = true; voidMat.opacity = 0.9;
         const voidEye = new THREE.MeshBasicMaterial({ color: 0xaa44ff });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.5, 10, 8), voidMat);
-        body.scale.set(1.1, 1.2, 0.95);
-        body.position.y = cfg.height * 0.55;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.35, 10, 8), voidMat);
-        head.position.y = cfg.height * 1.0;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.08, 6, 6), voidEye);
-        eyeL.position.set(-cfg.radius * 0.14, cfg.height * 1.04, cfg.radius * 0.32);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const tendrilL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.04, cfg.radius * 0.08, cfg.radius * 0.6, 5), voidMat);
-        tendrilL.position.set(-cfg.radius * 0.4, cfg.height * 0.5, -cfg.radius * 0.35);
-        tendrilL.rotation.x = 0.4;
-        const tendrilR = tendrilL.clone();
-        tendrilR.position.x *= -1;
-        const tendrilB = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.05, cfg.radius * 0.1, cfg.radius * 0.5, 5), voidMat);
-        tendrilB.position.set(0, cfg.height * 0.25, -cfg.radius * 0.5);
-        tendrilB.rotation.x = 0.5;
-        g.add(body, head, eyeL, eyeR, tendrilL, tendrilR, tendrilB);
+        addBoxPart(g, r * 0.95, h * 0.7, r * 0.8, voidMat, 0, h * 0.55, 0);
+        addBoxPart(g, r * 0.62, r * 0.55, r * 0.55, voidMat, 0, h * 1.0, 0);
+        addBoxPart(g, r * 0.14, r * 0.14, r * 0.1, voidEye, -r * 0.16, h * 1.04, r * 0.3);
+        addBoxPart(g, r * 0.14, r * 0.14, r * 0.1, voidEye, r * 0.16, h * 1.04, r * 0.3);
+        addBoxPart(g, r * 0.16, r * 0.55, r * 0.16, voidMat, -r * 0.4, h * 0.42, -r * 0.28);
+        addBoxPart(g, r * 0.16, r * 0.55, r * 0.16, voidMat, r * 0.4, h * 0.42, -r * 0.28);
+        addBoxPart(g, r * 0.18, r * 0.42, r * 0.18, voidMat, 0, h * 0.22, -r * 0.42);
       } else if (normalBeastType === "horror") {
-        const horrorMat = new THREE.MeshStandardMaterial({ color: 0x0d0a12, emissive: 0x330022, emissiveIntensity: 0.4, roughness: 0.8, metalness: 0.05 });
+        const r = cfg.radius, h = cfg.height;
+        const horrorMat = voxelStd(0x0d0a12, 0x330022);
         const horrorEye = new THREE.MeshBasicMaterial({ color: 0xff2244 });
-        const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.52, 10, 8), horrorMat);
-        body.scale.set(1.15, 1.15, 1.05);
-        body.position.y = cfg.height * 0.52;
-        const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.38, 10, 8), horrorMat);
-        head.position.y = cfg.height * 1.02;
-        for (let ei = 0; ei < 3; ei++) {
-          const ex = (ei === 0 ? 0 : (ei === 1 ? -1 : 1)) * cfg.radius * 0.22;
-          const ey = cfg.height * (1.02 + (ei === 0 ? 0.04 : 0));
-          const ez = cfg.radius * 0.38;
-          const eye = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.07, 6, 6), horrorEye);
-          eye.position.set(ex, ey, ez);
-          g.add(eye);
-        }
-        const mouth = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.35, cfg.radius * 0.08, cfg.radius * 0.15), new THREE.MeshBasicMaterial({ color: 0x220011 }));
-        mouth.position.set(0, cfg.height * 0.88, cfg.radius * 0.48);
-        const fangL = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.05, cfg.radius * 0.2, 4), new THREE.MeshStandardMaterial({ color: 0xeeddcc }));
-        fangL.position.set(-cfg.radius * 0.12, cfg.height * 0.82, cfg.radius * 0.55);
-        fangL.rotation.x = 0.4;
-        const fangR = fangL.clone();
-        fangR.position.x *= -1;
-        const legL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.1, cfg.radius * 0.14, cfg.height * 0.32, 6), horrorMat);
-        legL.position.set(-cfg.radius * 0.25, cfg.height * 0.14, 0);
-        const legR = legL.clone();
-        legR.position.x *= -1;
-        g.add(body, head, mouth, fangL, fangR, legL, legR);
+        addBoxPart(g, r * 1.05, h * 0.62, r * 0.9, horrorMat, 0, h * 0.52, 0);
+        addBoxPart(g, r * 0.68, r * 0.58, r * 0.6, horrorMat, 0, h * 1.02, 0);
+        addBoxPart(g, r * 0.14, r * 0.14, r * 0.1, horrorEye, 0, h * 1.08, r * 0.32);
+        addBoxPart(g, r * 0.14, r * 0.14, r * 0.1, horrorEye, -r * 0.22, h * 1.02, r * 0.32);
+        addBoxPart(g, r * 0.14, r * 0.14, r * 0.1, horrorEye, r * 0.22, h * 1.02, r * 0.32);
+        addBoxPart(g, r * 0.38, r * 0.12, r * 0.18, new THREE.MeshBasicMaterial({ color: 0x220011 }), 0, h * 0.88, r * 0.38);
+        addBoxPart(g, r * 0.1, r * 0.18, r * 0.1, voxelStd(0xeeddcc, 0x332211), -r * 0.12, h * 0.8, r * 0.45);
+        addBoxPart(g, r * 0.1, r * 0.18, r * 0.1, voxelStd(0xeeddcc, 0x332211), r * 0.12, h * 0.8, r * 0.45);
+        addQuadBoxLegs(g, horrorMat, r * 0.25, 0, r * 0.18, h * 0.28);
       } else if (normalBeastType === "breach") {
         const breachMat = new THREE.MeshStandardMaterial({ color: 0x0a0812, emissive: 0x220033, emissiveIntensity: 0.5, roughness: 0.6, metalness: 0.1 });
         const breachDark = new THREE.MeshStandardMaterial({ color: 0x080510, emissive: 0x180028, emissiveIntensity: 0.4, roughness: 0.7 });
@@ -9842,7 +9542,7 @@ function createEnemy(tier, cfg, opts) {
         shoulders.position.y = h * 0.78;
         const head = new THREE.Mesh(new THREE.BoxGeometry(r * 0.45, r * 0.45, r * 0.4), breachMat);
         head.position.y = h * 1.02;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(r * 0.08, 5, 5), breachEye);
+        const eyeL = new THREE.Mesh(new THREE.BoxGeometry(r * 0.14, r * 0.14, r * 0.08), breachEye);
         eyeL.position.set(-r * 0.14, h * 1.04, r * 0.22);
         const eyeR = eyeL.clone();
         eyeR.position.x *= -1;
@@ -9861,35 +9561,22 @@ function createEnemy(tier, cfg, opts) {
         legR.position.x *= -1;
         g.add(torso, shoulders, head, eyeL, eyeR, wingL, wingR, legL, legR);
       } else if (normalBeastType === "slime") {
-        const slimeMat = new THREE.MeshStandardMaterial({ color: 0x22aa44, emissive: 0x0a330a, emissiveIntensity: 0.25, roughness: 0.3, metalness: 0.02, transparent: true, opacity: 0.7 });
-        const body = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 1.1, cfg.height * 0.7, cfg.radius * 1.0), slimeMat);
-        body.position.y = cfg.height * 0.38;
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.1, 5, 5), eyeMat);
-        eyeL.position.set(-cfg.radius * 0.22, cfg.height * 0.55, cfg.radius * 0.28);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        g.add(body, eyeL, eyeR);
+        const r = cfg.radius, h = cfg.height;
+        const slimeMat = voxelStd(0x22aa44, 0x0a330a);
+        slimeMat.transparent = true; slimeMat.opacity = 0.72;
+        addBoxPart(g, r * 1.1, h * 0.7, r * 1.0, slimeMat, 0, h * 0.38, 0);
+        addBoxPart(g, r * 0.18, r * 0.18, r * 0.12, eyeMat, -r * 0.22, h * 0.55, r * 0.42);
+        addBoxPart(g, r * 0.18, r * 0.18, r * 0.12, eyeMat, r * 0.22, h * 0.55, r * 0.42);
       } else if (normalBeastType === "snail") {
-        const snailBodyMat = new THREE.MeshStandardMaterial({ color: 0xc4a574, emissive: 0x2a2010, emissiveIntensity: 0.2, roughness: 0.7 });
-        const shellMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, emissive: 0x1a1510, emissiveIntensity: 0.15, roughness: 0.6 });
-        const r = cfg.radius;
-        const h = cfg.height;
-        const body = new THREE.Mesh(new THREE.SphereGeometry(r * 0.5, 10, 8), snailBodyMat);
-        body.scale.set(1.2, 0.9, 1.1);
-        body.position.y = h * 0.45;
-        const shell = new THREE.Mesh(new THREE.SphereGeometry(r * 0.55, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.7), shellMat);
-        shell.scale.set(1, 1.1, 1);
-        shell.position.set(0, h * 0.5, r * 0.35);
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(r * 0.08, 6, 6), eyeMat);
-        eyeL.position.set(-r * 0.2, h * 0.72, r * 0.4);
-        const eyeR = eyeL.clone();
-        eyeR.position.x *= -1;
-        const antennaL = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.03, r * 0.05, r * 0.35, 6), snailBodyMat);
-        antennaL.position.set(-r * 0.15, h * 0.82, r * 0.35);
-        antennaL.rotation.x = 0.3;
-        const antennaR = antennaL.clone();
-        antennaR.position.x *= -1;
-        g.add(body, shell, eyeL, eyeR, antennaL, antennaR);
+        const r = cfg.radius, h = cfg.height;
+        const snailBodyMat = voxelStd(0xc4a574, 0x2a2010);
+        const shellMat = voxelStd(0x8b7355, 0x1a1510);
+        addBoxPart(g, r * 1.05, h * 0.38, r * 0.9, snailBodyMat, 0, h * 0.32, 0);
+        addBoxPart(g, r * 0.85, r * 0.7, r * 0.75, shellMat, 0, h * 0.62, -r * 0.12);
+        addBoxPart(g, r * 0.14, r * 0.14, r * 0.1, eyeMat, -r * 0.2, h * 0.55, r * 0.42);
+        addBoxPart(g, r * 0.14, r * 0.14, r * 0.1, eyeMat, r * 0.2, h * 0.55, r * 0.42);
+        addBoxPart(g, r * 0.08, r * 0.32, r * 0.08, snailBodyMat, -r * 0.16, h * 0.72, r * 0.32);
+        addBoxPart(g, r * 0.08, r * 0.32, r * 0.08, snailBodyMat, r * 0.16, h * 0.72, r * 0.32);
       } else if (normalBeastType === "creeper") {
         const creeperGreen = new THREE.MeshStandardMaterial({ color: 0x0da70b, emissive: 0x044004, emissiveIntensity: 0.2, roughness: 0.7 });
         const creeperDark = new THREE.MeshStandardMaterial({ color: 0x064a06, emissive: 0x022002, emissiveIntensity: 0.15, roughness: 0.75 });
@@ -10044,18 +9731,16 @@ function createEnemy(tier, cfg, opts) {
     } else if (tier === "rare" && normalBeastType === "shadow") {
       const shadowMat = new THREE.MeshStandardMaterial({ color: 0x0a0a12, emissive: 0x220022, emissiveIntensity: 0.25, roughness: 0.9, metalness: 0, transparent: true, opacity: 0.88 });
       const shadowEye = new THREE.MeshBasicMaterial({ color: 0x6600aa });
-      const body = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.48, 10, 8), shadowMat);
-      body.scale.set(1, 1.3, 0.9);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.9, cfg.height * 0.88, cfg.radius * 0.8), shadowMat);
       body.position.y = cfg.height * 0.52;
-      const head = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.36, 10, 8), shadowMat);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.64, cfg.radius * 0.64, cfg.radius * 0.64), shadowMat);
       head.position.y = cfg.height * 1.0;
-      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.07, 6, 6), shadowEye);
+      const eyeL = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.12, cfg.radius * 0.12, cfg.radius * 0.08), shadowEye);
       eyeL.position.set(-cfg.radius * 0.12, cfg.height * 1.04, cfg.radius * 0.3);
       const eyeR = eyeL.clone();
       eyeR.position.x *= -1;
-      const tail = new THREE.Mesh(new THREE.ConeGeometry(cfg.radius * 0.2, cfg.height * 0.5, 6), shadowMat);
-      tail.position.set(0, cfg.height * 0.18, -cfg.radius * 0.45);
-      tail.rotation.x = 0.5;
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.22, cfg.height * 0.42, cfg.radius * 0.22), shadowMat);
+      tail.position.set(0, cfg.height * 0.2, -cfg.radius * 0.45);
       g.add(body, head, eyeL, eyeR, tail);
     } else if (tier === "magic") {
       // Magic: elongated body + floating crystal
@@ -10063,10 +9748,10 @@ function createEnemy(tier, cfg, opts) {
       body.position.y = cfg.height * 0.45;
       const head = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.58, cfg.radius * 0.58, cfg.radius * 0.58), mat);
       head.position.y = cfg.height * 0.95;
-      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.07, 5, 5), eyeMat);
-      eyeL.position.set(-cfg.radius * 0.14, cfg.height * 0.98, cfg.radius * 0.25);
-      const eyeR = eyeL.clone();
-      eyeR.position.x *= -1;
+        const eyeL = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.12, cfg.radius * 0.12, cfg.radius * 0.08), eyeMat);
+        eyeL.position.set(-cfg.radius * 0.14, cfg.height * 0.98, cfg.radius * 0.25);
+        const eyeR = eyeL.clone();
+        eyeR.position.x *= -1;
       const mouth = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.18, cfg.radius * 0.05, cfg.radius * 0.08), new THREE.MeshBasicMaterial({ color: 0x111111 }));
       mouth.position.set(0, cfg.height * 0.88, cfg.radius * 0.26);
       const legL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.1, cfg.radius * 0.14, cfg.height * 0.28, 6), darkLeg);
@@ -10085,10 +9770,10 @@ function createEnemy(tier, cfg, opts) {
       body.position.y = cfg.height * 0.52;
       const head = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.64, cfg.radius * 0.64, cfg.radius * 0.64), mat);
       head.position.y = cfg.height * 1.0;
-      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(cfg.radius * 0.07, 5, 5), eyeMat);
-      eyeL.position.set(-cfg.radius * 0.16, cfg.height * 1.02, cfg.radius * 0.26);
-      const eyeR = eyeL.clone();
-      eyeR.position.x *= -1;
+        const eyeL = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.12, cfg.radius * 0.12, cfg.radius * 0.08), eyeMat);
+        eyeL.position.set(-cfg.radius * 0.16, cfg.height * 1.02, cfg.radius * 0.26);
+        const eyeR = eyeL.clone();
+        eyeR.position.x *= -1;
       const mouth = new THREE.Mesh(new THREE.BoxGeometry(cfg.radius * 0.22, cfg.radius * 0.07, cfg.radius * 0.12), new THREE.MeshBasicMaterial({ color: 0x111111 }));
       mouth.position.set(0, cfg.height * 0.9, cfg.radius * 0.32);
       const legL = new THREE.Mesh(new THREE.CylinderGeometry(cfg.radius * 0.13, cfg.radius * 0.16, cfg.height * 0.32, 6), darkLeg);
@@ -10233,7 +9918,7 @@ function createEnemy(tier, cfg, opts) {
   }
   speed *= 0.95;
 
-  if (normalBeastType && typeof applyBeastLook === "function") applyBeastLook(g, normalBeastType, cfg);
+  if (!g.userData.fromGlb && normalBeastType && typeof applyBeastLook === "function") applyBeastLook(g, normalBeastType, cfg);
   if (typeof applyVoxelLook === "function") applyVoxelLook(g);
   const affixRoll = !isBoss && Math.random() < 0.10;
   const affix = affixRoll ? (Math.random() < 0.6 ? "lifeStealAura" : "slowAura") : null;

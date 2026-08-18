@@ -9,6 +9,7 @@ Bu proje **lokal** kullanım içindir. Aşağıdaki klasörlere GLB dosyaların�
 | `assets/maps/` | `arena1.glb`, `arena2.glb`, `arena3.glb` | Özel haritalar (Arena 3: su alanları, yüzme, köpek balıkları) |
 | `assets/player/` | `character.glb` | Ana karakter modeli |
 | `assets/creatures/` | Aşağıdaki tablo | Yaratık modelleri (isim tam eşleşmeli) |
+| `assets/models/creatures/` | `voxel_wolf.glb`, `voxel_boar.glb`, `voxel_spider.glb` | Ch1 voxel kit. 404 olursa procedural kutu. |
 
 ### Yaratık dosya isimleri (`assets/creatures/`)
 
