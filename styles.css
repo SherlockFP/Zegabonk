@@ -651,6 +651,49 @@ body.in-town #ui::after { display: none; }
   text-shadow: 0 2px 0 #000;
 }
 .comboChip.on, .chip.comboChip.on { display: block !important; animation: comboPop 0.18s ease-out; }
+#topRightHud { flex-wrap: wrap; justify-content: flex-end; max-width: 420px; }
+#gauntletChip.gauntletChip, .chip.gauntletChip {
+  display: none;
+  min-width: 0;
+  text-align: center;
+  background: rgba(16, 10, 8, 0.94) !important;
+  border: 3px solid #1a1208 !important;
+  box-shadow: 0 3px 0 #0a0604, inset 0 0 0 1px rgba(255, 212, 90, 0.55);
+  color: #ffe789 !important;
+  font: 900 12px/1 var(--ui-font) !important;
+  padding: 4px 9px !important;
+  letter-spacing: 0.05em;
+  text-shadow: 0 2px 0 #000;
+}
+#gauntletChip.on, .chip.gauntletChip.on { display: block !important; }
+#keyChip.keyChip, .chip.keyChip {
+  display: none;
+  min-width: 0;
+  text-align: center;
+  background: rgba(42, 28, 6, 0.94) !important;
+  border: 3px solid #ffd45a !important;
+  box-shadow: 0 3px 0 #5a3a08, inset 0 0 0 1px #ffe08a;
+  color: #ffd45a !important;
+  font: 900 12px/1 var(--ui-font) !important;
+  padding: 4px 8px !important;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 #000;
+}
+#keyChip.on, .chip.keyChip.on { display: block !important; }
+#foodChip.foodChip, .chip.foodChip {
+  display: none;
+  min-width: 0;
+  text-align: center;
+  background: rgba(40, 8, 8, 0.94) !important;
+  border: 3px solid #c42a22 !important;
+  box-shadow: 0 3px 0 #5a1008, inset 0 0 0 1px #ff8866;
+  color: #ff8866 !important;
+  font: 900 12px/1 var(--ui-font) !important;
+  padding: 4px 8px !important;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 0 #000;
+}
+#foodChip.on, .chip.foodChip.on { display: block !important; }
 @keyframes comboPop { from { transform: scale(1.25); } to { transform: scale(1); } }
 .topChip, #killChip {
   background: rgba(8,12,18,0.86) !important;

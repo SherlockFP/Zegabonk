@@ -917,6 +917,386 @@ function updateHunt() {
   }
 }
 
+const GAUNTLET_TYPES = ["horde", "elite", "treasure", "shrine", "food", "gauntlet", "shop"];
+const GAUNTLET_LABEL = {
+  horde: "SURU",
+  elite: "ELIT",
+  treasure: "SANDIK",
+  shrine: "SUNAK",
+  food: "ET",
+  gauntlet: "KAPI",
+  shop: "DUKKAN"
+};
+let gauntletPickups = [];
+
+function makeEmptyGauntlet() {
+  return {
+    index: 0,
+    typeIndex: -1,
+    type: null,
+    timer: 0,
+    duration: 40,
+    kills: 0,
+    elitesKilled: 0,
+    foodCollected: 0,
+    occupy: 0,
+    need: 0,
+    done: true,
+    active: false,
+    cooldown: 2,
+    marker: null,
+    shrinePos: null,
+    gatePos: null,
+    treasureOpened: false
+  };
+}
+
+function clearGauntletWorld() {
+  if (typeof scene !== "undefined") {
+    for (let i = 0; i < gauntletPickups.length; i++) {
+      if (gauntletPickups[i] && gauntletPickups[i].mesh) scene.remove(gauntletPickups[i].mesh);
+    }
+  }
+  gauntletPickups.length = 0;
+  if (state.gauntlet && state.gauntlet.marker && typeof scene !== "undefined") {
+    scene.remove(state.gauntlet.marker);
+    state.gauntlet.marker = null;
+  }
+}
+
+function clearGauntletMarker() {
+  const g = state.gauntlet;
+  if (!g) return;
+  if (g.marker && typeof scene !== "undefined") scene.remove(g.marker);
+  g.marker = null;
+  g.shrinePos = null;
+  g.gatePos = null;
+}
+
+function makeGauntletFoodMesh() {
+  const grp = new THREE.Group();
+  const brown = new THREE.MeshLambertMaterial({ color: 0x6b3a18, emissive: 0x3a1808, emissiveIntensity: 0.28 });
+  const red = new THREE.MeshLambertMaterial({ color: 0xc42a22, emissive: 0x7a1008, emissiveIntensity: 0.4 });
+  const steak = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.2, 0.4), brown);
+  const blob = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), red);
+  blob.position.set(0.2, 0.1, 0.02);
+  grp.add(steak, blob);
+  if (typeof applyVoxelLook === "function") applyVoxelLook(grp);
+  return grp;
+}
+
+function makeGauntletKeyMesh() {
+  const grp = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0xffd45a, emissive: 0xaa7700, emissiveIntensity: 0.62 });
+  const h = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.16, 0.16), mat);
+  const v = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.58, 0.16), mat);
+  grp.add(h, v);
+  if (typeof applyVoxelLook === "function") applyVoxelLook(grp);
+  return grp;
+}
+
+function makeGauntletGateMesh() {
+  const grp = new THREE.Group();
+  const pillarMat = new THREE.MeshLambertMaterial({ color: 0xff6a3d, emissive: 0xff3a12, emissiveIntensity: 0.78 });
+  const torusMat = new THREE.MeshLambertMaterial({ color: 0xffd45a, emissive: 0xffaa22, emissiveIntensity: 0.9 });
+  const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.72, 4.4, 0.72), pillarMat);
+  pillar.position.y = 2.2;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.38, 0.18, 8, 16), torusMat);
+  ring.position.y = 2.55;
+  ring.rotation.y = Math.PI / 2;
+  grp.add(pillar, ring);
+  grp.userData.torus = ring;
+  if (typeof applyVoxelLook === "function") applyVoxelLook(grp);
+  return grp;
+}
+
+function makeGauntletShrineMesh() {
+  const grp = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0x66ff88, emissive: 0x228844, emissiveIntensity: 0.55 });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.14, 8, 18), mat);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.14;
+  const gem = new THREE.Mesh(new THREE.SphereGeometry(0.36, 8, 8), mat);
+  gem.position.y = 0.95;
+  grp.add(ring, gem);
+  if (typeof applyVoxelLook === "function") applyVoxelLook(grp);
+  return grp;
+}
+
+function spawnGauntletPickup(kind, pos) {
+  if (!pos || typeof scene === "undefined") return null;
+  if (gauntletPickups.length >= 28) return null;
+  const mesh = kind === "key" ? makeGauntletKeyMesh() : makeGauntletFoodMesh();
+  const gy = (typeof getGroundHeight === "function" ? getGroundHeight(pos.x, pos.z) : pos.y) || 0;
+  mesh.position.set(pos.x + (Math.random() - 0.5) * 1.1, gy + 0.55, pos.z + (Math.random() - 0.5) * 1.1);
+  scene.add(mesh);
+  const item = { mesh: mesh, kind: kind || "food", phase: Math.random() * Math.PI * 2 };
+  gauntletPickups.push(item);
+  return item;
+}
+
+function eatGauntletFood() {
+  if ((state.food || 0) <= 0 || !stats) return false;
+  state.food -= 1;
+  stats.hp = Math.min(stats.maxHp, stats.hp + stats.maxHp * 0.18);
+  state._foodEatCd = 0.75;
+  if (player && player.mesh) {
+    if (typeof spawnDamageText === "function") spawnDamageText(player.mesh.position.clone().add(new THREE.Vector3(0, 1.8, 0)), "ET +HP", false, "ET");
+    if (typeof spawnRing === "function") spawnRing(player.mesh.position, 2.2, 0xc42a22, 0.22);
+  }
+  if (typeof playSfx === "function") playSfx(420, 0.1, 0.7);
+  return true;
+}
+
+function updateGauntletFoodUse(dt) {
+  state._foodEatCd = Math.max(0, (state._foodEatCd || 0) - dt);
+  if (!stats) return;
+  if (keys.e && (state.food || 0) > 0 && stats.hp < stats.maxHp - 0.5 && (state._foodEatCd || 0) <= 0) {
+    keys.e = false;
+    eatGauntletFood();
+    return;
+  }
+  if ((state.food || 0) > 0 && stats.hp < stats.maxHp * 0.4 && (state._foodEatCd || 0) <= 0) {
+    eatGauntletFood();
+  }
+}
+
+function updateGauntletPickups(dt) {
+  if (!player || !player.mesh || typeof scene === "undefined") return;
+  const t = state.time || 0;
+  const magnetBurst = state.magnetBurstUntil && t < state.magnetBurstUntil;
+  const pullRange = magnetBurst ? 22 : 3.4;
+  const pullSpeed = magnetBurst ? 14 : 0;
+  for (let i = gauntletPickups.length - 1; i >= 0; i--) {
+    const p = gauntletPickups[i];
+    if (!p.mesh) { gauntletPickups.splice(i, 1); continue; }
+    const gy = (typeof getGroundHeight === "function" ? getGroundHeight(p.mesh.position.x, p.mesh.position.z) : 0) + 0.5;
+    p.mesh.position.y = gy + Math.sin(t * 3.4 + p.phase) * 0.14;
+    p.mesh.rotation.y += dt * 2.4;
+    const d = player.mesh.position.distanceTo(p.mesh.position);
+    if (pullSpeed > 0 && d < pullRange && d > 1.4) {
+      const nx = player.mesh.position.x - p.mesh.position.x;
+      const nz = player.mesh.position.z - p.mesh.position.z;
+      const len = Math.hypot(nx, nz) || 1;
+      p.mesh.position.x += (nx / len) * dt * pullSpeed;
+      p.mesh.position.z += (nz / len) * dt * pullSpeed;
+    }
+    if (d < 2.35) {
+      if (p.kind === "key") {
+        state.keys = (state.keys || 0) + 1;
+        if (typeof spawnDamageText === "function") spawnDamageText(p.mesh.position.clone().add(new THREE.Vector3(0, 0.8, 0)), "ANAHTAR", true, "KEY");
+      } else {
+        stats.hp = Math.min(stats.maxHp, stats.hp + stats.maxHp * 0.18);
+        state.food = Math.min(5, (state.food || 0) + 1);
+        if (state.gauntlet && state.gauntlet.active && !state.gauntlet.done && state.gauntlet.type === "food") {
+          state.gauntlet.foodCollected = (state.gauntlet.foodCollected || 0) + 1;
+        }
+        if (typeof spawnDamageText === "function") spawnDamageText(p.mesh.position.clone().add(new THREE.Vector3(0, 0.8, 0)), "ET +HP", false, "ET");
+      }
+      if (typeof playSfx === "function") playSfx(p.kind === "key" ? 780 : 500, 0.1, 0.72);
+      scene.remove(p.mesh);
+      gauntletPickups.splice(i, 1);
+    }
+  }
+}
+
+function gauntletProgressText(g) {
+  if (!g || !g.type) return "";
+  if (g.type === "horde") return (g.kills || 0) + "/" + (g.need || 0);
+  if (g.type === "elite") return (g.elitesKilled || 0) + "/" + (g.need || 2);
+  if (g.type === "treasure") return (g.treasureOpened ? "1/1" : "0/1");
+  if (g.type === "shrine") return Math.min(4, Math.floor(g.occupy || 0)) + "/4";
+  if (g.type === "food") return (g.foodCollected || 0) + "/" + (g.need || 2);
+  if (g.type === "gauntlet") return g.done ? "1/1" : "KOS";
+  if (g.type === "shop") return "OK";
+  return "";
+}
+
+function updateGauntletHud() {
+  const gChip = document.getElementById("gauntletChip");
+  const kChip = document.getElementById("keyChip");
+  const fChip = document.getElementById("foodChip");
+  const g = state.gauntlet;
+  const show = !!(state.routeMain && g && !state.inMegaArena && !state.endlessMode && (g.active || g.index > 0));
+  if (gChip) {
+    gChip.classList.toggle("on", show && !!g.type);
+    if (show && g.type) {
+      const label = GAUNTLET_LABEL[g.type] || "ODA";
+      const prog = gauntletProgressText(g);
+      gChip.textContent = "ODA " + (g.index || 1) + " · " + label + (prog ? " " + prog : "");
+    }
+  }
+  if (kChip) {
+    kChip.classList.toggle("on", show);
+    if (show) kChip.textContent = "ANAHTAR " + (state.keys || 0);
+  }
+  if (fChip) {
+    fChip.classList.toggle("on", show);
+    if (show) fChip.textContent = "ET " + (state.food || 0) + "/5";
+  }
+}
+
+function completeGauntletChamber() {
+  const g = state.gauntlet;
+  if (!g || g.done) return;
+  g.done = true;
+  g.active = false;
+  g.cooldown = 2.2;
+  const type = g.type;
+  if (type === "horde") {
+    if (typeof gainXp === "function") gainXp(36);
+    state.coins = (state.coins || 0) + 16;
+  } else if (type === "elite") {
+    if (typeof gainXp === "function") gainXp(48);
+    if (player && player.mesh) spawnGauntletPickup("key", player.mesh.position.clone());
+  } else if (type === "gauntlet") {
+    if (player && player.mesh) {
+      spawnGauntletPickup("key", player.mesh.position.clone());
+      if (typeof spawnChest === "function" && typeof posNearPlayer === "function") spawnChest(posNearPlayer(3, 6));
+    }
+  } else if (type === "shrine") {
+    stats.hp = Math.min(stats.maxHp, stats.hp + 20);
+    state.food = Math.min(5, (state.food || 0) + 1);
+  } else if (type === "food") {
+    if (typeof gainXp === "function") gainXp(18);
+  }
+  clearGauntletMarker();
+  if (typeof showEventBanner === "function") showEventBanner("ODA TAMAM", "#66ff88");
+  if (player && player.mesh && typeof spawnRing === "function") spawnRing(player.mesh.position, 4.2, 0xffd45a, 0.4);
+  if (typeof playSfx === "function") playSfx(620, 0.14, 0.75);
+}
+
+function initGauntletChamber() {
+  if (!state.gauntlet) state.gauntlet = makeEmptyGauntlet();
+  if (!player || !player.mesh) return;
+  const g = state.gauntlet;
+  clearGauntletMarker();
+  g.typeIndex = (g.typeIndex + 1) % GAUNTLET_TYPES.length;
+  g.type = GAUNTLET_TYPES[g.typeIndex];
+  g.index = (g.index || 0) + 1;
+  g.timer = 0;
+  g.duration = 38 + Math.random() * 4;
+  g.kills = 0;
+  g.elitesKilled = 0;
+  g.foodCollected = 0;
+  g.occupy = 0;
+  g.done = false;
+  g.active = true;
+  g.cooldown = 0;
+  g.treasureOpened = false;
+  g.need = 0;
+  const ch = state.chapter || 1;
+  const type = g.type;
+  if (type === "horde") {
+    g.need = 8 + ch * 2;
+    const burst = Math.min(6, g.need);
+    for (let i = 0; i < burst; i++) {
+      if (typeof spawnEnemy === "function") spawnEnemy();
+    }
+    if (typeof showEventBanner === "function") showEventBanner("SURU - kes " + g.need, "#ff8844");
+  } else if (type === "elite") {
+    g.need = 2;
+    if (typeof spawnEliteHunt === "function") spawnEliteHunt(2);
+    if (typeof showEventBanner === "function") showEventBanner("ELIT - 2 elit kes", "#ffd45a");
+  } else if (type === "treasure") {
+    g.need = 1;
+    if (typeof posNearPlayer === "function" && typeof spawnChest === "function") {
+      const p = posNearPlayer(4, 8);
+      spawnChest(p);
+      const c = chests[chests.length - 1];
+      if (c && c.mesh && c.mesh.userData) {
+        c.mesh.userData.needsKey = true;
+        c.mesh.userData.gauntletTreasure = true;
+      }
+      if (typeof spawnRing === "function") spawnRing(p, 3.2, 0xffd45a, 0.4);
+    }
+    if (typeof showEventBanner === "function") showEventBanner("KILITLI SANDIK - anahtar lazim", "#ffd45a");
+  } else if (type === "shrine") {
+    g.need = 4;
+    if (typeof posNearPlayer === "function") {
+      const p = posNearPlayer(10, 10.4);
+      g.shrinePos = p.clone();
+      const mesh = makeGauntletShrineMesh();
+      mesh.position.copy(p);
+      scene.add(mesh);
+      g.marker = mesh;
+      if (typeof spawnRing === "function") spawnRing(p, 3.6, 0x66ff88, 0.4);
+    }
+    if (typeof showEventBanner === "function") showEventBanner("SUNAK - 4 sn dur", "#66ff88");
+  } else if (type === "food") {
+    g.need = 2;
+    if (typeof posNearPlayer === "function") {
+      for (let i = 0; i < 3; i++) spawnGauntletPickup("food", posNearPlayer(2.2, 5.5));
+    }
+    if (typeof showEventBanner === "function") showEventBanner("ET - 2 parca topla", "#c42a22");
+  } else if (type === "gauntlet") {
+    g.need = 1;
+    if (typeof posNearPlayer === "function") {
+      const p = posNearPlayer(18, 24);
+      g.gatePos = p.clone();
+      const mesh = makeGauntletGateMesh();
+      mesh.position.copy(p);
+      scene.add(mesh);
+      g.marker = mesh;
+      if (typeof spawnRing === "function") spawnRing(p, 4.4, 0xff6a3d, 0.45);
+    }
+    if (typeof showEventBanner === "function") showEventBanner("KAPI - kapiya kos", "#ff6a3d");
+  } else if (type === "shop") {
+    g.need = 0;
+    if (typeof spawnChestRain === "function") spawnChestRain(1);
+    state.magnetBurstUntil = Math.max(state.magnetBurstUntil || 0, (state.time || 0) + 2);
+    if (typeof showEventBanner === "function") showEventBanner("DUKKAN", "#63e0ff");
+    completeGauntletChamber();
+  }
+}
+
+function updateGauntletChamber(dt) {
+  if (!running || gameOver || paused || leveling) return;
+  if (state.inTown) return;
+  if (!state.gauntlet) state.gauntlet = makeEmptyGauntlet();
+  if (!state.routeMain || state.inMegaArena || state.endlessMode) return;
+  if (state.routePhase !== "running") return;
+  if (!player || !player.mesh) return;
+  const g = state.gauntlet;
+  if (!g.active || g.done) {
+    g.cooldown = (g.cooldown || 0) - dt;
+    if (g.cooldown <= 0) initGauntletChamber();
+    return;
+  }
+  g.timer += dt;
+  if (g.marker) {
+    g.marker.rotation.y += dt * 1.15;
+    const gy = (typeof getGroundHeight === "function" ? getGroundHeight(g.marker.position.x, g.marker.position.z) : 0);
+    g.marker.position.y = gy + Math.sin((state.time || 0) * 3) * 0.1;
+    if (g.marker.userData && g.marker.userData.torus) g.marker.userData.torus.rotation.z += dt * 1.8;
+  }
+  if (g.type === "horde" && (g.kills || 0) >= g.need) completeGauntletChamber();
+  else if (g.type === "elite" && (g.elitesKilled || 0) >= g.need) completeGauntletChamber();
+  else if (g.type === "treasure" && g.treasureOpened) completeGauntletChamber();
+  else if (g.type === "food" && (g.foodCollected || 0) >= g.need) completeGauntletChamber();
+  else if (g.type === "shrine" && g.shrinePos) {
+    const dx = player.mesh.position.x - g.shrinePos.x;
+    const dz = player.mesh.position.z - g.shrinePos.z;
+    if (dx * dx + dz * dz < 8.5) {
+      g.occupy = (g.occupy || 0) + dt;
+      if (g.occupy >= 4) completeGauntletChamber();
+    } else {
+      g.occupy = 0;
+    }
+  } else if (g.type === "gauntlet" && g.gatePos) {
+    const gx = player.mesh.position.x - g.gatePos.x;
+    const gz = player.mesh.position.z - g.gatePos.z;
+    if (Math.hypot(gx, gz) < 3.2) completeGauntletChamber();
+  }
+  if (g.active && !g.done && g.timer >= g.duration) {
+    g.done = true;
+    g.active = false;
+    g.cooldown = 1.4;
+    clearGauntletMarker();
+    if (typeof showEventBanner === "function") showEventBanner("ODA GECTI", "#ff8844");
+  }
+}
+
 function campaignObjectiveText() {
   if (state.inMegaArena) {
     const n = enderCrystalsAlive();
@@ -3778,7 +4158,7 @@ const CREATURE_GLB_PATHS = {
   horror: "assets/creatures/horror.glb",
   default: "assets/models/creatures/voxel_goblin.glb",
   tree: "assets/creatures/tree.glb",
-  goblin: "assets/models/production/rattlecap_runner_v1.glb",
+  goblin: "assets/creatures/goblin.glb",
   rattlecap: "assets/models/production/rattlecap_runner_v1.glb",
 };
 const CREATURE_GLB_ALIASES = {
@@ -4592,6 +4972,7 @@ function clearWorld() {
     if (gorillaAuraRingMesh.material) gorillaAuraRingMesh.material.dispose();
     gorillaAuraRingMesh = null;
   }
+  if (typeof clearGauntletWorld === "function") clearGauntletWorld();
 }
 
 function clearCurrentWorld() {
@@ -8855,6 +9236,11 @@ function startRun(selectedChapter, selectedMapId) {
   state.routePhase = state.routeMain ? "running" : "idle";
   state.hunt = { step: 0, chests: 0, pois: 0, shrines: 0, elites: 0, revealed: false };
   clearHuntMarkers();
+  state.keys = 0;
+  state.food = 0;
+  state._foodEatCd = 0;
+  state.gauntlet = makeEmptyGauntlet();
+  if (typeof clearGauntletWorld === "function") clearGauntletWorld();
   state.routePortalCandidate = 0;
   if (state.routeMain) selectClassicRoutePortal();
   state.routeBossReserved = false;
@@ -11074,6 +11460,7 @@ function updateChapterAndBoss(dt) {
     if (state.endlessMode) return;
     state.routeTime += dt;
     updateHunt();
+    if (typeof updateGauntletChamber === "function") updateGauntletChamber(dt);
     updateHuntPois();
     updateZoneRewards();
     if (state.routePhase === "running" && state.routeTime >= CLASSIC_ROUTE_PORTAL_TIME) {
@@ -13562,17 +13949,32 @@ function updateChests(dt) {
       state.nearDropChest = c;
       if (keys.f) {
         keys.f = false;
-        ud.opened = true;
-        ud.t = 0;
-        ud.paidExtra = false;
-        spawnChestGoldFlash(c.mesh.position);
-        spawnDamageText(c.mesh.position.clone().add(new THREE.Vector3(0, 1.4, 0)), ud.bonus.name, false, ud.bonus.name);
-        ud.bonus.apply();
-        applyChestFortuneExtras(c.mesh.position);
-        state.chestsOpened = (state.chestsOpened || 0) + 1;
-        noteHuntChest();
-        if (state.runQuest && state.runQuest.type === "chests" && !state.runQuest.done) {
-          state.runQuest.progress = (state.runQuest.progress || 0) + 1;
+        if (ud.needsKey && (state.keys || 0) < 1) {
+          if (typeof showEventBanner === "function") showEventBanner("ANAHTAR LAZIM", "#ffd45a");
+        } else {
+          if (ud.needsKey) {
+            state.keys = Math.max(0, (state.keys || 0) - 1);
+            ud.needsKey = false;
+            const extraGold = 28 + (state.chapter || 1) * 6;
+            state.coins = (state.coins || 0) + extraGold;
+            if (typeof spawnCoinPickup === "function") spawnCoinPickup(c.mesh.position.clone(), extraGold);
+            if (typeof spawnDamageText === "function") spawnDamageText(c.mesh.position.clone().add(new THREE.Vector3(0, 2.2, 0)), "+" + extraGold + " ALTIN", true, "KEY");
+            if (ud.gauntletTreasure && state.gauntlet && state.gauntlet.type === "treasure") {
+              state.gauntlet.treasureOpened = true;
+            }
+          }
+          ud.opened = true;
+          ud.t = 0;
+          ud.paidExtra = false;
+          spawnChestGoldFlash(c.mesh.position);
+          spawnDamageText(c.mesh.position.clone().add(new THREE.Vector3(0, 1.4, 0)), ud.bonus.name, false, ud.bonus.name);
+          ud.bonus.apply();
+          applyChestFortuneExtras(c.mesh.position);
+          state.chestsOpened = (state.chestsOpened || 0) + 1;
+          noteHuntChest();
+          if (state.runQuest && state.runQuest.type === "chests" && !state.runQuest.done) {
+            state.runQuest.progress = (state.runQuest.progress || 0) + 1;
+          }
         }
       }
     }
@@ -14553,6 +14955,14 @@ function killEnemy(enemy) {
   if (enemy.isElite && state.hunt) state.hunt.elites = (state.hunt.elites || 0) + 1;
   if (enemy.isElite && state.runQuest && state.runQuest.type === "elites" && !state.runQuest.done) {
     state.runQuest.progress = (state.runQuest.progress || 0) + 1;
+  }
+  if (state.gauntlet && state.gauntlet.active && !state.gauntlet.done) {
+    state.gauntlet.kills = (state.gauntlet.kills || 0) + 1;
+    if (enemy.isElite) state.gauntlet.elitesKilled = (state.gauntlet.elitesKilled || 0) + 1;
+  }
+  if (typeof spawnGauntletPickup === "function") {
+    if (enemy.isTreasureRunner) spawnGauntletPickup("key", deathPos);
+    else if (enemy.isElite && Math.random() < 0.35) spawnGauntletPickup("key", deathPos);
   }
   if (enemy.isTreasureGoblin) {
     spawnChest(deathPos.clone());
@@ -19149,6 +19559,7 @@ function updateHud() {
     comboChip.textContent = kc >= 2 ? `x${kc} COMBO` : "";
     comboChip.classList.toggle("on", kc >= 2);
   }
+  if (typeof updateGauntletHud === "function") updateGauntletHud();
   if (timeChip) timeChip.textContent = activeRift ? formatTime(activeRift.timeLeft) : (state.endlessMode ? formatTime(state.endlessTime) + " S" : formatTime(state.time));
   const topCenterTime = document.getElementById("topCenterTime");
   if (topCenterTime) topCenterTime.textContent = activeRift ? formatTime(activeRift.timeLeft) : (state.endlessMode ? formatTime(state.endlessTime) + " S" : formatTime(state.time));
@@ -19295,7 +19706,8 @@ function updateHud() {
     } else if (state.nearDropChest && !chestPanelOpen) {
       chestNearEl.classList.remove("hidden");
       chestNearEl.classList.add("visible");
-      chestNearEl.textContent = "F - Sandik";
+      const dcUd = state.nearDropChest.mesh && state.nearDropChest.mesh.userData;
+      chestNearEl.textContent = (dcUd && dcUd.needsKey && (state.keys || 0) < 1) ? "F - Anahtar lazim" : "F - Sandik";
       const dc = state.nearDropChest;
       const v = dc.mesh.position.clone().add(new THREE.Vector3(0, 1.8, 0));
       v.project(camera);
@@ -20999,6 +21411,8 @@ function animate() {
       updateGroundSlipHazards(dt);
       updateXpOrbs(dt);
       updateChests(dt);
+      if (typeof updateGauntletPickups === "function") updateGauntletPickups(dt);
+      if (typeof updateGauntletFoodUse === "function") updateGauntletFoodUse(dt);
       updateSmashables(dt);
       updateRunWorldEvents(dt);
       updateWorldPickups(dt);
