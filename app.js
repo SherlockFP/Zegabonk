@@ -3905,12 +3905,13 @@ function applyBeastLook(g, beastType, cfg) {
 }
 
 const _voxelEdgeMat = new THREE.LineBasicMaterial({ color: 0x050308 });
+const _inkHullMat = new THREE.MeshBasicMaterial({ color: 0x0a0608, side: THREE.BackSide, depthWrite: false });
 function applyVoxelLook(root) {
   if (!root || root.userData.voxelLook) return;
   root.userData.voxelLook = true;
   let edgeCount = 0;
   root.traverse(function(c) {
-    if (!c.isMesh || !c.geometry || c.isSkinnedMesh || c.userData.skipVoxel) return;
+    if (!c.isMesh || !c.geometry || c.userData.skipVoxel) return;
     const mats = Array.isArray(c.material) ? c.material : [c.material];
     for (let i = 0; i < mats.length; i++) {
       const m = mats[i];
@@ -3920,13 +3921,31 @@ function applyVoxelLook(root) {
       if (m.metalness != null) m.metalness = Math.min(m.metalness, 0.12);
       m.needsUpdate = true;
     }
+    if (c.isInstancedMesh) return;
     const pos = c.geometry.attributes && c.geometry.attributes.position;
-    if (edgeCount < 14 && pos && pos.count > 8 && pos.count < 360) {
-      const edges = new THREE.EdgesGeometry(c.geometry, 28);
+    if (!c.isSkinnedMesh && edgeCount < 22 && pos && pos.count > 8 && pos.count < 520) {
+      const edges = new THREE.EdgesGeometry(c.geometry, 22);
       const line = new THREE.LineSegments(edges, _voxelEdgeMat);
       line.userData.skipVoxel = true;
       c.add(line);
       edgeCount += 1;
+    }
+    if (c.isSkinnedMesh && c.skeleton) {
+      const ol = new THREE.SkinnedMesh(c.geometry, _inkHullMat);
+      ol.userData.skipVoxel = true;
+      ol.castShadow = false;
+      ol.receiveShadow = false;
+      ol.frustumCulled = false;
+      ol.bind(c.skeleton, c.bindMatrix);
+      ol.scale.setScalar(1.055);
+      c.add(ol);
+    } else if (!c.isSkinnedMesh) {
+      const ol = new THREE.Mesh(c.geometry, _inkHullMat);
+      ol.userData.skipVoxel = true;
+      ol.castShadow = false;
+      ol.receiveShadow = false;
+      ol.scale.setScalar(1.045);
+      c.add(ol);
     }
   });
 }
@@ -4024,7 +4043,7 @@ function preloadCreatureModels() {
 }
 
 const PLAYER_GLB_PATH = "assets/models/production/mosswatch_hero.glb";
-const PLAYER_GLB_SCALE = 1.05;
+const PLAYER_GLB_SCALE = 1.28;
 let playerAsset = null;
 let playerAnimationClips = [];
 let playerAssetLoading = false;
@@ -4415,25 +4434,25 @@ function loadEnvironmentHDR(cb) {
 function init() {
   stopBgMusic();
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x6aa8e0);
-  scene.fog = new THREE.FogExp2(0xb8d9dc, 0.0046);
-  defaultFogColor = 0xb8d9dc;
-  defaultFogDensity = 0.0046;
+  scene.background = new THREE.Color(0x1a3a58);
+  scene.fog = new THREE.FogExp2(0x2a4e5a, 0.0021);
+  defaultFogColor = 0x2a4e5a;
+  defaultFogDensity = 0.0021;
 
   camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 980);
   camera.position.set(0, 12, 18);
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
-  const MAX_PIXEL_RATIO = 1.4;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
+  const MAX_PIXEL_RATIO = 1.25;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
   window._gameMaxPixelRatio = MAX_PIXEL_RATIO;
-  renderer.setSize(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2), false);
+  renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.domElement.style.width = window.innerWidth + "px";
   renderer.domElement.style.height = window.innerHeight + "px";
-  renderer.domElement.style.imageRendering = "pixelated";
-  renderer.toneMapping = THREE.LinearToneMapping;
-  renderer.toneMappingExposure = 1.22;
-  if (canvas.style) canvas.style.imageRendering = "pixelated";
+  renderer.domElement.style.imageRendering = "auto";
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.18;
+  if (canvas.style) canvas.style.imageRendering = "auto";
   loadEnvironmentHDR(); // HDRI optional; never blocks init
 
   clock = new THREE.Clock();
@@ -4452,15 +4471,12 @@ function init() {
     skyCanvas.width = 256; skyCanvas.height = 256;
     const skyCtx = skyCanvas.getContext("2d");
     const skyGrad = skyCtx.createLinearGradient(0, 0, 0, 256);
-    skyGrad.addColorStop(0, "#2a5a9a");
-    skyGrad.addColorStop(0.06, "#3a6ab0");
-    skyGrad.addColorStop(0.15, "#4a8acc");
-    skyGrad.addColorStop(0.3, "#5a9ee0");
-    skyGrad.addColorStop(0.5, "#7ab8f0");
-    skyGrad.addColorStop(0.68, "#9ac8f8");
-    skyGrad.addColorStop(0.82, "#b8dcfc");
-    skyGrad.addColorStop(0.92, "#d4ecfc");
-    skyGrad.addColorStop(1, "#e8f4fc");
+    skyGrad.addColorStop(0, "#071018");
+    skyGrad.addColorStop(0.18, "#102438");
+    skyGrad.addColorStop(0.42, "#1a3a58");
+    skyGrad.addColorStop(0.62, "#2a4e6a");
+    skyGrad.addColorStop(0.82, "#3d5a4a");
+    skyGrad.addColorStop(1, "#ffb45a");
     skyCtx.fillStyle = skyGrad;
     skyCtx.fillRect(0, 0, 256, 256);
     const horizonGrad = skyCtx.createRadialGradient(128, 220, 0, 128, 220, 220);
@@ -5036,7 +5052,7 @@ const CLASSIC_TREE_BATCH_SIZE = 12;
 const CLASSIC_INITIAL_TREE_COUNT = 720;
 
 const CLASSIC_PHASE_PROFILES = [
-  { name: "Sessiz Fundalik", bg: 0x79bce8, fog: 0x6e9a92, fogDensity: 0.0016, ground: 0x9fbd73, landmark: 0x6f7d88, emissive: 0x17251b, exposure: 1.42 },
+  { name: "Sessiz Fundalik", bg: 0x1a3a58, fog: 0x2a4e5a, fogDensity: 0.0021, ground: 0x3d6a42, landmark: 0x4a5a48, emissive: 0x102010, exposure: 1.16 },
   { name: "Kok Uyanisi", bg: 0x65a9c8, fog: 0x91c7b0, fogDensity: 0.0019, ground: 0x83a967, landmark: 0x65766f, emissive: 0x18351f, exposure: 1.25 },
   { name: "Yarik Basinci", bg: 0x6f6fb2, fog: 0x8d85b2, fogDensity: 0.0022, ground: 0x777591, landmark: 0x665f7b, emissive: 0x3d2760, exposure: 1.18 },
   { name: "Kizil Tutulma", bg: 0x9b5967, fog: 0xa8757b, fogDensity: 0.0025, ground: 0x80676b, landmark: 0x765158, emissive: 0x67232d, exposure: 1.12 },
@@ -7162,7 +7178,7 @@ function buildImportedPlayer(origin, scale, srcAsset, srcClips) {
   if (typeof applyVoxelLook === "function") applyVoxelLook(inner);
   player.heroParts = heroParts;
   player.mesh = g;
-  const heroRim = new THREE.PointLight(0xfff0d8, 1.05, 11, 2);
+  const heroRim = new THREE.PointLight(0xfff0d8, 1.55, 14, 1.8);
   heroRim.position.set(0, 1.7, 0.35);
   g.add(heroRim);
   attachPlayerShield(g);
@@ -7733,11 +7749,11 @@ function bindEvents() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     const maxPr = window._gameMaxPixelRatio != null ? window._gameMaxPixelRatio : 0.65;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPr));
-    renderer.setSize(Math.floor(window.innerWidth / 2), Math.floor(window.innerHeight / 2), false);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPr));
+    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.domElement.style.width = window.innerWidth + "px";
     renderer.domElement.style.height = window.innerHeight + "px";
-    renderer.domElement.style.imageRendering = "pixelated";
+    renderer.domElement.style.imageRendering = "auto";
   });
   canvas.addEventListener("click", () => {
     if (canReceiveCameraInput() && canvas.requestPointerLock) canvas.requestPointerLock();
@@ -7868,10 +7884,15 @@ document.addEventListener("keyup", (e) => {
 
   if (playBtn) playBtn.addEventListener("click", () => {
     state.requestedStartMode = "story";
-    const title = document.getElementById("lobbyTitle");
-    if (title) title.textContent = "KIRIK TAC MACERASI";
-    if (typeof enterTownHub === "function") enterTownHub();
-    else openLobby();
+    const charRadio = document.querySelector('input[name="lobbyChar"]:checked');
+    if (charRadio) {
+      state.selectedCharacter = charRadio.value;
+      if (typeof pickLobbyCharacter === "function") pickLobbyCharacter(charRadio.value);
+    }
+    const mapRadio = document.querySelector('input[name="lobbyMap"]:checked');
+    const selectedMap = mapRadio ? mapRadio.value : "classic";
+    startScreen.classList.add("hidden");
+    startRun(1, selectedMap);
   });
   const resumeBtn = document.getElementById("resumeBtn");
   if (resumeBtn) {
@@ -7928,6 +7949,21 @@ document.addEventListener("keyup", (e) => {
       const tile = ev.target.closest(".menuCharTile");
       if (!tile || tile.classList.contains("isLocked")) return;
       pickLobbyCharacter(tile.getAttribute("data-char"));
+    });
+  }
+  const menuMapDock = document.getElementById("menuMapDock");
+  if (menuMapDock && !menuMapDock.dataset.bound) {
+    menuMapDock.dataset.bound = "1";
+    menuMapDock.addEventListener("click", function(ev) {
+      const tile = ev.target.closest(".menuMapTile");
+      if (!tile) return;
+      const mapId = tile.getAttribute("data-map");
+      if (!mapId) return;
+      const radio = document.querySelector('input[name="lobbyMap"][value="' + mapId + '"]');
+      if (radio) radio.checked = true;
+      document.querySelectorAll(".menuMapTile").forEach(function(el) {
+        el.classList.toggle("isOn", el.getAttribute("data-map") === mapId);
+      });
     });
   }
   document.querySelectorAll('input[name="lobbyChar"]').forEach(function(inp) {
@@ -8763,7 +8799,7 @@ function startRun(selectedChapter, selectedMapId) {
   if (document.body) document.body.classList.remove("death-grayscale");
   const lobbyScreen = document.getElementById("lobbyScreen");
   if (lobbyScreen) lobbyScreen.classList.add("hidden");
-  state.selectedMapId = requestedStartMode === "story" ? "classic" : (selectedMapId || "classic");
+  state.selectedMapId = selectedMapId || (requestedStartMode === "story" ? "classic" : "classic");
   state.currentMapId = state.selectedMapId;
   state.chapter = 1;
   state.campaignMode = requestedStartMode === "story";
@@ -10287,6 +10323,15 @@ function spawnEnemy(angleOverride, forAttackRound) {
     e.maxHp = e.hp;
     e.damage *= v.dmgMult;
     e.radius *= v.scale;
+    if (!e.isBoss && Math.random() < 0.045) {
+      e.isTreasureRunner = true;
+      e.speed *= 1.55;
+      e.xp *= 2.4;
+      e.damage *= 0.35;
+      const bag = new THREE.Mesh(new THREE.BoxGeometry(e.radius * 0.55, e.radius * 0.5, e.radius * 0.4), new THREE.MeshStandardMaterial({ color: 0xffd45a, emissive: 0x886600, emissiveIntensity: 0.45 }));
+      bag.position.set(0, e.radius * 1.6, -e.radius * 0.2);
+      e.mesh.add(bag);
+    }
     if ((state.level || 0) > 10 && Math.random() < 0.10) {
       e.isElite = true;
       e.hp *= 1.5;
@@ -14584,6 +14629,11 @@ function killEnemy(enemy) {
   ) * 0.1;
   const baseCoin = enemy.isBoss ? (15 + Math.floor(Math.random() * 20)) : (1 + Math.floor(Math.random() * 3));
   let coinDrop = Math.floor(baseCoin * eventDropMult * (stats.coinMult || 1) * (state.difficultyMult || 1) * streakMult * (enemy.isElite ? 1.4 : 1) * hardcoreRewardMult * bonusMult * bonusComboMult);
+  if (enemy.isTreasureRunner) {
+    coinDrop = Math.max(coinDrop, 1) * 4;
+    if (typeof spawnChest === "function") spawnChest(enemy.mesh.position.clone());
+    spawnDamageText(enemy.mesh.position.clone().add(new THREE.Vector3(0, 2.4, 0)), "HAZINE!", true, "treasure");
+  }
   const luckyDrop = Math.random() < 0.06;
   if (luckyDrop) { coinDrop *= 2; spawnDamageText(enemy.mesh.position.clone().add(new THREE.Vector3(0, 2, 0)), "LUCKY!", true, "lucky"); }
   if (Math.random() < 0.14) state.mana = Math.min(state.maxMana, state.mana + 8);
@@ -14873,7 +14923,20 @@ function applyDamageEnemy(e, damage, dir, isCrit = false, damageType = null) {
     }
   }
   if (d > (state.bestHit || 0)) state.bestHit = d;
+  const remainHp = e.hp;
+  const overkillAmt = d - remainHp;
   e.hp -= d;
+  if (remainHp > 0 && e.hp <= 0 && overkillAmt > Math.max(18, remainHp * 0.85)) {
+    const pos = e.mesh.position.clone();
+    const rad = Math.min(5.4, 2.1 + overkillAmt * 0.035);
+    const extra = 10 + overkillAmt * 0.28;
+    if (typeof radialDamageEnemies === "function") radialDamageEnemies(pos, rad, extra);
+    if (typeof spawnRing === "function") spawnRing(pos, rad, 0xffd45a, 0.28);
+    if (typeof spawnBurst === "function") spawnBurst(pos, 0xff6a3d, 6);
+    if (typeof spawnDamageText === "function") spawnDamageText(pos.clone().add(new THREE.Vector3(0, 1.6, 0)), "BONK!", true, "overkill");
+    if (typeof triggerHitFreeze === "function") triggerHitFreeze(0.04);
+    else if (typeof hitFreezeTimer === "number") hitFreezeTimer = Math.max(hitFreezeTimer, 0.04);
+  }
   if (e.hp <= 0 && (damageType === "ice" || damageType === "frost")) e._frostKill = true;
   if (abilityState.smite && abilityState.smite.level > 0) spawnSmiteRing(e);
   if (!state._kineticBlastFiring && abilityState.kineticBlast && abilityState.kineticBlast.level > 0) spawnKineticBlast(e);
@@ -15637,7 +15700,7 @@ function updateEnemies(dt) {
     const distToPlayer = e.mesh.position.distanceTo(playerPos);
     if (e.hpBar || e.nameLabel) {
       const crowd = enemies.length > 42;
-      const keepBar = !!(e.isBoss || e.isElite || distToPlayer < (crowd ? 16 : 30));
+      const keepBar = !!(e.isBoss || e.isElite || e.isTreasureRunner || distToPlayer < (crowd ? 16 : 30));
       if (e.hpBar) e.hpBar.visible = keepBar;
       if (e.nameLabel) e.nameLabel.visible = keepBar && distToPlayer < 20;
     }
@@ -15852,6 +15915,7 @@ function updateEnemies(dt) {
     toPlayer.y = 0;
     const dist = Math.max(0.001, toPlayer.length());
     toPlayer.multiplyScalar(1 / dist);
+    if (e.isTreasureRunner) toPlayer.negate();
     if (e.approachUntilDist && dist < e.approachUntilDist) {
       e.approachUntilDist = 0;
       e.speed *= 0.72;

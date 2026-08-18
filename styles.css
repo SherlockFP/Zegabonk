@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Cinzel:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Cinzel:wght@700;800&family=Inter:wght@400;500;600;700;800&family=Press+Start+2P&display=swap');
 
 :root {
   --bg: #071018;
@@ -164,7 +164,7 @@ body.in-town #ui::after { display: none; }
   margin: 0;
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   gap: 12px 28px;
   padding: clamp(20px, 4vh, 40px) clamp(20px, 3vw, 36px) 14px;
   min-height: 0; overflow: hidden;
@@ -268,8 +268,8 @@ body.in-town #ui::after { display: none; }
   white-space: nowrap;
 }
 .phaseRail b.phaseDone { outline: 2px solid #ffe789; outline-offset: 1px; }
-.phaseRail b:nth-child(2) { background: #e0a03a; }
-.phaseRail b:nth-child(3) { background: var(--violet-rift); }
+.phaseRail b:nth-child(2) { background: #3a5a48; }
+.phaseRail b:nth-child(3) { background: #1a2a22; }
 .runBriefGrid {
   display: grid; grid-template-columns: 1fr; gap: 8px;
   min-height: 0; flex: 1;
@@ -301,7 +301,7 @@ body.in-town #ui::after { display: none; }
 .nextLockWeekly { background: rgba(180,108,255,0.1); color: #d2b0ff; }
 
 .menuFooter {
-  grid-column: 1 / -1; grid-row: 4;
+  grid-column: 1 / -1; grid-row: 5;
   display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
   border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;
   font: 600 12px/1 var(--body-font); color: rgba(243,234,214,0.5);
@@ -342,10 +342,35 @@ body.in-town #ui::after { display: none; }
   transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
 .menuCharTile:hover { transform: translateY(-4px); border-color: var(--cyan); }
-.menuCharTile.isOn {
+.menuCharTile.isOn,
+.menuCharTile.is-selected {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(255,212,90,0.45), 0 10px 18px rgba(0,0,0,0.4);
   transform: translateY(-6px);
+}
+.menuMapDock {
+  grid-column: 1 / -1; grid-row: 4;
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 10px;
+  border: 3px solid #1a1208;
+  border-radius: 12px;
+  background: rgba(6,10,14,0.72);
+  box-shadow: 0 8px 0 #0a0604;
+}
+.menuMapRow { display: flex; gap: 8px; flex-wrap: wrap; width: 100%; }
+.menuMapTile {
+  flex: 1; min-width: 120px;
+  padding: 10px 12px;
+  border: 3px solid #1a1208; border-radius: 8px;
+  background: #101820; color: var(--bone);
+  font: 800 13px/1 var(--ui-font); letter-spacing: 0.12em; text-transform: uppercase;
+  cursor: pointer; pointer-events: auto;
+}
+.menuMapTile:hover { border-color: var(--cyan); color: var(--cyan); }
+.menuMapTile.isOn {
+  border-color: var(--gold); color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(255,212,90,0.35);
 }
 .menuCharTile.isLocked { opacity: 0.38; filter: grayscale(0.8); cursor: not-allowed; transform: none; }
 .menuCharTile[data-char="scout"] { background-image: url("assets/ui/char-scout.png"); }
@@ -752,17 +777,24 @@ body.in-town #ui::after { display: none; }
 #autoAttackIndicator.visible { display: block; animation: blink 1s step-end infinite; }
 @keyframes blink { 50% { opacity: 0.5; } }
 
-.bossBarWrap { position: absolute; top: 36px; left: 0; right: 0; z-index: 5; pointer-events: none; display: flex; justify-content: center; padding: 0 16px; }
+.bossBarWrap { position: absolute; top: 28px; left: 0; right: 0; z-index: 5; pointer-events: none; display: flex; justify-content: center; padding: 0 16px; }
 .bossBarWrap.hidden { display: none !important; }
-.bossBarList { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: flex-start; max-width: 100%; }
-.bossBarInner { min-width: 220px; max-width: min(420px, 46vw); flex: 0 1 auto; background: rgba(20,8,12,0.95); border: 3px solid rgba(255,63,75,0.65); border-radius: 6px; padding: 5px 12px; }
-.bossBarInner[data-herobrine] { border-color: rgba(68,170,68,0.7); }
-.bossBarInner[data-herobrine] .bossBarName { color: #66cc66; }
+.bossBarList { display: flex; flex-direction: column; gap: 7px; justify-content: flex-start; align-items: stretch; width: min(640px, 86vw); }
+.bossBarList.stacked .bossBarInner { box-shadow: 0 6px 0 rgba(0,0,0,0.45); }
+.bossBarInner { width: 100%; background: linear-gradient(180deg, rgba(18,10,8,0.96), rgba(8,4,4,0.94)); border: 2px solid #c9a44a; border-image: none; border-radius: 0; padding: 6px 12px 7px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.55), 0 4px 0 rgba(0,0,0,0.4); }
+.bossBarInner[data-herobrine] { border-color: #66aa55; }
+.bossBarInner[data-herobrine] .bossBarName { color: #88dd77; }
 .bossBarInner[data-herobrine] .bossBarFill { background: linear-gradient(90deg, #2a662a, #66cc66); }
-.bossBarName { display: block; font: 800 11px/1 var(--ui-font); letter-spacing: 0.1em; color: #ff6b7a; text-transform: uppercase; margin-bottom: 2px; }
-.bossBarTrack { height: 12px; background: rgba(0,0,0,0.6); border-radius: 3px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); }
-.bossBarFill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff3f4b, #ff6b7a); transition: width 0.15s; }
-.bossBarHp { display: block; font: 700 10px/1 var(--ui-font); color: var(--muted); margin-top: 2px; text-align: right; }
+.bossBarInner[data-leftover] { border-color: #e08a2a; }
+.bossBarInner[data-leftover] .bossBarName { color: #ffb050; }
+.bossBarInner[data-leftover] .bossBarFill { background: linear-gradient(90deg, #a84a12, #ff9a3a); }
+.bossBarInner[data-warden] { border-color: #e8d27a; }
+.bossBarInner[data-warden] .bossBarName { color: #ffe9a0; }
+.bossBarInner[data-warden] .bossBarFill { background: linear-gradient(90deg, #7a1a22, #e24a4a); }
+.bossBarName { display: block; font: 800 12px/1 var(--ui-font); letter-spacing: 0.14em; color: #f0d48a; text-transform: uppercase; margin-bottom: 4px; text-shadow: 0 1px 0 #000; }
+.bossBarTrack { height: 14px; background: #140808; border-radius: 0; overflow: hidden; border: 1px solid #5a3a1a; box-shadow: inset 0 2px 0 rgba(255,255,255,0.08); }
+.bossBarFill { height: 100%; width: 100%; background: linear-gradient(90deg, #6a1018, #d42a38 55%, #f25a4a); transition: width 0.12s linear; }
+.bossBarHp { display: block; font: 700 10px/1 var(--ui-font); color: #c8b090; margin-top: 3px; text-align: right; letter-spacing: 0.06em; }
 
 .tabPanel {
   position: absolute; left: 0; top: 50%; transform: translateY(-50%);
@@ -1414,4 +1446,275 @@ body.in-town #ui::after { display: none; }
   .waystoneKeys { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* === MEGABONK HUB EXTRAS (additive; do not flatten startScreen) === */
+body:has(#startScreen:not(.hidden)) #ui::before,
+body:has(#startScreen:not(.hidden)) #ui::after {
+  display: none;
+}
 
+.hubOverlay,
+#startScreen.hubOverlay {
+  place-items: stretch;
+  overflow: hidden;
+  background-color: #05080c;
+  background-image:
+    linear-gradient(90deg, rgba(4,8,12,0.72) 0%, rgba(4,8,12,0.28) 34%, rgba(4,8,12,0.08) 56%, transparent 70%),
+    linear-gradient(180deg, rgba(0,0,0,0.22) 0%, transparent 22%, rgba(2,6,10,0.18) 78%, rgba(2,6,10,0.55) 100%),
+    url("assets/ui/menu-keyart-v6.png");
+  background-size: cover;
+  background-position: center;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.hubOverlay .menuKeyart,
+#startScreen.hubOverlay .menuKeyart { opacity: 0; }
+.hubOverlay .gameLogo,
+#startScreen.hubOverlay .gameLogo {
+  font-family: "Press Start 2P", var(--ui-font);
+  font-size: clamp(22px, 4.6vh, 42px);
+  line-height: 1.05;
+  letter-spacing: 0.08em;
+  color: #ffe56a;
+  -webkit-text-fill-color: #ffe56a;
+  background: none;
+  filter: drop-shadow(0 4px 0 #7a3a00) drop-shadow(0 0 18px rgba(78,227,255,0.35));
+}
+.hubOverlay .brandTagline,
+#startScreen.hubOverlay .brandTagline {
+  font: 800 clamp(11px, 1.6vh, 14px)/1.3 var(--ui-font);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.charRoster {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: min(720px, 100%);
+}
+.charCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 118px;
+  padding: 8px;
+  border: 2px solid rgba(78,227,255,0.28);
+  border-radius: 10px;
+  background: rgba(6,10,14,0.55) center 12% / cover no-repeat;
+  cursor: pointer;
+  overflow: hidden;
+  color: var(--bone);
+}
+.charCard input[name="lobbyChar"] {
+  position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;
+}
+.charCard .charName,
+.charCard .lobbyLevelName {
+  font: 800 12px/1.1 var(--ui-font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 #000;
+}
+.charCard small,
+.charCard .charKit {
+  display: block;
+  margin-top: 3px;
+  font: 600 10px/1.25 var(--body-font);
+  color: rgba(243,234,214,0.86);
+}
+.charCard:hover {
+  border-color: var(--cyan);
+  transform: translateY(-3px);
+  box-shadow: 0 0 16px rgba(78,227,255,0.28);
+}
+.charCard.is-selected,
+.charCard.isOn,
+.charCard:has(input:checked),
+.menuCharTile.is-selected,
+.menuCharTile.isOn,
+.menuCharTile:has(input:checked) {
+  border-color: var(--gold);
+  box-shadow:
+    0 0 0 2px rgba(255,212,90,0.55),
+    0 0 22px rgba(78,227,255,0.35),
+    inset 0 0 18px rgba(255,212,90,0.12);
+}
+.charCard[data-char="scout"] { background-image: url("assets/ui/char-scout.png"); }
+.charCard[data-char="brawler"] { background-image: url("assets/ui/char-brawler.png"); }
+.charCard[data-char="mage"] { background-image: url("assets/ui/char-mage.png"); }
+.charCard[data-char="survivor"] { background-image: url("assets/ui/char-survivor.png"); }
+.charCard[data-char="samurai"] { background-image: url("assets/ui/char-samurai.png"); }
+.charCard[data-char="gorilla"] { background-image: url("assets/ui/char-gorilla.png"); }
+.charCard[data-char="monk"] { background-image: url("assets/ui/char-monk.png"); }
+.charCard[data-char="paladin"] { background-image: url("assets/ui/char-paladin.png"); }
+.charCard[data-char="archer"] { background-image: url("assets/ui/char-archer.png"); }
+
+.mapChipRow,
+.hubMapRow {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.mapChip {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 36px; padding: 8px 12px;
+  border: 2px solid rgba(78,227,255,0.3);
+  border-radius: 8px;
+  background: rgba(8,14,20,0.7);
+  color: var(--text);
+  font: 800 11px/1 var(--ui-font);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.mapChip input[name="lobbyMap"] {
+  position: absolute; opacity: 0; width: 0; height: 0;
+}
+.mapChip:hover { border-color: var(--cyan); }
+.mapChip:has(input:checked) {
+  color: #1a0c00;
+  border-color: var(--gold);
+  background: linear-gradient(180deg, #ffe08a, #ff9a3c);
+  box-shadow: 0 0 14px rgba(255,212,90,0.35);
+}
+
+.hubCtaCluster {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.hubCtaCluster #playBtn {
+  grid-column: 1 / -1;
+  min-height: 64px;
+  font-size: clamp(22px, 3.4vh, 32px);
+}
+
+#leaderboardPanel.overlay {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255,212,90,0.12), transparent 42%),
+    rgba(5,8,12,0.88);
+  backdrop-filter: none;
+}
+#leaderboardPanel .panel,
+#leaderboardPanel .settingsPanel {
+  width: min(920px, calc(100vw - 48px));
+  padding: 28px 32px;
+  border: 3px solid rgba(255,212,90,0.45);
+  box-shadow: 0 0 0 2px #140c08, 0 24px 60px rgba(0,0,0,0.55), inset 0 0 40px rgba(78,227,255,0.05);
+}
+#leaderboardPanel h2 {
+  font: 900 36px/1 var(--ui-font);
+  letter-spacing: 0.14em;
+  text-align: center;
+  color: var(--gold);
+}
+#leaderboardList::before {
+  content: "SIRA / ISIM                              SKOR  ·  KILL  ·  SURE";
+  display: block;
+  padding: 8px 12px 10px;
+  margin-bottom: 4px;
+  border-bottom: 2px solid rgba(255,212,90,0.28);
+  font: 800 11px/1 var(--ui-font);
+  letter-spacing: 0.12em;
+  color: var(--cyan);
+}
+#leaderboardPanel .leaderboardList {
+  max-height: min(52vh, 480px);
+  font: 700 15px/1.3 var(--ui-font);
+}
+#leaderboardPanel .leaderboardList .lbRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(78,227,255,0.16);
+  background: rgba(255,255,255,0.02);
+}
+#leaderboardPanel .leaderboardList .lbRow:nth-child(1) {
+  color: #ffd700;
+  background: linear-gradient(90deg, rgba(255,215,0,0.16), transparent 70%);
+  box-shadow: inset 4px 0 0 #ffd700;
+}
+#leaderboardPanel .leaderboardList .lbRow:nth-child(2) {
+  color: #d8d8d8;
+  background: linear-gradient(90deg, rgba(192,192,192,0.12), transparent 70%);
+  box-shadow: inset 4px 0 0 #c0c0c0;
+}
+#leaderboardPanel .leaderboardList .lbRow:nth-child(3) {
+  color: #e0a070;
+  background: linear-gradient(90deg, rgba(205,127,50,0.14), transparent 70%);
+  box-shadow: inset 4px 0 0 #cd7f32;
+}
+
+#settingsMenu.overlay {
+  background: rgba(5,8,12,0.72);
+  backdrop-filter: none;
+}
+#settingsMenu .settingsPanel {
+  border: 3px solid rgba(78,227,255,0.35);
+  box-shadow: 0 0 0 2px #140c08, 0 24px 50px rgba(0,0,0,0.55), 0 0 28px rgba(78,227,255,0.12);
+}
+#settingsMenu h2 {
+  color: var(--cyan);
+  text-shadow: 0 3px 0 #041018;
+}
+
+#loadingOverlay .loadingBrand {
+  font-family: "Press Start 2P", var(--display-font);
+  font-size: 18px;
+  letter-spacing: 0.18em;
+}
+
+#hud .chip,
+#topCenterTime.timeChipCenter,
+#killChip,
+.topChip {
+  border-color: rgba(255,212,90,0.55);
+  box-shadow: 0 0 0 1px rgba(78,227,255,0.18), 0 6px 14px rgba(0,0,0,0.28);
+  padding: 4px 10px;
+  font-size: 13px;
+}
+#killChip, .topChip {
+  border-color: rgba(78,227,255,0.55) !important;
+}
+
+@media (max-width: 1280px) {
+  .charRoster { gap: 8px; }
+  .charCard { min-height: 96px; }
+  .charCard small, .charCard .charKit { font-size: 10px; }
+}
+@media (min-width: 1800px) {
+  .charCard { min-height: 148px; }
+  .hubOverlay .gameLogo, #startScreen.hubOverlay .gameLogo { font-size: 48px; }
+}
+
+
+/* Megabonk cartoon chrome: thick ink outlines, sticker HUD */
+.chip, .btn, .panel, .bar, .menuCharTile, .menuMapTile, .lobbyLevelOption, .card {
+  -webkit-text-stroke: 0;
+}
+.chip {
+  box-shadow: 0 0 0 2px #140c08, 0 4px 0 #0a0604 !important;
+  border-width: 3px !important;
+  image-rendering: auto;
+}
+.comboChip.on, .chip.comboChip.on {
+  font-size: 22px !important;
+  padding: 8px 14px !important;
+  border-width: 4px !important;
+  text-shadow: 0 3px 0 #000, 0 0 12px rgba(255,212,90,0.55);
+  transform-origin: top right;
+}
+.bar {
+  border: 3px solid #140c08 !important;
+  box-shadow: 0 3px 0 #0a0604;
+}
+.gameLogoImg, .brandPrincess, .menuCharTile {
+  filter: drop-shadow(0 3px 0 #140c08);
+}
+.menuCharTile {
+  outline: 3px solid #140c08;
+}
+.damage-float, .dmgText { font-weight: 900; }

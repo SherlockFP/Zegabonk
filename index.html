@@ -21,7 +21,7 @@
 
   <div id="ui">
     <section id="startScreen" class="overlay menuOverlay">
-      <img class="menuKeyart" src="assets/ui/menu-keyart.png" alt="" decoding="async">
+      <img class="menuKeyart" src="assets/ui/menu-keyart-v6.png" alt="" decoding="async">
       <div class="startShell">
         <header class="brandBlock">
           <div class="brandRow">
@@ -31,7 +31,7 @@
               <img class="gameLogoImg" src="assets/ui/logo-wordmark.png" alt="ZEGABONK">
             </div>
           </div>
-          <p class="brandTagline">Kesfet, guclen, portali ac. Uc bolgeyi as. Ender'i BONK'la.</p>
+          <p class="brandTagline">Tek orman. Uc gecit. Her kapı daha sert. Ender'i BONK'la.</p>
         </header>
         <div class="startMenuLayout">
           <nav class="startMenu" aria-label="Ana menu">
@@ -56,12 +56,12 @@
         </div>
         <aside class="runBrief">
             <div class="runBriefHeader"><span>HIKAYE ROTASI</span><strong>KIRIK TAC</strong></div>
-            <div class="phaseRail" aria-label="Hikaye bolgeleri">
+            <div class="phaseRail" aria-label="Hikaye gecitleri">
               <b data-phase="Yesil Yokus"></b>
-              <b data-phase="Gunes Kirigi"></b>
-              <b data-phase="Kizil Yarik"></b>
+              <b data-phase="Derin Koru"></b>
+              <b data-phase="Kara Yokus"></b>
             </div>
-            <p>Sandik ve isaretleri bul, kart topla, 7:00'de gecit. Muhafizi kes, portal acilir, Bolum 2.</p>
+            <p>Tek orman, uc gecit. 3/6/9 boss. 7:00 kapida Muhafiz. Erken girersen kalan boss ofkeli gelir.</p>
             <div class="runBriefGrid">
               <div class="runBriefCol">
                 <div id="campaignProgress" class="campaignProgress"></div>
@@ -102,18 +102,27 @@
         <div class="menuCharDock" id="menuCharDock" aria-label="Savasci sec">
           <span class="menuCharDockLabel">SAVASCI</span>
           <div class="menuCharRow">
-            <button type="button" class="menuCharTile" data-char="scout" aria-label="Izci"></button>
-            <button type="button" class="menuCharTile" data-char="brawler" aria-label="Dovucu"></button>
-            <button type="button" class="menuCharTile" data-char="mage" aria-label="Buyucu"></button>
-            <button type="button" class="menuCharTile" data-char="survivor" aria-label="Hayatta Kalan"></button>
-            <button type="button" class="menuCharTile" data-char="samurai" aria-label="Samuray"></button>
-            <button type="button" class="menuCharTile" data-char="gorilla" aria-label="Goril"></button>
-            <button type="button" class="menuCharTile" data-char="monk" aria-label="Kesis"></button>
-            <button type="button" class="menuCharTile" data-char="paladin" aria-label="Paladin"></button>
-            <button type="button" class="menuCharTile" data-char="archer" aria-label="Okcu"></button>
-            <button type="button" class="menuCharTile" data-char="kabukcu" aria-label="Kabukcu"></button>
-            <button type="button" class="menuCharTile" data-char="yaprakci" aria-label="Yaprakci"></button>
-            <button type="button" class="menuCharTile" data-char="kaykayci" aria-label="Kaykayci"></button>
+            <button type="button" class="menuCharTile charCard is-selected" data-char="scout" aria-label="Izci"></button>
+            <button type="button" class="menuCharTile charCard" data-char="brawler" aria-label="Dovucu"></button>
+            <button type="button" class="menuCharTile charCard" data-char="mage" aria-label="Buyucu"></button>
+            <button type="button" class="menuCharTile charCard" data-char="survivor" aria-label="Hayatta Kalan"></button>
+            <button type="button" class="menuCharTile charCard" data-char="samurai" aria-label="Samuray"></button>
+            <button type="button" class="menuCharTile charCard" data-char="gorilla" aria-label="Goril"></button>
+            <button type="button" class="menuCharTile charCard" data-char="monk" aria-label="Kesis"></button>
+            <button type="button" class="menuCharTile charCard" data-char="paladin" aria-label="Paladin"></button>
+            <button type="button" class="menuCharTile charCard" data-char="archer" aria-label="Okcu"></button>
+            <button type="button" class="menuCharTile isLocked" data-char="kabukcu" disabled aria-label="Kabukcu kilitli"></button>
+            <button type="button" class="menuCharTile isLocked" data-char="yaprakci" disabled aria-label="Yaprakci kilitli"></button>
+            <button type="button" class="menuCharTile isLocked" data-char="kaykayci" disabled aria-label="Kaykayci kilitli"></button>
+          </div>
+        </div>
+        <div class="menuMapDock" id="menuMapDock" aria-label="Harita sec">
+          <span class="menuCharDockLabel">HARITA</span>
+          <div class="menuMapRow">
+            <button type="button" class="menuMapTile isOn" data-map="classic">Darbe Yarigi</button>
+            <button type="button" class="menuMapTile" data-map="forest">Orman</button>
+            <button type="button" class="menuMapTile" data-map="desert">Col</button>
+            <button type="button" class="menuMapTile" data-map="ice">Buz</button>
           </div>
         </div>
       </div>
@@ -213,7 +222,7 @@
               <span class="lobbyMapArt" aria-hidden="true"></span>
               <div>
                 <span class="lobbyLevelName">Darbe Yarigi</span>
-                <small>3 biyom · Muhafiz kapisi · Bolum 3'ten sonra Ender</small>
+                <small>Tek orman · 3 gecit · 3/6/9 boss · sonra Ender</small>
               </div>
             </label>
             <label class="lobbyLevelOption lobbyMapCard" data-map="openworld">
