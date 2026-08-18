@@ -1,4 +1,0 @@
-interface:
-  display_name: "Three.js Perf"
-  short_description: "Draw calls, shadows, post cost"
-  default_prompt: "Measure renderer.info first, then cut draw calls and overdraw."

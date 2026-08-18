@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run serve",
+    "dev": "node tools/qa/serve.mjs",
+    "dev:vite": "vite --port 5173 --strictPort",
+    "build": "vite build",
     "serve": "node tools/qa/serve.mjs",
     "start": "node tools/qa/serve.mjs",
     "preview": "node tools/qa/serve.mjs",
+    "qa": "node tools/qa/shot-director.mjs",
+    "perf": "node tools/qa/perf-probe.mjs",
     "test": "playwright test"
   },
   "devDependencies": {

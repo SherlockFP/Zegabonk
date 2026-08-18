@@ -1,4 +1,0 @@
-interface:
-  display_name: "Three.js Playtest"
-  short_description: "Boot, input, HUD, screenshots"
-  default_prompt: "Playtest via boot, verbs, and screenshots. Report by severity."

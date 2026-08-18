@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ZONK voxel gallery</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #1a2230; color: #f4f2ea; font-family: ui-monospace, Consolas, monospace; }
+    canvas { display: block; width: 100%; height: 100%; }
+    #bar {
+      position: fixed; left: 12px; top: 12px; z-index: 2;
+      background: rgba(20, 26, 42, 0.92); border: 2px solid #3a4560; border-radius: 8px;
+      padding: 10px 12px; font-size: 13px; line-height: 1.6;
+    }
+    #bar label { margin-right: 12px; cursor: pointer; user-select: none; }
+    #hint { color: #8a8f98; font-size: 11px; }
+    .tag {
+      position: absolute; transform: translate(-50%, 0); pointer-events: none;
+      font-size: 12px; letter-spacing: 0.04em; text-shadow: 0 1px 2px #000;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <label><input type="checkbox" id="outline" checked> outline</label>
+    <label><input type="checkbox" id="spin" checked> turntable</label>
+    <div id="hint">voxel gallery</div>
+  </div>
+  <canvas id="c"></canvas>
+  <script type="importmap">
+    {"imports":{"three":"/node_modules/three/build/three.module.js","three/":"/node_modules/three/"}}
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    window.THREE = THREE;
+    function load(src) {
+      return new Promise(function (resolve, reject) {
+        var s = document.createElement("script");
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = function () { reject(new Error("load " + src)); };
+        document.body.appendChild(s);
+      });
+    }
+    await load("../voxel.js");
+    await load("./creatures.js");
+    try { await load("./bosses.js"); } catch (e) {}
+
+    var params = new URLSearchParams(location.search);
+    var only = params.get("id");
+    var set = params.get("set");
+    var ids = only ? [only] : listVoxelModels();
+    if (!only && set === "creatures") {
+      ids = ids.filter(function (id) { return id.indexOf("boss") !== 0; });
+    }
+    if (!only && set === "bosses") {
+      ids = ids.filter(function (id) { return id.indexOf("boss") === 0; });
+    }
+    var canvas = document.getElementById("c");
+    var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: false, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x2a3344, 1);
+    if ("outputEncoding" in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
+
+    var scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x2a3344, 18, 42);
+    scene.add(new THREE.HemisphereLight(0xc8d8ff, 0x4a3a28, 0.7));
+    var key = new THREE.DirectionalLight(0xfff2d8, 0.95);
+    key.position.set(6, 12, 8);
+    scene.add(key);
+    var fill = new THREE.DirectionalLight(0x88a0c8, 0.25);
+    fill.position.set(-8, 4, -4);
+    scene.add(fill);
+
+    var cam = new THREE.PerspectiveCamera(38, 1, 0.1, 80);
+    var COLS = only ? 1 : Math.min(6, Math.max(3, Math.ceil(Math.sqrt(ids.length))));
+    var GAP = only ? 0 : 3.6;
+    var rows = Math.ceil(ids.length / COLS);
+    var gridW = (COLS - 1) * GAP;
+    var gridD = (rows - 1) * GAP;
+    cam.position.set(gridW * 0.5, only ? 2.4 : 9.5, only ? 4.2 : Math.max(12, gridD + 11));
+    cam.lookAt(gridW * 0.5, only ? 0.7 : 0.4, gridD * 0.35);
+
+    var ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(80, 80),
+      new THREE.MeshToonMaterial({ color: 0x3d4a3a })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    var entries = [];
+    var labels = [];
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i];
+      var col = i % COLS;
+      var row = Math.floor(i / COLS);
+      var x = col * GAP;
+      var z = row * GAP;
+      var pad = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.9, 0.9, 0.08, 20),
+        new THREE.MeshToonMaterial({ color: 0x5a4a32 })
+      );
+      pad.position.set(x, 0.04, z);
+      scene.add(pad);
+
+      var model = buildVoxelModel(id, { outline: true });
+      var info = getVoxelModelInfo(id);
+      var fit = only ? 1.8 : 1.2;
+      var dim = Math.max(info.height, info.width * 0.5, info.depth * 0.5);
+      model.scale.setScalar(fit / Math.max(dim, 0.4));
+      model.position.set(x, 0.08, z);
+      scene.add(model);
+
+      var tag = document.createElement("div");
+      tag.className = "tag";
+      tag.textContent = id;
+      document.body.appendChild(tag);
+      entries.push({ id: id, model: model, x: x, z: z });
+      labels.push(tag);
+    }
+
+    document.getElementById("hint").textContent =
+      ids.length + " models  |  " + (only || "all") + "  |  click a name in the url with ?id=";
+
+    var outlineOn = true;
+    document.getElementById("outline").addEventListener("change", function (ev) {
+      outlineOn = ev.target.checked;
+      for (var i = 0; i < entries.length; i++) setVoxelOutlineVisible(entries[i].model, outlineOn);
+    });
+    var spinning = true;
+    document.getElementById("spin").addEventListener("change", function (ev) {
+      spinning = ev.target.checked;
+    });
+
+    var clock = new THREE.Clock();
+    var v = new THREE.Vector3();
+    function layoutLabels() {
+      var w = canvas.clientWidth;
+      var h = canvas.clientHeight;
+      for (var i = 0; i < entries.length; i++) {
+        v.set(entries[i].x, -0.15, entries[i].z);
+        v.project(cam);
+        var sx = (v.x * 0.5 + 0.5) * w;
+        var sy = (-v.y * 0.5 + 0.5) * h;
+        labels[i].style.left = sx + "px";
+        labels[i].style.top = sy + "px";
+      }
+    }
+
+    function resize() {
+      var w = canvas.clientWidth;
+      var h = canvas.clientHeight;
+      renderer.setSize(w, h, false);
+      cam.aspect = w / Math.max(1, h);
+      cam.updateProjectionMatrix();
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    function tick() {
+      var dt = clock.getDelta();
+      if (spinning) {
+        for (var i = 0; i < entries.length; i++) entries[i].model.rotation.y += dt * 0.55;
+      }
+      renderer.render(scene, cam);
+      layoutLabels();
+      window.__GALLERY_READY = true;
+      requestAnimationFrame(tick);
+    }
+    tick();
+
+    window.__GALLERY = { ids: ids, entries: entries, scene: scene, camera: cam, renderer: renderer };
+  </script>
+</body>
+</html>

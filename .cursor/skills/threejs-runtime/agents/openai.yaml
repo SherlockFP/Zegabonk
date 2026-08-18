@@ -1,4 +1,0 @@
-interface:
-  display_name: "Three.js Runtime"
-  short_description: "Scene, camera, loop, loaders, dispose"
-  default_prompt: "Implement this with vanilla Three.js. Simulation off meshes. DOM HUD. Tick with Clock delta."

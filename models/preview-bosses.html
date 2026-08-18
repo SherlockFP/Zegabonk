@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Killgram boss preview</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #14141c; color: #eee; font: 13px/1.4 Consolas, monospace; }
+    #hud { position: absolute; left: 12px; top: 12px; z-index: 2; background: rgba(10,10,16,.72); padding: 10px 12px; border: 1px solid #445; max-width: 420px; }
+    #hud b { color: #ffe066; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div id="hud">loading...</div>
+  <script type="importmap">
+    {"imports":{"three":"/node_modules/three/build/three.module.js"}}
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    window.THREE = THREE;
+    function loadScript(src) {
+      return new Promise(function (res, rej) {
+        var s = document.createElement("script");
+        s.src = src;
+        s.onload = res;
+        s.onerror = function () { rej(new Error("fail " + src)); };
+        document.body.appendChild(s);
+      });
+    }
+    async function boot() {
+      try { await loadScript("/voxel.js"); } catch (e) {}
+      await loadScript("/models/bosses.js");
+      start();
+    }
+
+    var params = new URLSearchParams(location.search);
+    var bossId = params.get("id") || "boss_arachne";
+    var phase = +(params.get("phase") || 1);
+    var angle = params.get("angle") || "front";
+    var sil = params.get("sil") === "1";
+
+    var scene, camera, renderer, root, sun;
+
+    function start() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(sil ? 0xf4f2ea : 0x1a1a22);
+      camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 200);
+      renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      document.body.appendChild(renderer.domElement);
+      scene.add(new THREE.HemisphereLight(0xfff0d8, 0x2a2040, sil ? 0 : 0.85));
+      sun = new THREE.DirectionalLight(0xffffff, sil ? 0 : 1.15);
+      sun.position.set(8, 14, 10);
+      scene.add(sun);
+      var ground = new THREE.Mesh(
+        new THREE.CircleGeometry(8, 32),
+        new THREE.MeshLambertMaterial({ color: sil ? 0xf4f2ea : 0x2a3340 })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      scene.add(ground);
+      var grid = new THREE.GridHelper(12, 12, 0x445566, 0x2a3340);
+      if (!sil) scene.add(grid);
+      root = new THREE.Group();
+      scene.add(root);
+      window.BOSS_PREVIEW = {
+        set: function (id, p, a) {
+          bossId = id; phase = p || 1; angle = a || "front";
+          rebuild();
+        },
+        ids: window.BOSS_MODEL_IDS,
+        catalog: window.BOSS_CATALOG
+      };
+      rebuild();
+      addEventListener("resize", onResize);
+      renderer.setAnimationLoop(function () { renderer.render(scene, camera); });
+    }
+
+    function onResize() {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    }
+
+    function partVisible(name, part, def, ph) {
+      var p2 = def.phase2 || {};
+      var hide = p2.hide || [];
+      var show = p2.show || [];
+      if (ph === 2) {
+        if (hide.indexOf(name) >= 0) return false;
+        if (part.phase === 1) return false;
+        return true;
+      }
+      if (part.phase === 2) return false;
+      if (show.indexOf(name) >= 0 && part.phase === 2) return false;
+      return true;
+    }
+
+    function paletteFor(def, ph) {
+      var pal = Object.assign({}, def.palette);
+      if (ph === 2 && def.phase2 && def.phase2.palette) Object.assign(pal, def.phase2.palette);
+      return pal;
+    }
+
+    function buildFallback(def, ph) {
+      var group = new THREE.Group();
+      var pal = paletteFor(def, ph);
+      var emissive = def.emissive || ["E"];
+      var s = def.scale || 0.125;
+      var box = new THREE.BoxGeometry(s, s, s);
+      var outlineBox = new THREE.BoxGeometry(s * 1.12, s * 1.12, s * 1.12);
+      var outlineMat = new THREE.MeshBasicMaterial({ color: 0x1a1a22, side: THREE.BackSide });
+      function matFor(ch, opacity) {
+        var hex = pal[ch] || "#ff00ff";
+        var col = new THREE.Color(hex);
+        var em = emissive.indexOf(ch) >= 0;
+        if (sil) return new THREE.MeshBasicMaterial({ color: 0x111118 });
+        if (em) return new THREE.MeshBasicMaterial({ color: col });
+        return new THREE.MeshLambertMaterial({
+          color: col,
+          transparent: opacity < 1,
+          opacity: opacity || 1,
+          depthWrite: opacity >= 1
+        });
+      }
+      var dummy = new THREE.Object3D();
+      var name, part, y, z, x, row, ch, px, py, pz, off, nV = 0;
+      for (name in def.parts) {
+        part = def.parts[name];
+        if (!partVisible(name, part, def, ph)) continue;
+        var pg = new THREE.Group();
+        pg.name = name;
+        off = part.origin || part.offset || [0, 0, 0];
+        var opacity = part.opacity || 1;
+        if (!part.layers) continue;
+        var buckets = {};
+        for (y = 0; y < part.layers.length; y++) {
+          for (z = 0; z < part.layers[y].length; z++) {
+            row = part.layers[y][z];
+            for (x = 0; x < row.length; x++) {
+              ch = row.charAt(x);
+              if (ch === ".") continue;
+              nV++;
+              if (!buckets[ch]) buckets[ch] = [];
+              buckets[ch].push([(off[0] + x + 0.5) * s, (off[1] + y + 0.5) * s, (off[2] + z + 0.5) * s]);
+            }
+          }
+        }
+        var allPos = [];
+        Object.keys(buckets).forEach(function (key) {
+          var list = buckets[key];
+          var inst = new THREE.InstancedMesh(box, matFor(key, opacity), list.length);
+          inst.frustumCulled = false;
+          for (var i = 0; i < list.length; i++) {
+            dummy.position.set(list[i][0], list[i][1], list[i][2]);
+            dummy.updateMatrix();
+            inst.setMatrixAt(i, dummy.matrix);
+            allPos.push(list[i]);
+          }
+          pg.add(inst);
+        });
+        if (!sil && allPos.length) {
+          var oinst = new THREE.InstancedMesh(outlineBox, outlineMat, allPos.length);
+          oinst.frustumCulled = false;
+          for (var j = 0; j < allPos.length; j++) {
+            dummy.position.set(allPos[j][0], allPos[j][1], allPos[j][2]);
+            dummy.updateMatrix();
+            oinst.setMatrixAt(j, dummy.matrix);
+          }
+          pg.add(oinst);
+        }
+        group.add(pg);
+      }
+      group.userData.voxelsDrawn = nV;
+      return group;
+    }
+
+    function applyCamera(h) {
+      var dist = Math.max(6.5, h * 2.6);
+      var lookY = h * 0.48;
+      if (angle === "side") camera.position.set(dist, lookY + 1.2, 0.4);
+      else if (angle === "back") camera.position.set(-dist * 0.35, lookY + 1.6, -dist);
+      else if (angle === "top") camera.position.set(0.2, dist * 1.4, dist * 0.2);
+      else camera.position.set(dist * 0.72, lookY + 1.8, dist);
+      camera.lookAt(0, lookY, 0);
+    }
+
+    function rebuild() {
+      while (root.children.length) {
+        var ch = root.children[0];
+        root.remove(ch);
+      }
+      var buildId = phase === 2 ? bossId + "_p2" : bossId;
+      var def = window.BOSS_VOXEL_DEFS && window.BOSS_VOXEL_DEFS[buildId];
+      var hud = document.getElementById("hud");
+      if (!def && window.BOSS_VOXEL_DEFS) def = window.BOSS_VOXEL_DEFS[bossId];
+      if (!def) {
+        hud.innerHTML = "missing " + buildId;
+        return;
+      }
+      var mesh = null;
+      var usedFactory = false;
+      if (typeof window.buildVoxelModel === "function") {
+        try {
+          mesh = window.buildVoxelModel(buildId, { outline: !sil });
+          usedFactory = !!mesh;
+        } catch (e) {
+          console.warn("buildVoxelModel failed, fallback", e);
+        }
+      }
+      if (!mesh) mesh = buildFallback(def, phase);
+      root.add(mesh);
+      var info = (typeof window.getVoxelModelInfo === "function" && usedFactory)
+        ? window.getVoxelModelInfo(buildId)
+        : { height: (def.heightVox || 30) * (def.scale || 0.125), voxelCount: def.voxels };
+      applyCamera(info.height || 3.5);
+      var cat = (window.BOSS_CATALOG || []).find(function (c) { return c.id === bossId; }) || {};
+      hud.innerHTML =
+        "<b>" + (cat.title || bossId) + "</b> p" + phase + " " + angle + "<br>" +
+        "id " + buildId + "<br>" +
+        "voxels " + (info.voxelCount || def.voxels) + "<br>" +
+        "height " + (def.heightVox || "?") + " vox / " + (info.height || 0).toFixed(2) + "u<br>" +
+        "parts " + Object.keys(def.parts).length + " factory=" + usedFactory + "<br>" +
+        "keys 1-9 boss | p phase | a angle";
+      document.title = (cat.title || bossId) + " p" + phase + " " + angle;
+    }
+
+    addEventListener("keydown", function (e) {
+      var ids = window.BOSS_MODEL_IDS || [];
+      if (e.key >= "1" && e.key <= "9") {
+        bossId = ids[(+e.key) - 1] || bossId;
+        rebuild();
+      } else if (e.key === "p") {
+        phase = phase === 1 ? 2 : 1;
+        rebuild();
+      } else if (e.key === "a") {
+        angle = angle === "front" ? "side" : angle === "side" ? "back" : "front";
+        rebuild();
+      } else if (e.key === "s") {
+        sil = !sil;
+        scene.background = new THREE.Color(sil ? 0xf4f2ea : 0x1a1a22);
+        rebuild();
+      }
+    });
+
+    boot();
+  </script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Killgram prop preview</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #14141c; color: #eee; font: 13px/1.4 Consolas, monospace; }
+    #hud { position: absolute; left: 12px; top: 12px; z-index: 2; background: rgba(10,10,16,.72); padding: 10px 12px; border: 1px solid #445; max-width: 460px; }
+    #hud b { color: #ffe066; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div id="hud">loading...</div>
+  <script type="importmap">
+    {"imports":{"three":"/node_modules/three/build/three.module.js"}}
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    window.THREE = THREE;
+    function loadScript(src) {
+      return new Promise(function (res, rej) {
+        var s = document.createElement("script");
+        s.src = src;
+        s.onload = res;
+        s.onerror = function () { rej(new Error("fail " + src)); };
+        document.body.appendChild(s);
+      });
+    }
+    async function boot() {
+      await loadScript("/voxel.js");
+      await loadScript("/models/props.js");
+      start();
+    }
+
+    var params = new URLSearchParams(location.search);
+    var propId = params.get("id") || "";
+    var angle = params.get("angle") || "front";
+    var sil = params.get("sil") === "1";
+    var all = params.get("all") === "1" || !params.get("id");
+
+    var scene, camera, renderer, root, hud;
+
+    function start() {
+      hud = document.getElementById("hud");
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(sil ? 0xf4f2ea : 0x1a1a22);
+      camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 80);
+      renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(1);
+      renderer.setSize(innerWidth, innerHeight);
+      if ("outputColorSpace" in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
+      document.body.appendChild(renderer.domElement);
+      scene.add(new THREE.HemisphereLight(0xfff0d8, 0x2a2040, sil ? 0 : 0.85));
+      var sun = new THREE.DirectionalLight(0xffffff, sil ? 0 : 1.15);
+      sun.position.set(8, 14, 10);
+      scene.add(sun);
+      var ground = new THREE.Mesh(
+        new THREE.CircleGeometry(10, 32),
+        new THREE.MeshLambertMaterial({ color: sil ? 0xf4f2ea : 0x2a3340 })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      scene.add(ground);
+      if (!sil) scene.add(new THREE.GridHelper(12, 12, 0x445566, 0x2a3340));
+      root = new THREE.Group();
+      scene.add(root);
+      window.PROP_PREVIEW = {
+        set: function (id, a) {
+          propId = id; angle = a || "front"; all = false; rebuild();
+        },
+        ids: window.PROP_MODEL_IDS
+      };
+      rebuild();
+      addEventListener("resize", onResize);
+      renderer.setAnimationLoop(function () {
+        renderer.render(scene, camera);
+        window.__PROPS_READY = true;
+      });
+    }
+
+    function onResize() {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    }
+
+    function applyCamera(h, spread) {
+      var dist = Math.max(3.2, h * 2.4 + (spread || 0));
+      var lookY = h * 0.42;
+      if (angle === "side") camera.position.set(dist, lookY + 0.8, 0.2);
+      else if (angle === "threequarter") camera.position.set(dist * 0.78, lookY + 1.1, dist * 0.62);
+      else if (angle === "top") camera.position.set(0.2, dist * 1.3, dist * 0.25);
+      else camera.position.set(dist * 0.55, lookY + 1.2, dist);
+      camera.lookAt(0, lookY, 0);
+    }
+
+    function clearRoot() {
+      while (root.children.length) root.remove(root.children[0]);
+    }
+
+    function rebuild() {
+      clearRoot();
+      var ids = window.PROP_MODEL_IDS || [];
+      var catalog = [];
+      if (all) {
+        var gap = 2.4;
+        var cols = 5;
+        var i, id, mesh, info, col, row, dim, fit;
+        var maxH = 0.6;
+        for (i = 0; i < ids.length; i++) {
+          id = ids[i];
+          mesh = buildVoxelModel(id, { outline: !sil });
+          info = getVoxelModelInfo(id);
+          catalog.push({ id: id, voxels: info.voxelCount, h: info.height, parts: info.parts.length });
+          col = i % cols;
+          row = Math.floor(i / cols);
+          dim = Math.max(info.height, info.width, info.depth);
+          fit = 1.6 / Math.max(dim, 0.3);
+          mesh.scale.setScalar(fit);
+          mesh.position.set((col - (cols - 1) * 0.5) * gap, 0, row * gap);
+          root.add(mesh);
+          if (info.height * fit > maxH) maxH = info.height * fit;
+        }
+        applyCamera(maxH + 0.4, 3.2);
+        camera.position.z += 1.4;
+        camera.lookAt(0, 0.5, 0.8);
+        hud.innerHTML = "<b>all props</b> " + ids.length + "<br>" +
+          catalog.map(function (c) { return c.id + " " + c.voxels + "v"; }).join("<br>");
+        window.__PROPS = { ids: ids, catalog: catalog, all: true };
+        document.title = "props all";
+        return;
+      }
+      if (ids.indexOf(propId) < 0) propId = ids[0] || "";
+      var model = buildVoxelModel(propId, { outline: !sil });
+      root.add(model);
+      var inf = getVoxelModelInfo(propId);
+      applyCamera(inf.height || 1);
+      hud.innerHTML =
+        "<b>" + propId + "</b> " + angle + "<br>" +
+        "voxels " + inf.voxelCount + "<br>" +
+        "size " + inf.width.toFixed(2) + " x " + inf.height.toFixed(2) + " x " + inf.depth.toFixed(2) + "<br>" +
+        "parts " + inf.parts.map(function (p) { return p.name; }).join(",") + "<br>" +
+        "keys 1-9 / [ ] id | a angle | s sil";
+      window.__PROPS = { ids: ids, id: propId, info: inf, all: false };
+      document.title = propId + " " + angle;
+    }
+
+    addEventListener("keydown", function (e) {
+      var ids = window.PROP_MODEL_IDS || [];
+      var ix = ids.indexOf(propId);
+      if (e.key >= "1" && e.key <= "9") {
+        all = false;
+        propId = ids[(+e.key) - 1] || propId;
+        rebuild();
+      } else if (e.key === "[" ) {
+        all = false;
+        propId = ids[(ix - 1 + ids.length) % ids.length];
+        rebuild();
+      } else if (e.key === "]") {
+        all = false;
+        propId = ids[(ix + 1) % ids.length];
+        rebuild();
+      } else if (e.key === "a") {
+        angle = angle === "front" ? "threequarter" : angle === "threequarter" ? "side" : "front";
+        rebuild();
+      } else if (e.key === "s") {
+        sil = !sil;
+        scene.background = new THREE.Color(sil ? 0xf4f2ea : 0x1a1a22);
+        rebuild();
+      } else if (e.key === "g") {
+        all = true;
+        rebuild();
+      }
+    });
+
+    boot();
+  </script>
+</body>
+</html>
