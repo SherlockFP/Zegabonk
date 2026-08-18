@@ -68,6 +68,8 @@ test('lobby and first combat frame', async ({ page }) => {
   await page.waitForTimeout(700);
   await page.screenshot({ path: 'tests/artifacts/creatures-lineup.png', fullPage: true });
   await page.waitForTimeout(1800);
+  await page.evaluate(() => { if (typeof setPerformanceDiagnosticsVisible === "function") setPerformanceDiagnosticsVisible(true); });
+  await page.waitForTimeout(400);
   await expect(page.locator('#topCenterTime')).toBeVisible();
   await page.screenshot({ path: 'tests/artifacts/gameplay.png', fullPage: true });
 
@@ -81,7 +83,7 @@ test('lobby and first combat frame', async ({ page }) => {
   await page.evaluate(() => { if (typeof openLevelup === 'function') openLevelup(); });
   await expect(page.locator('#levelup')).toBeVisible();
   await page.screenshot({ path: 'tests/artifacts/gameplay-levelup.png', fullPage: true });
-  await page.evaluate(() => { if (typeof closeLevelupAndResume === 'function') closeLevelupAndResume(); });
+  await page.evaluate(() => { if (typeof closeLevelupAndResume === "function") closeLevelupAndResume(); });
 
   await page.evaluate(() => {
     if (!player || !player.mesh) return;

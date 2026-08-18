@@ -260,17 +260,14 @@ function setPerformanceDiagnosticsVisible(visible) {
 
 function updatePerformanceDiagnostics(rawDt) {
   const perf = performanceDiagnostics;
-  if (!Number.isFinite(rawDt) || rawDt > 0.25) {
-    perf.cursor = 0;
-    perf.count = 0;
-    return;
-  }
-  const frameMs = Math.max(0, Number(rawDt) || 0) * 1000;
+  if (!Number.isFinite(rawDt)) return;
+  const dt = Math.min(0.1, Math.max(0, rawDt));
+  const frameMs = dt * 1000;
   perf.samples[perf.cursor] = frameMs;
   perf.cursor = (perf.cursor + 1) % perf.samples.length;
   perf.count = Math.min(perf.count + 1, perf.samples.length);
   if (!perf.enabled || !perf.element) return;
-  perf.updateTimer -= rawDt;
+  perf.updateTimer -= dt;
   if (perf.updateTimer > 0) return;
   perf.updateTimer = 0.25;
 
@@ -496,7 +493,7 @@ function fillClassicTreePositions(rng, reserved, out, maxCount) {
     const x = (rng() - 0.5) * WORLD_HALF * 2, z = (rng() - 0.5) * WORLD_HALF * 2;
     if (reserved(x, z) || classicOpenClear(x, z) || Math.hypot(x, z) > WORLD_HALF - 2) continue;
     if (classicGeoZone(x, z)) continue;
-    if (rng() > 0.2) continue;
+      if (rng() > 0.38) continue;
     out.push({ x, z });
   }
 }
@@ -997,25 +994,43 @@ function seedOpeningLoop() {
   spawnWorldChestAt(new THREE.Vector3(-20, 0, -80));
   spawnWorldChestAt(new THREE.Vector3(-74, 0, 44));
   spawnWorldChestAt(new THREE.Vector3(82, 0, 14));
+  spawnWorldChestAt(new THREE.Vector3(8, 0, 118));
+  spawnWorldChestAt(new THREE.Vector3(114, 0, -86));
   spawnRunNpcAt(12, -7, "merchant");
   if (typeof seedHuntPois === "function") seedHuntPois();
   const cratePath = [
     { x: 3, z: -8 }, { x: 2, z: -2 }, { x: 1, z: 6 }, { x: 0, z: 14 }, { x: -4, z: 4 },
-    { x: -18, z: -6 }, { x: -34, z: 2 }, { x: -48, z: 14 },
-    { x: 22, z: -8 }, { x: 38, z: 0 }, { x: 56, z: 8 },
-    { x: -6, z: -28 }, { x: -12, z: -46 }, { x: -18, z: -66 },
-    { x: 6, z: 52 }, { x: 10, z: 74 }, { x: 12, z: 92 },
-    { x: -62, z: 26 }, { x: 80, z: 14 },
-    { x: 88, z: -52 }, { x: 102, z: -70 },
+    { x: -18, z: -6 }, { x: -34, z: 2 }, { x: -48, z: 14 }, { x: -40, z: 8 },
+    { x: 22, z: -8 }, { x: 38, z: 0 }, { x: 56, z: 8 }, { x: 48, z: 4 },
+    { x: -6, z: -28 }, { x: -12, z: -46 }, { x: -18, z: -66 }, { x: -22, z: -78 },
+    { x: 6, z: 52 }, { x: 10, z: 74 }, { x: 12, z: 92 }, { x: 8, z: 110 },
+    { x: -62, z: 26 }, { x: -78, z: 32 }, { x: 80, z: 14 }, { x: 90, z: 18 },
+    { x: 88, z: -52 }, { x: 102, z: -70 }, { x: 112, z: -84 },
     { x: 5, z: -14 }, { x: -7, z: -10 }, { x: 9, z: 4 }, { x: -11, z: 8 },
+    { x: -52, z: -8 }, { x: 62, z: -6 }, { x: 14, z: 96 }, { x: -8, z: -48 }
   ];
   for (let i = 0; i < cratePath.length; i++) spawnSmashCrate(cratePath[i].x, cratePath[i].z);
+  function scatterPoiCrates(cx, cz, n, rad) {
+    const count = n || 4;
+    const r0 = rad || 5.2;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + 0.35;
+      const r = r0 + (i % 3) * 0.9;
+      spawnSmashCrate(cx + Math.cos(a) * r, cz + Math.sin(a) * r);
+    }
+  }
+  if (typeof HUNT_POI_SPOTS !== "undefined") {
+    for (let i = 0; i < HUNT_POI_SPOTS.length; i++) scatterPoiCrates(HUNT_POI_SPOTS[i].x, HUNT_POI_SPOTS[i].z, 5, 5.4);
+  }
+  if (typeof CLASSIC_YUK_TASI !== "undefined") {
+    for (let i = 0; i < CLASSIC_YUK_TASI.length; i++) scatterPoiCrates(CLASSIC_YUK_TASI[i].x, CLASSIC_YUK_TASI[i].z, 3, 3.6);
+  }
   const extraCrates = [
     { x: -28, z: 28 }, { x: 28, z: -22 }, { x: -40, z: -20 },
     { x: 44, z: 32 }, { x: -70, z: 8 }, { x: 16, z: -90 },
-    { x: 64, z: -44 }, { x: -88, z: 36 }
+    { x: 64, z: -44 }, { x: -88, z: 36 }, { x: -46, z: 6 }, { x: 50, z: 4 }
   ];
-  const n = Math.min(extraCrates.length, 4 + Math.max(0, state.mythicKey || 0));
+  const n = Math.min(extraCrates.length, 6 + Math.max(0, state.mythicKey || 0));
   for (let i = 0; i < n; i++) spawnSmashCrate(extraCrates[i].x, extraCrates[i].z);
   for (let i = 0; i < 3; i++) spawnEnemy((i / 3) * Math.PI * 2 + 0.4);
   runWorldEventTimer = 18;
@@ -2861,36 +2876,45 @@ function playSfxHit(freq = 320) {
   if (!audioCtx) return;
   if (activeSfxCount >= MAX_CONCURRENT_SFX) return;
   activeSfxCount++;
-  setTimeout(function() { activeSfxCount = Math.max(0, activeSfxCount - 1); }, 80);
+  setTimeout(function() { activeSfxCount = Math.max(0, activeSfxCount - 1); }, 90);
   const now = audioCtx.currentTime;
   const vol = (camSettings.soundVolume || 1) * (camSettings.effectVolume ?? 1);
-  // Retro crunch hit
   const osc = audioCtx.createOscillator();
   osc.type = "square";
   osc.frequency.setValueAtTime(freq * 1.5, now);
   osc.frequency.exponentialRampToValueAtTime(freq * 0.2, now + 0.05);
-  const noise = audioCtx.createOscillator();
-  noise.type = "sawtooth";
-  noise.frequency.setValueAtTime(100, now);
   const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0.24 * vol, now);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
-  const noiseG = audioCtx.createGain();
-  noiseG.gain.setValueAtTime(0.07 * vol, now);
-  noiseG.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+  gain.gain.setValueAtTime(0.30 * vol, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
   const kick = audioCtx.createOscillator();
   kick.type = "sine";
-  kick.frequency.setValueAtTime(Math.max(70, freq * 0.45), now);
-  kick.frequency.exponentialRampToValueAtTime(48, now + 0.07);
+  kick.frequency.setValueAtTime(Math.max(62, freq * 0.42), now);
+  kick.frequency.exponentialRampToValueAtTime(42, now + 0.08);
   const kickG = audioCtx.createGain();
-  kickG.gain.setValueAtTime(0.16 * vol, now);
-  kickG.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+  kickG.gain.setValueAtTime(0.22 * vol, now);
+  kickG.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
   osc.connect(gain); gain.connect(audioCtx.destination);
-  noise.connect(noiseG); noiseG.connect(audioCtx.destination);
   kick.connect(kickG); kickG.connect(audioCtx.destination);
-  osc.start(now); osc.stop(now + 0.1);
-  noise.start(now); noise.stop(now + 0.06);
-  kick.start(now); kick.stop(now + 0.09);
+  osc.start(now); osc.stop(now + 0.11);
+  kick.start(now); kick.stop(now + 0.1);
+  if (!playSfxHit._noise) {
+    const n = Math.floor(audioCtx.sampleRate * 0.08);
+    const buf = audioCtx.createBuffer(1, n, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    playSfxHit._noise = buf;
+  }
+  const crunch = audioCtx.createBufferSource();
+  crunch.buffer = playSfxHit._noise;
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = "bandpass";
+  hp.frequency.value = 1400;
+  hp.Q.value = 0.8;
+  const cg = audioCtx.createGain();
+  cg.gain.setValueAtTime(0.16 * vol, now);
+  cg.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+  crunch.connect(hp); hp.connect(cg); cg.connect(audioCtx.destination);
+  crunch.start(now);
 }
 
 function playSfxKill(freq = 190) {
@@ -4159,24 +4183,34 @@ function dressClassicGeoKits() {
       fn(x, z, i);
     }
   }
-  ring(-86, 36, 13, 40, 24, function(x, z, i) {
+  ring(-86, 36, 13, 40, 34, function(x, z, i) {
     placeVoxelProp("tree", x, z, 1.35 + rng() * 0.85, rng() * 6);
-    if (i % 3 === 0) placeVoxelProp("rock", x + 1.1, z - 0.7, 1.05 + rng() * 0.5, rng() * 6);
+    if (i % 2 === 0) placeVoxelProp("rock", x + 1.1, z - 0.7, 1.05 + rng() * 0.5, rng() * 6);
+    if (i % 5 === 0) placeVoxelProp("crate", x - 1.2, z + 0.8, 0.85, rng() * 6);
   });
-  ring(94, 22, 14, 38, 20, function(x, z, i) {
+  ring(94, 22, 14, 38, 28, function(x, z, i) {
     placeVoxelProp("ruin", x, z, 1.15 + rng() * 0.7, rng() * 6);
     if (i % 2 === 0) placeVoxelProp("rock", x - 1.0, z + 0.5, 1.2, rng() * 6);
+    if (i % 4 === 0) placeVoxelProp("crate", x + 0.8, z - 1.1, 0.9, rng() * 6);
   });
   placeVoxelProp("shrine", -24, -88, 1.55, 0.35);
-  ring(-24, -88, 8, 18, 10, function(x, z) {
-    placeVoxelProp("rock", x, z, 0.85 + rng() * 0.45, rng() * 6);
+  ring(-24, -88, 8, 20, 14, function(x, z, i) {
+    placeVoxelProp(i % 3 === 0 ? "crate" : "rock", x, z, 0.85 + rng() * 0.45, rng() * 6);
   });
-  ring(8, 128, 18, 40, 16, function(x, z, i) {
+  ring(8, 128, 18, 40, 22, function(x, z, i) {
     placeVoxelProp("rock", x, z, 1.35 + rng() * 0.7, rng() * 6);
-    if (i % 4 === 0) placeVoxelProp("ruin", x, z, 0.95, rng() * 6);
+    if (i % 3 === 0) placeVoxelProp("ruin", x, z, 0.95, rng() * 6);
   });
-  ring(-46, 6, 6, 13, 6, function(x, z) { placeVoxelProp("rock", x, z, 1.15, rng() * 6); });
-  ring(50, 4, 6, 13, 6, function(x, z) { placeVoxelProp("rock", x, z, 1.15, rng() * 6); });
+  ring(-46, 6, 6, 13, 8, function(x, z, i) {
+    placeVoxelProp(i % 2 === 0 ? "crate" : "rock", x, z, 1.05, rng() * 6);
+  });
+  ring(50, 4, 6, 13, 8, function(x, z, i) {
+    placeVoxelProp(i % 2 === 0 ? "crate" : "rock", x, z, 1.05, rng() * 6);
+  });
+  ring(0, 22, 30, 38, 10, function(x, z, i) {
+    if (classicOpenClear(x, z)) return;
+    placeVoxelProp(i % 2 === 0 ? "rock" : "crate", x, z, 0.95, rng() * 6);
+  });
 }
 
 function preloadLandmarkModels() {
@@ -4999,7 +5033,7 @@ let _chunkLeafMats = null;
 let _chunkGroundGeo = null;
 let _chunkTreeGeometries = null;
 const CLASSIC_TREE_BATCH_SIZE = 12;
-const CLASSIC_INITIAL_TREE_COUNT = 560;
+const CLASSIC_INITIAL_TREE_COUNT = 720;
 
 const CLASSIC_PHASE_PROFILES = [
   { name: "Sessiz Fundalik", bg: 0x79bce8, fog: 0x6e9a92, fogDensity: 0.0016, ground: 0x9fbd73, landmark: 0x6f7d88, emissive: 0x17251b, exposure: 1.42 },
@@ -5491,33 +5525,63 @@ function buildWorldChunked(mapId, onProgress, onDone) {
       return;
     }
     if (step === 1) {
-      const from = treeCursor;
-      const to = Math.min(treeCursor + CLASSIC_TREE_BATCH_SIZE, _chunkTreePositions.length);
-      for (let k = from; k < to; k++) {
-        const pt = _chunkTreePositions[k];
-        const x = pt.x, z = pt.z;
-        const lm = _chunkLeafMats[Math.floor(classicRouteRandom() * _chunkLeafMats.length)];
-        const s = 1.5 + classicRouteRandom() * 1.1, hm = 1.0 + classicRouteRandom() * 0.7;
-        const useHeroTree = propAssets.tree && Math.hypot(x, z + 12) < 72;
-        const g = useHeroTree ? propAssets.tree.clone(true) : new THREE.Group();
-        if (!useHeroTree) {
+      const pts = _chunkTreePositions;
+      const n = pts.length;
+      const dummy = new THREE.Object3D();
+      if (n && _chunkTreeGeometries && _chunkTrunkMat && _chunkLeafMats) {
+        const trunkInst = new THREE.InstancedMesh(_chunkTreeGeometries.trunk, _chunkTrunkMat, n);
+        const leafMat = _chunkLeafMats[0];
+        const c1 = new THREE.InstancedMesh(_chunkTreeGeometries.crownLow, leafMat, n);
+        const c2 = new THREE.InstancedMesh(_chunkTreeGeometries.crownMid, leafMat, n);
+        const c3 = new THREE.InstancedMesh(_chunkTreeGeometries.crownHigh, leafMat, n);
+        trunkInst.castShadow = c1.castShadow = c2.castShadow = c3.castShadow = true;
+        trunkInst.receiveShadow = c1.receiveShadow = true;
+        for (let k = 0; k < n; k++) {
+          const pt = pts[k];
+          const s = 1.5 + classicRouteRandom() * 1.1;
+          const hm = 1.0 + classicRouteRandom() * 0.7;
+          const y = sampleTerrainHeight(pt.x, pt.z);
           const th = 3.2 * hm;
-          const trunk = new THREE.Mesh(_chunkTreeGeometries.trunk, _chunkTrunkMat);
-          trunk.scale.y = hm;
-          trunk.position.y = th * 0.5;
-          const c1 = new THREE.Mesh(_chunkTreeGeometries.crownLow, lm); c1.position.set(0, th + 1.45, 0);
-          const c2 = new THREE.Mesh(_chunkTreeGeometries.crownMid, lm); c2.position.set(0.42, th + 2.35, 0.18);
-          const c3 = new THREE.Mesh(_chunkTreeGeometries.crownHigh, lm); c3.position.set(-0.32, th + 2.8, -0.22);
-          g.add(trunk, c1, c2, c3);
+          dummy.rotation.set(0, 0, 0);
+          dummy.position.set(pt.x, y + th * 0.5 * s, pt.z);
+          dummy.scale.set(s, s * hm, s);
+          dummy.updateMatrix();
+          trunkInst.setMatrixAt(k, dummy.matrix);
+          dummy.scale.set(s, s, s);
+          dummy.position.set(pt.x, y + (th + 1.45) * s, pt.z);
+          dummy.updateMatrix();
+          c1.setMatrixAt(k, dummy.matrix);
+          dummy.position.set(pt.x + 0.42 * s, y + (th + 2.35) * s, pt.z + 0.18 * s);
+          dummy.updateMatrix();
+          c2.setMatrixAt(k, dummy.matrix);
+          dummy.position.set(pt.x - 0.32 * s, y + (th + 2.8) * s, pt.z - 0.22 * s);
+          dummy.updateMatrix();
+          c3.setMatrixAt(k, dummy.matrix);
+          if (s > 1.85) colliders.push({ x: pt.x, z: pt.z, r: 0.85 * s });
         }
-        g.scale.setScalar(s); g.position.set(x, sampleTerrainHeight(x, z), z);
-        g.userData.isTree = true; g.userData.phase = k * 0.7;
-        mapGroup.add(g);
-        if (s > 1.85) colliders.push({ x, z, r: 0.85 * s });
+        trunkInst.instanceMatrix.needsUpdate = true;
+        c1.instanceMatrix.needsUpdate = true;
+        c2.instanceMatrix.needsUpdate = true;
+        c3.instanceMatrix.needsUpdate = true;
+        mapGroup.add(trunkInst, c1, c2, c3);
+        mapGroup.userData.classicTreeInst = [trunkInst, c1, c2, c3];
       }
-      treeCursor = to;
-      report(20 + 46 * (treeCursor / Math.max(1, _chunkTreePositions.length)), "Agaclar");
-      if (treeCursor < _chunkTreePositions.length) { setTimeout(next, 16); return; }
+      if (propAssets.tree) {
+        const heroN = Math.min(12, pts.length);
+        for (let k = 0; k < heroN; k++) {
+          const pt = pts[k];
+          if (Math.hypot(pt.x, pt.z + 12) > 72) continue;
+          const g = propAssets.tree.clone(true);
+          const s = 1.7 + classicRouteRandom() * 0.5;
+          g.scale.setScalar(s);
+          g.position.set(pt.x, sampleTerrainHeight(pt.x, pt.z), pt.z);
+          g.userData.isTree = true;
+          g.userData.phase = k * 0.7;
+          mapGroup.add(g);
+        }
+      }
+      treeCursor = n;
+      report(66, "Agaclar");
       step = 5;
       setTimeout(next, 0);
       return;
@@ -5530,6 +5594,22 @@ function buildWorldChunked(mapId, onProgress, onDone) {
         const sy = s * (0.6 + classicRouteRandom() * 0.5);
         worldDecorData.push({ type: "rock", x, z, s, sy, rot: [classicRouteRandom() * 0.3, classicRouteRandom() * Math.PI * 2, classicRouteRandom() * 0.2], matIndex: Math.floor(classicRouteRandom() * 2), mesh: null });
         if (s > 0.8) colliders.push({ x, z, r: 0.5 * s });
+      }
+      const trailSpots = [
+        [-40, 18], [42, 16], [6, 72], [-18, -42], [-62, 18], [74, 14],
+        [18, 54], [-32, 92], [28, -28], [-14, 48], [58, -18], [-54, -24]
+      ];
+      for (let t = 0; t < trailSpots.length; t++) {
+        const cx = trailSpots[t][0], cz = trailSpots[t][1];
+        if (classicOpenClear(cx, cz)) continue;
+        for (let k = 0; k < 7; k++) {
+          const a = (k / 7) * Math.PI * 2 + t * 0.2;
+          const rr = 3.2 + (k % 3) * 1.4;
+          const x = cx + Math.cos(a) * rr, z = cz + Math.sin(a) * rr;
+          if (classicOpenClear(x, z) || classicRouteReserved(x, z)) continue;
+          const s = 0.55 + classicRouteRandom() * 0.7;
+          worldDecorData.push({ type: k % 2 ? "bush" : "rock", x, z, s, sy: s * 0.7, rot: [0, classicRouteRandom() * 6, 0], matIndex: t % 2, mesh: null });
+        }
       }
       const flowerColors = [0xff6688, 0xffaa44, 0xdd66ff, 0x66ccff, 0xffff66];
       for (let i = 0; i < 480; i++) {
@@ -9177,70 +9257,42 @@ function createEnemy(tier, cfg, opts) {
     const h = cfg.height;
     const coreMat = new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: 0.55, roughness: 0.35, metalness: 0.15 });
     if (bossVariant === 0) {
-      const spiderMat = new THREE.MeshStandardMaterial({ color: 0x2a1a0a, emissive: 0x0a0502, emissiveIntensity: 0.2, roughness: 0.6 });
-      const abdomen = new THREE.Mesh(new THREE.SphereGeometry(r * 0.9, 12, 10), spiderMat);
-      abdomen.scale.set(1.2, 1, 1.1); abdomen.position.y = h * 0.45;
-      const thorax = new THREE.Mesh(new THREE.SphereGeometry(r * 0.5, 10, 8), spiderMat);
-      thorax.position.y = h * 0.85;
-      const head = new THREE.Mesh(new THREE.SphereGeometry(r * 0.35, 8, 6), spiderMat);
-      head.position.y = h * 1.1;
-      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(r * 0.08, 6, 6), eyeMat);
-      eyeL.position.set(-r * 0.15, h * 1.12, r * 0.22);
-      const eyeR = eyeL.clone(); eyeR.position.x *= -1;
+      const spiderMat = voxelStd(0x2a1a0a, 0x0a0502);
+      addBoxPart(g, r * 1.85, h * 0.52, r * 1.65, spiderMat, 0, h * 0.4, -r * 0.12);
+      addBoxPart(g, r * 1.05, h * 0.4, r * 0.95, spiderMat, 0, h * 0.78, r * 0.22);
+      addBoxPart(g, r * 0.72, r * 0.55, r * 0.65, spiderMat, 0, h * 1.12, r * 0.48);
+      addBoxPart(g, r * 0.18, r * 0.18, r * 0.12, eyeMat, -r * 0.2, h * 1.16, r * 0.76);
+      addBoxPart(g, r * 0.18, r * 0.18, r * 0.12, eyeMat, r * 0.2, h * 1.16, r * 0.76);
       for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.06, r * 0.04, h * 0.55, 6), spiderMat);
-        leg.position.set(Math.cos(angle) * r * 0.6, h * 0.5, Math.sin(angle) * r * 0.6);
-        leg.rotation.z = Math.cos(angle) * 0.5; leg.rotation.x = 0.4;
-        g.add(leg);
+        const side = i < 4 ? -1 : 1;
+        const gi = i % 4;
+        const z = -r * 0.55 + gi * r * 0.38;
+        addBoxPart(g, r * 1.2, r * 0.18, r * 0.18, spiderMat, side * r * 1.08, h * 0.3, z);
       }
-      g.add(abdomen, thorax, head, eyeL, eyeR);
     } else if (bossVariant === 1) {
-      const tentacleMat = new THREE.MeshStandardMaterial({ color: 0x228833, emissive: 0x0a4415, emissiveIntensity: 0.35, roughness: 0.5, metalness: 0.05 });
-      const tentacleDark = new THREE.MeshStandardMaterial({ color: 0x1a6622, emissive: 0x062a0a, emissiveIntensity: 0.2, roughness: 0.55 });
-      const body = new THREE.Mesh(new THREE.SphereGeometry(r * 1.1, 14, 12), tentacleMat);
-      body.scale.set(1.15, 1.2, 1.15); body.position.y = h * 0.55;
-      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(r * 0.14, 8, 6), eyeMat);
-      eyeL.position.set(-r * 0.35, h * 0.7, r * 0.5);
-      const eyeR = eyeL.clone(); eyeR.position.x *= -1;
-      g.add(body, eyeL, eyeR);
-      const tentacleCount = 8;
-      for (let i = 0; i < tentacleCount; i++) {
-        const angle = (i / tentacleCount) * Math.PI * 2 + 0.2;
+      const tentacleMat = voxelStd(0x228833, 0x0a4415);
+      const tentacleDark = voxelStd(0x1a6622, 0x062a0a);
+      addBoxPart(g, r * 1.7, h * 0.85, r * 1.55, tentacleMat, 0, h * 0.52, 0);
+      addBoxPart(g, r * 0.22, r * 0.22, r * 0.16, eyeMat, -r * 0.32, h * 0.72, r * 0.72);
+      addBoxPart(g, r * 0.22, r * 0.22, r * 0.16, eyeMat, r * 0.32, h * 0.72, r * 0.72);
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2 + 0.2;
         const dx = Math.cos(angle);
         const dz = Math.sin(angle);
-        const armLen = r * 1.4;
-        const arm = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.08, r * 0.28, armLen, 8), tentacleMat);
-        arm.position.set(dx * armLen * 0.5, h * 0.5, dz * armLen * 0.5);
-        arm.rotation.x = -Math.PI / 2;
-        arm.rotation.z = Math.atan2(dx, dz);
-        g.add(arm);
-        const arm2 = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.05, r * 0.1, armLen * 0.6, 6), tentacleDark);
-        arm2.position.set(dx * (armLen * 0.5 + armLen * 0.3), h * 0.5, dz * (armLen * 0.5 + armLen * 0.3));
-        arm2.rotation.x = -Math.PI / 2;
-        arm2.rotation.z = Math.atan2(dx, dz);
-        g.add(arm2);
-        const tip = new THREE.Mesh(new THREE.SphereGeometry(r * 0.15, 6, 6), tentacleDark);
-        tip.position.set(dx * armLen * 1.05, h * 0.5, dz * armLen * 1.05);
-        g.add(tip);
+        addBoxPart(g, r * 0.32, r * 0.28, r * 1.15, tentacleMat, dx * r * 0.95, h * 0.42, dz * r * 0.95);
+        addBoxPart(g, r * 0.22, r * 0.22, r * 0.7, tentacleDark, dx * r * 1.55, h * 0.38, dz * r * 1.55);
       }
     } else if (bossVariant === 2) {
-      const slimeMat = new THREE.MeshStandardMaterial({ color: 0x22aa44, emissive: 0x0a330a, emissiveIntensity: 0.3, roughness: 0.2, metalness: 0.05, transparent: true, opacity: 0.75 });
-      const blob = new THREE.Mesh(new THREE.BoxGeometry(r * 1.4, h * 0.9, r * 1.3), slimeMat);
-      blob.position.y = h * 0.5;
-      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(r * 0.12, 6, 6), eyeMat);
-      eyeL.position.set(-r * 0.25, h * 0.75, r * 0.35);
-      const eyeR = eyeL.clone(); eyeR.position.x *= -1;
-      g.add(blob, eyeL, eyeR);
+      const slimeMat = voxelStd(0x22aa44, 0x0a330a);
+      slimeMat.transparent = true; slimeMat.opacity = 0.78;
+      addBoxPart(g, r * 1.55, h * 0.9, r * 1.4, slimeMat, 0, h * 0.5, 0);
+      addBoxPart(g, r * 0.22, r * 0.22, r * 0.14, eyeMat, -r * 0.28, h * 0.75, r * 0.62);
+      addBoxPart(g, r * 0.22, r * 0.22, r * 0.14, eyeMat, r * 0.28, h * 0.75, r * 0.62);
     } else {
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.7, r * 0.95, h * 0.9, 12), coreMat);
-      body.position.y = h * 0.5;
-      const head = new THREE.Mesh(new THREE.DodecahedronGeometry(r * 0.55, 1), coreMat);
-      head.position.y = h * 1.05;
-      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(r * 0.08, 6, 6), eyeMat);
-      eyeL.position.set(-r * 0.18, h * 1.08, r * 0.38);
-      const eyeR = eyeL.clone(); eyeR.position.x *= -1;
-      g.add(body, head, eyeL, eyeR);
+      addBoxPart(g, r * 1.35, h * 0.85, r * 1.2, coreMat, 0, h * 0.48, 0);
+      addBoxPart(g, r * 0.85, r * 0.75, r * 0.8, coreMat, 0, h * 1.05, 0);
+      addBoxPart(g, r * 0.16, r * 0.16, r * 0.12, eyeMat, -r * 0.2, h * 1.08, r * 0.42);
+      addBoxPart(g, r * 0.16, r * 0.16, r * 0.12, eyeMat, r * 0.2, h * 1.08, r * 0.42);
     }
   } else {
     // Normal/magic/rare/unique - distinct models per tier
@@ -13536,17 +13588,20 @@ function spawnChestRain(count) {
 }
 
 function spawnSmashCrate(x, z) {
-  const smashCap = 40 + Math.min(8, Math.max(0, (state.mythicKey || 0) - 1));
+  const smashCap = 96 + Math.min(12, Math.max(0, (state.mythicKey || 0) - 1));
   if (!scene || smashables.length >= smashCap) return null;
+  if (!spawnSmashCrate._geo) spawnSmashCrate._geo = new THREE.BoxGeometry(1, 1, 1);
+  if (!spawnSmashCrate._mat) {
+    spawnSmashCrate._mat = bindPixelMap(new THREE.MeshStandardMaterial({
+      color: 0xb07a38, roughness: 0.78, emissive: 0x3a2208, emissiveIntensity: 0.18, flatShading: true
+    }), "crate", 1);
+  }
   const s = 0.72 + Math.random() * 0.22;
-  const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(s, s, s),
-    bindPixelMap(new THREE.MeshStandardMaterial({ color: 0xb07a38, roughness: 0.78, emissive: 0x3a2208, emissiveIntensity: 0.18, flatShading: true }), "crate", 1)
-  );
+  const mesh = new THREE.Mesh(spawnSmashCrate._geo, spawnSmashCrate._mat);
+  mesh.scale.setScalar(s);
   const gy = getGroundHeight(x, z);
   mesh.position.set(x, gy + s * 0.5, z);
   mesh.rotation.y = Math.random() * Math.PI;
-  if (typeof applyVoxelLook === "function") applyVoxelLook(mesh);
   scene.add(mesh);
   const crate = { mesh, x, z, s, gy, hp: 1 };
   smashables.push(crate);
@@ -13560,7 +13615,8 @@ function smashCrateAt(i) {
   if (typeof dropXpOrbs === "function") dropXpOrbs(pos, 9 + Math.floor(Math.random() * 7), "normal");
   if (typeof spawnCoinPickup === "function") spawnCoinPickup(pos, 2 + Math.floor(Math.random() * 3));
   if (typeof spawnBurst === "function") spawnBurst(pos, 0xc9a06a, 8);
-  if (typeof playSfx === "function") playSfx(180, 0.08, 0.55);
+  if (typeof playSfxHit === "function") playSfxHit(170);
+  else if (typeof playSfx === "function") playSfx(180, 0.08, 0.55);
   scene.remove(c.mesh);
   smashables.splice(i, 1);
 }

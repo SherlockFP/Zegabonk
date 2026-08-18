@@ -22,7 +22,7 @@ Third-person 3D auto-battler survivor (MEGABONK-like). WASD + mouse look. Auto w
 - MEGABONK feel: dense map, find the portal, stand in it -> Warden
 - Characters use per-class GLB under `assets/models/production/`
 - Creature GLB + aliases (goblin/rattlecap, bat=crow, etc)
-- Honest score ~6.7/10 after creature box-kit (loop 7.0, HUD/menu 8.1, juice 6.5, map 6.1, creatures 6.4). See `mem/GAUNTLET.md`.
+- Honest score ~6.9/10 after tree instancing (loop 7.0, HUD/menu 8.1, map 6.7, creatures 6.4, boss 6.6, audio 4.8). See `mem/GAUNTLET.md`.
 - Hunt chain: explore chests/POIs -> level -> elites -> portal GPS
 - Classic gate: stand 3s -> Kirik-Tac Muhafizi approaches -> kill opens portal now -> Bolum 2. No 10:00 wait. Hardcore/random teleports off until story/endless.
 - Play opens Tac Koyu (3D hub). Portal -> lobby overlay -> run. Yol Tasi +2.. after Ender. Gear + durability/repair in `hub.js`.

@@ -121,9 +121,61 @@ Shots: `creatures-lineup.png`, `gameplay.png`.
 
 Overall **6.7/10**. Creatures are the visible win. Audio still the floor.
 
+## This pass (POI density + hit crunch) 2026-08-18
+
+AA gap was empty hunt trails and synth ticks. Same loop. Do not fill the kite bowl.
+
+1. Smash crates along hunt POIs + Yuk Tasi rings. Cap 96. Extra world chests at Kor Cukur and Uzak Kule.
+2. Thicker grove/ruins/shrine/pass dress + crate props. Central rim only, spawn bowl still clear.
+3. Hit/crate crunch uses a noise buffer + thicker kick. Still synth, not recorded.
+4. F3 profiler no longer wipes samples on hitch, so FPS actually ticks.
+
+## Honest scores (after POI density)
+
+Shots: `gameplay.png`, `geo-grove.png`, `geo-ruins.png`.
+
+| Slice | Prev | Now | Why |
+| --- | --- | --- | --- |
+| Loop | 7.0 | 7.0 | Unchanged north star |
+| Opening | 6.6 | 6.6 | Unchanged |
+| Juice | 6.5 | 6.6 | Crate/hit crunch is fatter in code |
+| HUD/menu | 8.1 | 8.1 | Unchanged |
+| Map / art | 6.1 | 6.5 | POI camps + denser grove/ruins. Still not MEGABONK clutter. |
+| Creatures | 6.4 | 6.4 | Unchanged |
+| Boss | 6.2 | 6.2 | Unchanged |
+| Perf | 5.8 | 5.5 | More prop draw calls. Overlay ticks. CI stills are not a GPU. |
+| Audio | 4.2 | 4.8 | Noise crunch on hit/crates. Still no recorded SFX. |
+
+Overall **6.8/10**. Map density is the visible win. Audio still the floor.
+
+## This pass (instance trees + boss kit + corridors) 2026-08-18
+
+SFX skipped on purpose. Cut draw calls, box the procedural bosses, dress hunt corridors.
+
+1. Classic trees are 4 InstancedMeshes (720 count) instead of ~560 x 4 meshes. 12 hero GLB trees near spawn. Shared smash-crate geo/mat, no edge overlay.
+2. Procedural boss variants (spider / tentacle / slime / default) are box-kit. Kirik-Tac Muhafizi already was.
+3. Extra rock/bush rings on hunt corridors. Spawn bowl still clear.
+
+## Honest scores (after instance + boss kit)
+
+Shots: `gameplay.png`, `geo-grove.png`. Loop test: Muhafiz -> chapter 2.
+
+| Slice | Prev | Now | Why |
+| --- | --- | --- | --- |
+| Loop | 7.0 | 7.0 | Unchanged |
+| Opening | 6.6 | 6.6 | Unchanged |
+| Juice | 6.6 | 6.6 | Unchanged |
+| HUD/menu | 8.1 | 8.1 | Unchanged |
+| Map / art | 6.5 | 6.7 | Corridor clutter. Still not MEGABONK density. |
+| Creatures | 6.4 | 6.4 | Unchanged |
+| Boss | 6.2 | 6.6 | Fallback spider/tentacle/slime are boxes. King Grom GLB still used when loaded. |
+| Perf | 5.5 | 6.0 | Trees instanced. CI stills still ~15 fps (software). |
+| Audio | 4.8 | 4.8 | Skipped this pass |
+
+Overall **6.9/10**. Perf structure is the win. Recorded SFX still deferred.
+
 ## Still next
 
-- Recorded SFX
-- Denser POI clutter
-- FPS overlay actually ticking in stills
-- Boss procedural spider still spheres
+- Recorded SFX (deferred)
+- Instance dressClassicGeoKits GLB clones if draw calls stay high
+- King Grom / unique boss sculpts
