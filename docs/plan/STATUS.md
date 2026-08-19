@@ -137,6 +137,17 @@ Kabul kriterine gore durum: FPS hedefi (>=55 @150) onceki tam olcumde TUTMADI (4
 
 ## Seans Gunlugu (en yeni ustte)
 
+### 2026-08-19 - Draw call LOD trim (BENCHMARK PASS)
+
+**Yapilan**
+- `ENEMY_LOD_NEAR_MAX` 14 -> 12.
+- HP bar: yalniz boss veya hasar + 10m.
+- Outline + isim: yalniz rare/unique yakin; trash blob kapali.
+
+**Olcum (`--fast --label=lod-fix`)**: empty 248, 50=355, 150+skill **548** draw / 79fps. BENCHMARK PASS (onceki quality 710 fail).
+
+**Push:** `e8c3856`
+
 ### 2026-08-19 - Kalite pass dogrulama + perf + push
 
 **Dogrulanan (kod taramasi)**
