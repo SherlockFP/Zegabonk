@@ -6,11 +6,22 @@ Durum degerleri: `bekliyor` | `deVAM` (sahip yaz) | `blokeli (sebep)` | `BITTI (
 
 ## Su An (en guncel ozet)
 
-- Draw-call AA: uzak dusman tek `__lod` mesh, normal isim/outline yok, HP bar 18m, city/koy PointLight kesildi, cimen 2200.
-- Landmark: koy degirmeni + 2 kule (`landmark_mill` / `landmark_tower`).
-- Boss saldiri: `pulseBossTelegraph` model poza + yer halkasi.
-- Benchmark: `docs/plan/BENCHMARK.md` + perf-probe PASS/FAIL (150 dusman <=700 cagri, >=55 FPS).
-- Boot: THREE `vendor/three.min.js`. Coop (P8/P9) yok.
+- 19 Agu AA seansi (4/10 hissi kapanmadi, AA parcalari gemi): class voxel lobby+run, magic/rare voxel, yakin HP+outline, kitap, 5 skill, turret voxel, path/su bosluk.
+- Draw-call: uzak `__lod` 1 mesh; 16 yakin outline. HP: boss / 10m / (16 yakin ve <=16m). Far-AI skip ONCE gizlenir (uzak bar kalmaz).
+- Landmark mill/tower duruyor. Boss `pulseBossTelegraph`. Pixel ratio min(dpr, 1.25). Coop/TD yok.
+- Boot: 5173 zaten acikti; `/` `app.js` `vendor/three.min.js` voxel+modeller 200. `node --check app.js` OK.
+
+## Bu seans plani (oncelik, sonra uygulandi)
+
+1. A Class mesh: `onWorldDone` `buildPlayer`'dan ONCE lobby radio. Lobby radio diorama swap.
+2. B Magic/rare/unique `rollBeastType` (sadece normal degildi; primitive kure buyuydu).
+3. C Yakin HP bar: 10m veya (16 yakin ve <=16m), hasar sarti yok. Far-skip oncesi gizle. Boss her zaman.
+4. D Outline: voxel `outline:true`; `applyEnemyLod` yakin acik, uzak kapali.
+5. E Levelup `cardStat` her kart + Megabonk-tarzi Kitap (hasar/cd/mermi/xp/altin/sans). Kosu meta kilit.
+6. F 5 skill: sarimsak aura, sekme orb, buz nabzi, kutsal zemin, yorunge bicak.
+7. G `turret_base` + namlu; koy kenari dekor.
+8. H Path vertex-renk, su sadece alcak yer, daha az path daire z-fight.
+9. I Toon cim canvas zaten var; path dirt paleti. Bloom yok.
 
 ## Kod Haritasi Guncellemesi (PLAN.md'deki numaralar artik eski)
 
@@ -41,21 +52,22 @@ Guncel satirlar (19 Agu, leftover seans):
 | P1.5 Statik dunya merge | BITTI instanced (19 Agu) | app.js | BufferGeometryUtils yok; koy/bina/sinir duvari/sehir kutulari InstancedMesh. Bunker tekil. PointLight'lar tekil |
 | P1.6 Render ayarlari (pixel ratio/golge) | BITTI (19 Agu 2026) | app.js | pixel ratio min(dpr, 1.25), golge 1024 PCF. 150 dusman hedefi <=700 + LOD; olcum BENCHMARK.md |
 | P1.7 Dispose denetimi | BITTI kismi (19 Agu) | app.js | Paylasilan geo dispose skip + NAME_LABEL_CACHE trim(48) restart. Tam 5x restart olcumu yok |
-| P1.8 Update maliyeti | BITTI (19 Agu 2026) | app.js | Uzak AI 3 kare; HP 18m; `ENEMY_LOD_DIST` 16 tek mesh |
+| P1.8 Update maliyeti | BITTI (19 Agu 2026) | app.js | Uzak AI 3 kare; HP far-skip oncesi; 10m + 16 yakin <=16m |
 | P2.1 VoxelModel fabrikasi | BITTI (2026-08-18) | voxel | voxel.js. Geometry cache + 2 paylasilan mat. Handoff: VOXEL-INTEGRATION.md |
 | P2.2 Outline | BITTI (2026-08-18) | voxel | Inverted hull, fat-cube, BackSide #1a1a22 |
 | P2.3 Toon isik | BITTI (2026-08-18) | voxel | MeshToon 3-step gradient, specular yok. Gozler emissive. |
 | P2.4 Voxel prop seti | BITTI + wire + instance | - | shrine/lamba/kasa/agac/portal_frame. Crate/oak/pine InstancedMesh |
-| P2.5 Oyuncu karakterleri | BITTI + wire | - | buildPlayer voxel + B/C/A recolor |
-| P3 Yaratiklar | BITTI wire | - | createEnemy attachVoxelModel; anim updateVoxelCreatureAnim |
+| P2.5 Oyuncu karakterleri | BITTI + lobby swap (19 Agu) | app.js | Radio `selectedCharacter` buildPlayer ONCE; diorama class mesh |
+| P3 Yaratiklar | BITTI + magic/rare voxel (19 Agu) | app.js | Tum tier `rollBeastType`; primitive yalniz voxel yoksa |
+| P5 Solo map iyilestirme | BITTI kismi (19 Agu) | app.js | Path dirt vertex, su alcak yer, path daire seyrek. Landmark mill/tower |
+| P6.1 Ana menu | BITTI diorama class (19 Agu) | app.js | Lobby radio voxel class preview |
+| P6.2 Levelup ekrani | BITTI kismi + kitap (19 Agu) | app.js | Her kart cardStat; Kitap satiri; synergy |
+| P7.2 Yeni aktif skiller | BITTI kismi (19 Agu) | app.js | garlic, bounce orb, ice pulse, holy ground, orbit knives |
+| P9.3 Turret genisletme | BITTI gorsel (19 Agu) | app.js | `turret_base` + namlu. Tam TD yok |
 | P4.1 Boss modelleri | BITTI + wire | - | variant + herobrine/serafim/void/zonk |
 | P4.2-4.4 Portal sayaci + boss odasi | BITTI kismi (19 Agu) | app.js | portalsEntered HUD n/3; 3. portal 60x60 kutu arena + ZONK Avatari. Faz 2 `*_p2` %50 HP. Shot-director boss sahnesi yok |
-| P5 Solo map iyilestirme | BITTI kismi (19 Agu) | - | map-audit.mjs step=4 + Box3 floater. addClassicRamps live. Ground 96. Onceki: maxAbs 0.588, rampMismatch 0. Spec grid=2 asiri yavas |
-| P6.1 Ana menu | BITTI diorama (19 Agu) | app.js | Canvas acik; idle voxel oyuncu + goblin/wolf donuyor. Overlay blur duruyor |
-| P6.2 Levelup ekrani | CSS+JS kismi | - | rarity-* + cardIcon + xpBarFlash + synergyBadge (10 satir map) |
 | P6.3-6.4 HUD + tipografi | BITTI kismi (19 Agu) | app.js | Chip + Press Start 2P + xpBarFlash. Levelup/sandik emoji ASCII [+] / Aktif / Pasif |
 | P7.1 Evrim sistemi | BITTI (19 Agu 2026) | app.js | Inferno Orb, Glacier, Blade Storm, Arrow Wall, Storm Caller, Cataclysm |
-| P7.2 Yeni aktif skiller | BITTI kismi (19 Agu) | app.js | chain bolt, black hole, poison trail, siginak. Ricochet Disc / Mirror Image yok (ricochet + shadow_clone var) |
 | P7.3 Yeni pasifler | BITTI (19 Agu 2026) | app.js | greed, executioner, thorns, momentum, overcharge. Vampirism = mevcut lifesteal |
 | P7.4 Horde surge | BITTI (19 Agu 2026) | app.js | 300sn / 30sn, soul-round spawn deseni, soul varken bekler, bitince sandik |
 | P8.1 Lobby (trystero) | bekliyor | - | net.js yeni dosya |
@@ -64,7 +76,6 @@ Guncel satirlar (19 Agu, leftover seans):
 | P8.4 Kopma senaryolari | bekliyor | - | |
 | P9.1 TD haritasi (greybox) | bekliyor | - | TEST-PLAYBOOK 4 surecine gore |
 | P9.2 Cekirdek (Nexus) | bekliyor | - | |
-| P9.3 Turret genisletme | bekliyor | - | |
 | P9.4-9.5 Gold/dalga sistemi | bekliyor | - | |
 | P10 Cila | bekliyor | - | Surekli |
 
@@ -121,6 +132,42 @@ C 2156/2690/1706/848/1652 (artan degil). Texture sayisi hala restart basina ~3-5
 Kabul kriterine gore durum: FPS hedefi (>=55 @150) onceki tam olcumde TUTMADI (44.8). Draw call hedefi (<=700) 150'de hala TUTMADI (1192) ama bos harita 715->238, 50 dusman 1365->621. Pixel ratio 0.5 duruyor.
 
 ## Seans Gunlugu (en yeni ustte)
+
+### 2026-08-19 - AA eval + HP far-skip
+
+**Yapilan (dogrulanmis)**
+- HP bar visibility `applyEnemyLod` hemen sonra, `ENEMY_FAR_DIST` continue ONCE. Yakindan uzaklasan sprite acik kalmiyordu (draw sizintisi).
+- Bar sarti: boss veya dist<=10 veya (`_lodNear` ve dist<=16). Hasar sarti yok. Spawn `visible=false` ilk karede yakinlarda acilir.
+- Boot: 5173 doluydu, mevcut sunucu 200. Syntax `node --check app.js` 0. Browser MCP tab acilmadi; HTTP head yeterli.
+- Class radio `buildPlayer` oncesi, `rollBeastType` tum tier, outline `setVoxelOutlineVisible(!far)`, kitap %42 slot, 5 skill, `turret_base`, path/su.
+
+**Hala 4/10 / acik**
+- P8/P9 coop/TD yok. Tam Megabonk 99-lvl tome+quest yok.
+- Voxel kacarsa primitive kure/silindir durur (bilerek).
+- Bu seans perf-probe kosulmadi; son olcum 150+skill 699 draw (lod2).
+- Cartoon AA cila (bloom yok, kasitli).
+
+**app.js kilidi:** SERBEST.
+
+### 2026-08-19 - AA 4/10: class/voxel/HP/outline/kitap/skill/turret/map
+
+**Plan vs gemi:** asagidaki maddeler bu seans kodda. P8/P9 coop/TD yok. Bloom yok.
+
+**Yapilan**
+- Class: lobby radio `state.selectedCharacter` `buildPlayer` oncesi; lobby diorama class swap.
+- Magic/rare/unique de beastType alir; voxel yoksa eski primitive.
+- Yakin 16 dusman outline + HP (ilk hit yok). Uzak `__lod` 1 mesh.
+- Levelup: her kartta cardStat. Kitap (hasar/cd/mermi/xp/altin/sans), kosular arasi kilit localStorage.
+- 5 skill: sarimsak, sekme orb, buz nabzi, kutsal zemin, yorunge bicak. Mevcut projektil/ring.
+- Turret: `turret_base` voxel + namlu. Koy kenari 4 dekor.
+- Map: dirt path vertex, su yalniz alcak zemin, daha az path daire.
+
+**Yapilmadi**
+- Tam Megabonk 99-level tome slot + quest agaci.
+- Primitive fallback silme (voxel kacarsa durur).
+- perf-probe full (outline +16 draw, 699 sinira yakin).
+
+**app.js kilidi:** SERBEST.
 
 ### 2026-08-19 - Draw call LOD + landmark + telegraph + skill
 
