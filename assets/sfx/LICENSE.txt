@@ -1,0 +1,3 @@
+Kenney Impact Sounds (CC0): kenney-punch.ogg kenney-hit.ogg kenney-slam.ogg kenney-kill.ogg
+https://kenney.nl/assets/impact-sounds
+Original synth WAV (this project, CC0): hit.wav kill.wav slam.wav levelup.wav portal.wav boss.wav click.wav

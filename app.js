@@ -85,7 +85,7 @@ const MAX_LEVEL = 10000;
 const GLOBAL_KILL_XP_MULT = 0.40;
 function getXpNextForLevel(level) {
   const L = Math.min(level, MAX_LEVEL);
-  let xp = 40 * Math.pow(1.11, Math.max(0, L - 1));
+  let xp = 46 * Math.pow(1.12, Math.max(0, L - 1));
   if (L > 35) xp *= (1 + (L - 35) * 0.024);
   return Math.floor(xp);
 }
@@ -379,38 +379,53 @@ function addVoxelPropInstances(id, placements, fitHeight) {
   }
   return placements.length;
 }
+function colliderHits(x, z, r) {
+  for (let i = 0; i < colliders.length; i++) {
+    const c = colliders[i];
+    const dx = x - c.x, dz = z - c.z;
+    if (dx * dx + dz * dz < (r + c.r) * (r + c.r)) return true;
+  }
+  return false;
+}
+function tryPushCollider(x, z, r) {
+  if (colliderHits(x, z, r)) return false;
+  colliders.push({ x, z, r });
+  return true;
+}
 function addInstancedForest(positions) {
   if (!positions || !positions.length || !_chunkTrunkMat) return;
   const n = positions.length;
-  const trunkGeo = new THREE.CylinderGeometry(0.28, 0.42, 1, 6);
-  const coneGeo = new THREE.ConeGeometry(1.8, 3.4, 7);
-  const cone2Geo = new THREE.ConeGeometry(1.4, 2.5, 7);
-  const crownGeo = new THREE.SphereGeometry(1.9, 7, 6);
+  const trunkGeo = new THREE.BoxGeometry(0.55, 1, 0.55);
+  const pineGeo = new THREE.BoxGeometry(2.4, 2.8, 2.4);
+  const pine2Geo = new THREE.BoxGeometry(1.8, 2.0, 1.8);
+  const oakGeo = new THREE.BoxGeometry(2.6, 2.2, 2.6);
   const leafA = _chunkLeafMats[0];
   const leafB = _chunkLeafMats[1] || leafA;
   const trunkInst = addInstancedMesh(trunkGeo, _chunkTrunkMat, n);
-  const pine1Inst = addInstancedMesh(coneGeo, leafA, n);
-  const pine2Inst = addInstancedMesh(cone2Geo, leafA, n);
-  const oakInst = addInstancedMesh(crownGeo, leafB, n);
-  let pineN = 0, oakN = 0;
+  const pine1Inst = addInstancedMesh(pineGeo, leafA, n);
+  const pine2Inst = addInstancedMesh(pine2Geo, leafA, n);
+  const oakInst = addInstancedMesh(oakGeo, leafB, n);
+  let pineN = 0, oakN = 0, trunkN = 0;
   for (let k = 0; k < n; k++) {
     const pt = positions[k];
+    if (colliderHits(pt.x, pt.z, 1.4)) continue;
     const s = 1.5 + Math.random() * 1.1;
     const hm = 1.0 + Math.random() * 0.7;
     const th = 3.2 * hm;
     const y = sampleTerrainHeight(pt.x, pt.z);
-    setInstanceAt(trunkInst, k, pt.x, y + th * 0.5 * s, pt.z, 0, s, th * s, s);
+    setInstanceAt(trunkInst, trunkN, pt.x, y + th * 0.5 * s, pt.z, 0, s, th * s, s);
+    trunkN++;
     if ((k & 1) === 0) {
-      setInstanceAt(pine1Inst, pineN, pt.x, y + (th + 1.2) * s, pt.z, 0, s, s, s);
-      setInstanceAt(pine2Inst, pineN, pt.x, y + (th + 2.8) * s, pt.z, 0, s, s, s);
+      setInstanceAt(pine1Inst, pineN, pt.x, y + (th + 1.1) * s, pt.z, 0, s, s, s);
+      setInstanceAt(pine2Inst, pineN, pt.x, y + (th + 2.6) * s, pt.z, 0, s * 0.72, s, s * 0.72);
       pineN++;
     } else {
-      setInstanceAt(oakInst, oakN, pt.x, y + (th + 1.5) * s, pt.z, 0, s, s * 0.88, s);
+      setInstanceAt(oakInst, oakN, pt.x, y + (th + 1.2) * s, pt.z, 0, s, s * 0.78, s);
       oakN++;
     }
     colliders.push({ x: pt.x, z: pt.z, r: 1.0 * s });
   }
-  trunkInst.instanceMatrix.needsUpdate = true;
+  trunkInst.count = trunkN; trunkInst.instanceMatrix.needsUpdate = true;
   pine1Inst.count = pineN; pine1Inst.instanceMatrix.needsUpdate = true;
   pine2Inst.count = pineN; pine2Inst.instanceMatrix.needsUpdate = true;
   oakInst.count = oakN; oakInst.instanceMatrix.needsUpdate = true;
@@ -457,8 +472,8 @@ function buildWorldDecorInstances() {
     if (!byType[key]) byType[key] = [];
     byType[key].push(d);
   }
-  const rockGeo = new THREE.DodecahedronGeometry(0.8, 0);
-  const bushGeo = new THREE.SphereGeometry(0.55, 6, 5);
+  const rockGeo = new THREE.BoxGeometry(1.15, 0.85, 1.05);
+  const bushGeo = new THREE.BoxGeometry(0.95, 0.7, 0.95);
   const flowerGeo = new THREE.SphereGeometry(0.1, 5, 5);
   const stemGeo = new THREE.CylinderGeometry(0.08, 0.12, 0.25, 5);
   const capGeo = new THREE.SphereGeometry(0.2, 6, 4, 0, Math.PI * 2, 0, Math.PI * 0.55);
@@ -536,6 +551,26 @@ function applyRimStats(e) {
   e.maxHp = e.hp;
   e.xp *= rimMult * 1.15;
 }
+function updatePlayerVoxelAnim(dt) {
+  const root = player && player.mesh;
+  if (!root || !root.userData || !root.userData.parts) return;
+  const parts = root.userData.parts;
+  const speed = Math.hypot(player.vel.x, player.vel.z);
+  const moving = speed > 0.35 && player.grounded;
+  player.walkPhase = (player.walkPhase || 0) + (moving ? dt * (5 + speed * 0.35) : 0);
+  const walk = moving ? Math.sin(player.walkPhase * 8) * 0.42 : 0;
+  const anim = root.userData.anim || "biped";
+  if (anim === "biped" || !anim) {
+    if (parts.legL) parts.legL.rotation.x = walk;
+    if (parts.legR) parts.legR.rotation.x = -walk;
+    if (parts.legL1) parts.legL1.rotation.x = walk;
+    if (parts.legR1) parts.legR1.rotation.x = -walk;
+    if (parts.armL) parts.armL.rotation.x = -walk * 0.55;
+    if (parts.armR) parts.armR.rotation.x = walk * 0.55;
+  }
+  if (parts.body) parts.body.position.y = moving ? Math.abs(Math.sin(player.walkPhase * 8)) * 0.05 : 0;
+}
+
 function updateVoxelCreatureAnim(e, dt) {
   const parts = e && e.mesh && e.mesh.userData && e.mesh.userData.parts;
   if (!parts) return;
@@ -634,7 +669,7 @@ function pulseBossTelegraph(e) {
   }
 }
 const ATTACK_ROUND_MAX_ENEMIES = 130;
-const ENEMY_DESPAWN_DISTANCE = 50;
+const ENEMY_DESPAWN_DISTANCE = 86;
 // Uzaktaki dusmanlar icin seyrek AI tick (P1.8)
 const ENEMY_FAR_DIST = 34;
 const ENEMY_FAR_TICK = 3;
@@ -645,7 +680,7 @@ const ATTACK_ROUND_START_TIME = 420;
 const ATTACK_ROUND_WAVE1_COUNT = 50;
 const ATTACK_ROUND_WAVE2_COUNT = 80;
 const MAX_PROJECTILES = 34;
-const MAX_EFFECTS = 20;
+const MAX_EFFECTS = 28;
 const MAX_DAMAGE_TEXTS = 6;
 const MAX_ORBS = 260;
 
@@ -1126,6 +1161,7 @@ let portalMesh = null;
 let randomTeleportPortals = [];
 let hardcorePortalData = null;
 let defaultSkyTex = null;
+let cartoonSky = null;
 let defaultFogColor = 0x88c8ee;
 let defaultFogDensity = 0.0055;
 const MAX_CHAPTER = 3;
@@ -1476,6 +1512,44 @@ function ensureAudio() {
   }
 }
 
+// Kenney CC0 impact + kucuk orijinal WAV (assets/sfx)
+const SFX_FILES = {
+  hit: ["assets/sfx/kenney-punch.ogg", "assets/sfx/kenney-hit.ogg", "assets/sfx/hit.wav"],
+  kill: ["assets/sfx/kenney-kill.ogg", "assets/sfx/kill.wav"],
+  slam: ["assets/sfx/kenney-slam.ogg", "assets/sfx/slam.wav"],
+  levelup: ["assets/sfx/levelup.wav"],
+  portal: ["assets/sfx/portal.wav"],
+  boss: ["assets/sfx/boss.wav"],
+  click: ["assets/sfx/click.wav"]
+};
+const sfxPool = {};
+function playSample(kind, gainMult) {
+  const vol = Math.min(1, (camSettings.soundVolume || 1) * (camSettings.effectVolume ?? 1)) * (typeof gainMult === "number" ? gainMult : 1);
+  if (vol <= 0.001) return false;
+  const list = SFX_FILES[kind];
+  if (!list || !list.length) return false;
+  if (!sfxPool[kind]) sfxPool[kind] = [];
+  let el = null;
+  for (let i = 0; i < sfxPool[kind].length; i++) {
+    if (sfxPool[kind][i].paused || sfxPool[kind][i].ended) { el = sfxPool[kind][i]; break; }
+  }
+  const src = list[(Math.random() * list.length) | 0];
+  if (!el) {
+    if (sfxPool[kind].length >= 8) return false;
+    el = new Audio(src);
+    sfxPool[kind].push(el);
+  } else if (el.getAttribute("data-src") !== src) {
+    el.src = src;
+    el.setAttribute("data-src", src);
+  }
+  if (!el.getAttribute("data-src")) el.setAttribute("data-src", src);
+  el.volume = Math.min(1, vol * 0.62);
+  try { el.currentTime = 0; } catch (e) {}
+  const p = el.play();
+  if (p && p.catch) p.catch(function () {});
+  return true;
+}
+
 const SOUL_ROUND_INTERVAL = 285;
 const SOUL_ROUND_DURATION = 60;
 const HORDE_SURGE_INTERVAL = 300;
@@ -1649,6 +1723,7 @@ function playSfxShoot() {
 }
 
 function playSfxHit(freq = 320) {
+  if (playSample("hit", 0.9)) return;
   ensureAudio();
   if (!audioCtx) return;
   if (activeSfxCount >= MAX_CONCURRENT_SFX) return;
@@ -1677,6 +1752,7 @@ function playSfxHit(freq = 320) {
 }
 
 function playSfxLevel() {
+  if (playSample("levelup", 0.95)) return;
   ensureAudio();
   if (!audioCtx) return;
   const now = audioCtx.currentTime;
@@ -2349,7 +2425,7 @@ function sampleClassicHeight(x, z) {
     }
   }
 
-  return h;
+  return Math.floor(h / 2.2 + 0.0001) * 2.2;
 }
 
 // Duz tepeler: tepelerin ustu genis ve duz (sivri tepeler yok). Classic map tamamen duz (manuel map eklenebilir).
@@ -2400,9 +2476,10 @@ function sampleTerrainHeight(x, z) {
   }
   for (const f of FLAT_ZONES) {
     const dx = x - f.x, dz = z - f.z;
-    if (dx * dx + dz * dz < f.r * f.r) return f.baseY + h1 * 0.2 + h2 * 0.15;
+    if (dx * dx + dz * dz < f.r * f.r) return Math.floor((f.baseY + h1 * 0.2 + h2 * 0.15) / 2.2 + 0.0001) * 2.2;
   }
-  return h1 + h2 + h3 + mountain;
+  const raw = h1 + h2 + h3 + mountain;
+  return Math.floor(raw / 2.2 + 0.0001) * 2.2;
 }
 
 function getTempleGroundHeight(x, z) {
@@ -2563,6 +2640,7 @@ function init() {
     skyTex.minFilter = THREE.LinearMipmapLinearFilter;
     scene.background = skyTex;
     defaultSkyTex = skyTex;
+    cartoonSky = skyTex;
 
     const hemi = new THREE.HemisphereLight(0xe4f4ff, 0x6aaa6a, 1.75);
     scene.add(hemi);
@@ -2624,6 +2702,47 @@ function hideMenuDiorama() {
   if (dioramaGroup && scene) scene.remove(dioramaGroup);
   dioramaGroup = null;
   dioramaOn = false;
+}
+function returnToMainMenu() {
+  running = false;
+  paused = false;
+  leveling = false;
+  gameOver = false;
+  stopBgMusic();
+  stopMenuMusic();
+  if (typeof clearFloatingCounters === "function") clearFloatingCounters();
+  if (hud) hud.classList.add("hidden");
+  if (skillsHud) skillsHud.classList.add("hidden");
+  if (levelupPanel) levelupPanel.classList.add("hidden");
+  if (gameOverPanel) gameOverPanel.classList.add("hidden");
+  if (bossBarWrap) bossBarWrap.classList.add("hidden");
+  if (skillBarEl) skillBarEl.classList.add("hidden");
+  const pauseEl = document.getElementById("pauseMenu");
+  if (pauseEl) pauseEl.classList.add("hidden");
+  const lowHp = document.getElementById("lowHpOverlay");
+  if (lowHp) { lowHp.classList.remove("active"); lowHp.style.opacity = ""; }
+  const portalHintEl = document.getElementById("portalHint");
+  if (portalHintEl) { portalHintEl.classList.add("hidden"); portalHintEl.classList.remove("visible"); }
+  if (portalMesh) { scene.remove(portalMesh); portalMesh = null; }
+  state.portalActive = false;
+  state.chapterExitPortal = false;
+  try { clearEntities(); } catch (e) {}
+  try { clearWorld(); } catch (e) {}
+  hideMenuDiorama();
+  try { setupMenuDiorama(); } catch (e) {}
+  if (player.mesh) {
+    player.mesh.visible = true;
+    player.mesh.position.set(0, 0, 0);
+    player.mesh.rotation.set(0, 0, 0);
+  }
+  if (typeof cartoonSky !== "undefined" && cartoonSky) scene.background = cartoonSky;
+  else if (typeof defaultSkyTex !== "undefined" && defaultSkyTex) scene.background = defaultSkyTex;
+  if (startScreen) startScreen.classList.remove("hidden");
+  const lobbyScreen = document.getElementById("lobbyScreen");
+  if (lobbyScreen) lobbyScreen.classList.add("hidden");
+  loadQuests();
+  if (window.renderQuests) window.renderQuests();
+  startMenuMusic();
 }
 
 function clearWorld() {
@@ -4560,6 +4679,7 @@ function addDecorativeProps() {
   for (let i = 0; i < 70; i++) {
     const x = (Math.random() - 0.5) * WORLD_HALF * 2, z = (Math.random() - 0.5) * WORLD_HALF * 2;
     if (Math.hypot(x, z) < 20 || Math.hypot(x, z) > WORLD_HALF - 2) continue;
+    if (colliderHits(x, z, 0.85)) continue;
     const s = 0.5 + Math.random() * 0.55;
     const y = getGroundHeight(x, z);
     if (i % 3 === 0 && hasVoxel("crate")) {
@@ -4585,6 +4705,7 @@ function addDecorativeProps() {
   for (let i = 0; i < 28; i++) {
     const x = (Math.random() - 0.5) * WORLD_HALF * 2, z = (Math.random() - 0.5) * WORLD_HALF * 2;
     if (Math.hypot(x, z) < 28 || Math.hypot(x, z) > WORLD_HALF - 8) continue;
+    if (colliderHits(x, z, 1.1)) continue;
     const y = getGroundHeight(x, z);
     const row = { x, y, z, rotY: Math.random() * Math.PI * 2, scale: 1 };
     if (i % 2 === 0) oakP.push(row); else pineP.push(row);
@@ -4592,6 +4713,23 @@ function addDecorativeProps() {
   }
   if (oakP.length) addVoxelPropInstances("tree_oak", oakP, 3.2);
   if (pineP.length) addVoxelPropInstances("tree_pine", pineP, 3.6);
+  const wellP = [];
+  const fenceP = [];
+  for (let i = 0; i < VILLAGES.length; i++) {
+    const v = VILLAGES[i];
+    const wx = v.x + 14, wz = v.z - 10;
+    if (!colliderHits(wx, wz, 2.2) && hasVoxel("well")) {
+      wellP.push({ x: wx, y: getGroundHeight(wx, wz), z: wz, rotY: 0.2, scale: 1 });
+      tryPushCollider(wx, wz, 2.2);
+    }
+    const fx = v.x - 16, fz = v.z + 12;
+    if (!colliderHits(fx, fz, 1.8) && hasVoxel("fence")) {
+      fenceP.push({ x: fx, y: getGroundHeight(fx, fz), z: fz, rotY: 0.5, scale: 1 });
+      tryPushCollider(fx, fz, 1.8);
+    }
+  }
+  if (wellP.length) addVoxelPropInstances("well", wellP, 2.8);
+  if (fenceP.length) addVoxelPropInstances("fence", fenceP, 1.6);
 }
 
 function addRegionLandmarks() {
@@ -5582,25 +5720,7 @@ document.addEventListener("keyup", (e) => {
     startMenuMusic();
   });
   const mainMenuBtn = document.getElementById("mainMenuBtn");
-  if (mainMenuBtn) mainMenuBtn.addEventListener("click", () => {
-    stopBgMusic();
-    stopMenuMusic();
-    gameOverPanel.classList.add("hidden");
-    startScreen.classList.remove("hidden");
-    gameOver = false;
-    running = false;
-    if (typeof clearFloatingCounters === "function") clearFloatingCounters();
-    if (hud) hud.classList.add("hidden");
-    if (skillsHud) skillsHud.classList.add("hidden");
-    if (levelupPanel) levelupPanel.classList.add("hidden");
-    if (bossBarWrap) bossBarWrap.classList.add("hidden");
-    if (skillBarEl) skillBarEl.classList.add("hidden");
-    loadQuests();
-    const lowHp = document.getElementById("lowHpOverlay");
-    if (lowHp) lowHp.classList.remove("active");
-    if (window.renderQuests) window.renderQuests();
-    startMenuMusic();
-  });
+  if (mainMenuBtn) mainMenuBtn.addEventListener("click", () => returnToMainMenu());
   if (rerollBtn) rerollBtn.addEventListener("click", doReroll);
   const menuSettingsBtn = document.getElementById("menuSettingsBtn");
   const quitBtnMenu = document.getElementById("quitBtnMenu");
@@ -6000,19 +6120,7 @@ function bindPauseMenu() {
   });
   if (quitBtn) quitBtn.addEventListener("click", () => {
     closePauseMenu();
-    running = false;
-    gameOver = false;
-    leveling = false;
-    paused = false;
-    stopBgMusic();
-    stopMenuMusic();
-    if (typeof clearFloatingCounters === "function") clearFloatingCounters();
-    hud.classList.add("hidden");
-    skillsHud.classList.add("hidden");
-    if (skillBarEl) skillBarEl.classList.add("hidden");
-    levelupPanel.classList.add("hidden");
-    gameOverPanel.classList.add("hidden");
-    startScreen.classList.remove("hidden");
+    returnToMainMenu();
   });
 }
 
@@ -8333,6 +8441,11 @@ function updateSpawning(dt) {
   }
   state.spawnTimer = Math.max(0.55, baseCd);
   if (state.selectedMapId === "ice") state.spawnTimer *= 1.55;
+  const maxCap = getMaxEnemies();
+  if (!state.endlessMode && enemies.length < maxCap * 0.42) {
+    const refill = Math.min(5, maxCap - enemies.length);
+    for (let ri = 0; ri < refill; ri++) spawnEnemy(Math.random() * Math.PI * 2);
+  }
 }
 
 const WEATHER_DURATION = 30;
@@ -8868,10 +8981,10 @@ function spawnPortal(pos) {
   scene.add(portalMesh);
   state.portalPos = pos.clone();
   state.portalActive = true;
-  state.portalUnlocked = false;
+  state.portalUnlocked = !!state.chapterExitPortal;
   state.portalChargeTime = 0;
-  state.portalVoidBossSpawned = false;
-  if (typeof showGameNotification === "function") showGameNotification("BOLUM GECIDI ACILDI! Yesil kapidan gec, sonraki bolume gec.");
+  state.portalVoidBossSpawned = !!state.chapterExitPortal;
+  if (typeof showGameNotification === "function") showGameNotification(state.chapterExitPortal ? "BOLUM PORTALI ACILDI! Portala gir." : "BOLUM GECIDI ACILDI! Yesil kapidan gec, sonraki bolume gec.");
 }
 
 function spawnVoidBossAt(pos) {
@@ -8969,6 +9082,10 @@ function enterTemple(templeIndex) {
 
 function updatePortal(dt) {
   if (!state.portalActive || !portalMesh || !state.portalPos) return;
+  if (state.chapterExitPortal) {
+    state.portalUnlocked = true;
+    state.portalVoidBossSpawned = true;
+  }
   portalMesh.rotation.y += dt * 1.2;
   if (portalMesh.userData && portalMesh.userData.portalFace && portalMesh.userData.portalFace.material.opacity !== undefined)
     portalMesh.userData.portalFace.material.opacity = 0.7 + Math.sin(state.time * 4) * 0.2;
@@ -8976,7 +9093,7 @@ function updatePortal(dt) {
   const dz = player.mesh.position.z - state.portalPos.z;
   const inZone = dx * dx + dz * dz < 49;
   const portalHintEl = document.getElementById("portalHint");
-  if (!state.portalVoidBossSpawned) {
+  if (!state.portalVoidBossSpawned && !state.chapterExitPortal) {
     if (inZone) {
       state.portalChargeTime = (state.portalChargeTime || 0) + dt;
       if (portalHintEl) {
@@ -9007,7 +9124,11 @@ function updatePortal(dt) {
     if (portalHintEl) {
       portalHintEl.classList.remove("hidden");
       portalHintEl.classList.add("visible");
-      portalHintEl.textContent = state.portalUnlocked ? "PORTAL ACIK - Iceri gir (Gec!)" : (state.inTemple ? "Tapinak bosunu kes!" : "Harita bosunu kes!");
+      if (state.chapterExitPortal) {
+        portalHintEl.textContent = inZone ? "PORTAL ACIK - Iceri gir (Gec!)" : "Bolum portali acildi - portala git";
+      } else {
+        portalHintEl.textContent = state.portalUnlocked ? "PORTAL ACIK - Iceri gir (Gec!)" : (state.inTemple ? "Tapinak bosunu kes!" : "Harita bosunu kes!");
+      }
     }
   }
   if (state.portalUnlocked && inZone) enterPortal();
@@ -9018,6 +9139,7 @@ function enterPortal() {
   state.portalsEntered = (state.portalsEntered || 0) + 1;
   state.portalActive = false;
   state.portalUnlocked = false;
+  state.chapterExitPortal = false;
   if (portalMesh) { scene.remove(portalMesh); portalMesh = null; }
   state.portalPos = null;
   playSfxLevel();
@@ -9056,6 +9178,7 @@ function enterPortal() {
     return;
   }
 
+  state.chapterExitPortal = false;
   if (state.chapter < MAX_CHAPTER) {
     state.chapter += 1;
   state.chapterTime = 0;
@@ -11513,43 +11636,18 @@ function killEnemy(enemy) {
       if (typeof showGameNotification === "function") showGameNotification("TAPINAK BOSU YOK! Portala gir, sonraki bolume gec.");
       playSfx(660, 0.2);
     }
-    if ((enemy.bossIndex === 0 || enemy.bossIndex === 1) && !enemy.isVoidBoss && !enemy.isTempleBoss && !state.inMegaArena && enemy.isChapterFinalBoss) {
-      if (state.chapter === 1) {
-        enterTemple(1);
-      } else if (state.chapter === 2) {
-        enterTemple(2);
-      } else {
-        const portalPos = enemy.mesh.position.clone();
-        portalPos.y = 0;
-        spawnPortal(portalPos);
-        state.portalUnlocked = true;
-        state.portalPos = portalPos;
-        if (typeof showGameNotification === "function") showGameNotification("BOLUM PORTALI ACILDI! Portala girerek sonraki bolume gec.");
-        spawnDamageText(enemy.mesh.position, "PORTAL ACILDI!", true, "PORTAL");
-      }
-    }
-    if (enemy.bossIndex === 2 && !state.inMegaArena && enemy.isChapterFinalBoss) {
-      state.boss3Defeated = true;
-      var mapId = state.currentMapId || "classic";
-      var px, pz;
-      if (mapId === "island") {
-        for (var retries = 0; retries < 50; retries++) {
-          var angle = Math.random() * Math.PI * 2;
-          var r = 25 + Math.random() * (ISLAND_RADIUS - 55);
-          px = Math.cos(angle) * r;
-          pz = Math.sin(angle) * r;
-          if (Math.hypot(px, pz) < ISLAND_RADIUS - 30) break;
-        }
-      } else {
-        var bound = WORLD_HALF - 35;
-        px = (Math.random() - 0.5) * 2 * bound;
-        pz = (Math.random() - 0.5) * 2 * bound;
-        if (Math.hypot(px, pz) < 25) { px += 30; pz += 30; }
-      }
-      spawnPortal(new THREE.Vector3(px, 0, pz));
-      state.portalUnlocked = false;
-      state.portalChargeTime = 0;
-      state.portalVoidBossSpawned = false;
+    if (enemy.isChapterFinalBoss && !enemy.isVoidBoss && !enemy.isTempleBoss && !state.inMegaArena) {
+      if (enemy.bossIndex === 2) state.boss3Defeated = true;
+      const portalPos = enemy.mesh.position.clone();
+      portalPos.y = sampleTerrainHeight(portalPos.x, portalPos.z);
+      spawnPortal(portalPos);
+      state.portalUnlocked = true;
+      state.chapterExitPortal = true;
+      state.portalVoidBossSpawned = true;
+      state.portalPos = portalPos;
+      playSample("portal", 0.85);
+      spawnDamageText(enemy.mesh.position, "PORTAL ACILDI!", true, "PORTAL");
+      if (typeof showGameNotification === "function") showGameNotification("BOLUM PORTALI ACILDI! Portala gir, sonraki bolume gec.");
     }
     if (enemy.isMegaBoss) {
       state.endlessMode = true;
@@ -12299,6 +12397,7 @@ function updatePlayer(dt) {
       spawnProjectile({ position: player.mesh.position.clone().add(new THREE.Vector3(0, 1.1, 0)), direction: dir, speed: 14 * (stats.projectileSpeedMult || 1), damage: 8, radius: 0.2, life: 1.8, shape: "balloon" });
     }
   }
+  updatePlayerVoxelAnim(dt);
 }
 
 function spawnWaterShark() {
@@ -12512,7 +12611,9 @@ function updateEnemies(dt) {
     e.bananaHitCd = Math.max(0, (e.bananaHitCd || 0) - effectiveDt);
     e.stunLeft = Math.max(0, (e.stunLeft || 0) - effectiveDt);
     const slowFactor = e.stunLeft > 0 ? 0.5 : Math.max(0.25, 1 - e.slowLeft - (e.freezeLeft > 0 ? 0.4 : 0));
-    const moveSpeed = e.isBoss ? (e.speed || 4) : getUnifiedEnemySpeed();
+    let moveSpeed = e.isBoss ? (e.speed || 4) : getUnifiedEnemySpeed();
+    if (distToPlayer > 30 && distToPlayer < 86) moveSpeed *= 1.22;
+    else if (distToPlayer >= 86) moveSpeed *= 1.35;
     e.slowLeft = Math.max(0, e.slowLeft - effectiveDt * 0.6);
 
     e._ritualBlocked = false;
@@ -12539,12 +12640,16 @@ function updateEnemies(dt) {
     toPlayer.y = 0;
     const dist = Math.max(0.001, toPlayer.length());
     toPlayer.multiplyScalar(1 / dist);
+    let chaseMult = 1;
+    if (dist > 55) chaseMult = 1.38;
+    else if (dist > 30) chaseMult = 1.24;
+    const chaseSpeed = moveSpeed * chaseMult;
     if ((stats.vacuumAura || 0) > 0 && dist < 7 && dist > 1.2) {
       e.push.add(toPlayer.clone().multiplyScalar(-2.2 * effectiveDt * (stats.vacuumAura || 1)));
     }
 
     if (dist > 55) {
-      e.mesh.position.addScaledVector(toPlayer, moveSpeed * slowFactor * effectiveDt);
+      e.mesh.position.addScaledVector(toPlayer, chaseSpeed * slowFactor * effectiveDt);
       e.push.multiplyScalar(Math.exp(-10 * effectiveDt));
       e.mesh.position.addScaledVector(e.push, effectiveDt);
       const eBound = (state.currentMapId === "island" ? ISLAND_RADIUS : WORLD_HALF) - 1.5;
@@ -12599,7 +12704,7 @@ function updateEnemies(dt) {
     const moveDir = v2.copy(toPlayer).addScaledVector(tangent, flank);
     if (moveDir.lengthSq() > 0.0001) moveDir.normalize();
 
-    e.mesh.position.addScaledVector(moveDir, moveSpeed * slowFactor * effectiveDt);
+    e.mesh.position.addScaledVector(moveDir, chaseSpeed * slowFactor * effectiveDt);
     e.push.multiplyScalar(Math.exp(-10 * effectiveDt));
     e.mesh.position.addScaledVector(e.push, effectiveDt);
     const eBound = (state.currentMapId === "island" ? ISLAND_RADIUS : WORLD_HALF) - 1.5;
@@ -12749,7 +12854,6 @@ function updateEnemies(dt) {
         }
       }
     } else if (e.isBoss) {
-      if (state.time < 180) continue;
       e.specialCd -= dt;
       if (e.specialCd <= 0) {
         e.specialCd = 5.0 + Math.random() * 2.0;

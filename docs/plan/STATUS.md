@@ -6,10 +6,10 @@ Durum degerleri: `bekliyor` | `deVAM` (sahip yaz) | `blokeli (sebep)` | `BITTI (
 
 ## Su An (en guncel ozet)
 
-- 19 Agu AA seansi (4/10 hissi kapanmadi, AA parcalari gemi): class voxel lobby+run, magic/rare voxel, yakin HP+outline, kitap, 5 skill, turret voxel, path/su bosluk.
+- 19 Agu kalite pass (subagent timeout, foreground tamamlandi): Kenney SFX `playSample`, bolum boss kes -> `chapterExitPortal` (void ritual yok), boss telegraf erken acik, kiting refill + despawn 86m, uzak chase hiz boost, menu `returnToMainMenu` sim durdur, `cartoonSky`, player voxel anim cagrisi, XP egri sertlesti.
 - Draw-call: uzak `__lod` 1 mesh; 16 yakin outline. HP: boss / 10m / (16 yakin ve <=16m). Far-AI skip ONCE gizlenir (uzak bar kalmaz).
 - Landmark mill/tower duruyor. Boss `pulseBossTelegraph`. Pixel ratio min(dpr, 1.25). Coop/TD yok.
-- Boot: 5173 zaten acikti; `/` `app.js` `vendor/three.min.js` voxel+modeller 200. `node --check app.js` OK.
+- Boot: `node --check app.js` OK. Commit bekliyor: app.js + assets/sfx + STATUS.
 
 ## Bu seans plani (oncelik, sonra uygulandi)
 
@@ -132,6 +132,23 @@ C 2156/2690/1706/848/1652 (artan degil). Texture sayisi hala restart basina ~3-5
 Kabul kriterine gore durum: FPS hedefi (>=55 @150) onceki tam olcumde TUTMADI (44.8). Draw call hedefi (<=700) 150'de hala TUTMADI (1192) ama bos harita 715->238, 50 dusman 1365->621. Pixel ratio 0.5 duruyor.
 
 ## Seans Gunlugu (en yeni ustte)
+
+### 2026-08-19 - Kalite pass: SFX, portal, boss, kiting, menu
+
+**Yapilan**
+- SFX: `SFX_FILES` + `playSample()` Kenney ogg + kucuk wav (`assets/sfx/`). hit/kill/slam/levelup/portal/boss/click.
+- Bolum final boss: `isChapterFinalBoss` kes -> `spawnPortal` boss konumunda, `chapterExitPortal=true`, void/tapinak ritual atlanir.
+- Boss AI: ilk 180sn `continue` kaldirildi; telegraf + spawn ozel erken calisir.
+- Kiting: `ENEMY_DESPAWN_DISTANCE` 86; horde `<42% cap` refill; uzak mesafe chase x1.22-1.35.
+- Menu: `returnToMainMenu` sim durdurur, dunya temizler, diorama yeniden kurar, `cartoonSky`/`defaultSkyTex`.
+- Oyuncu: `updatePlayerVoxelAnim(dt)` `updatePlayer` sonunda. XP egri `46*1.12^L` (daha yavas level).
+- Dunya: boxy agac/kaya instancing, collider push, classic terrain quantize, canvas gradient gokyuzu.
+
+**Hala acik**
+- Tapinak akisi kodda duruyor ama bolum gecisi artik dogrudan portal. Tam 3 bolum playtest yok.
+- perf-probe bu seans kosulmadi. P8/P9 coop/TD yok.
+
+**app.js kilidi:** SERBEST.
 
 ### 2026-08-19 - AA eval + HP far-skip
 
