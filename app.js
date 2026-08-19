@@ -6324,6 +6324,7 @@ function clearEntities() {
 }
 
 function openLobby() {
+  playSample("click", 0.7);
   stopBgMusic();
   startScreen.classList.add("hidden");
   const lobbyScreen = document.getElementById("lobbyScreen");
@@ -8379,7 +8380,7 @@ function spawnBoss(bossIndex, allowOverflow, fromSummonShrine, isChapterFinalBos
   spawnBurst(boss.mesh.position, isHerobrine ? 0x88ff88 : (isAngel ? 0xffffee : 0xff3f4b), 12);
   spawnRing(boss.mesh.position, 7.2 * sizeMult, isHerobrine ? 0x44aa44 : (isAngel ? 0xffdd88 : 0xff3f4b), 0.5);
   spawnWave(boss.mesh.position, 8.0 * sizeMult, isHerobrine ? 0x66cc66 : (isAngel ? 0xffeeaa : 0xff3f4b));
-  playSfx(160, 0.25);
+  if (!playSample("boss", 0.75)) playSfx(160, 0.25);
   if (isMega) state.megaBossSpawned = true;
 }
 
@@ -11624,7 +11625,7 @@ function killEnemy(enemy) {
     spawnChest(bossPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 4, 0, (Math.random() - 0.5) * 4)));
     spawnDamageText(enemy.mesh.position, "BOSS DOWN", true, enemy.name ? `${enemy.name} DOWN` : "BOSS DOWN");
     spawnRing(enemy.mesh.position, 6.6, 0xff7a6c, 0.45);
-    playSfx(240, 0.22);
+    if (!playSample("boss", 0.85)) playSfx(240, 0.22);
     if (enemy.isVoidBoss) {
       state.portalUnlocked = true;
       spawnDamageText(enemy.mesh.position, "HARITA BOSU KESILDI - PORTAL ACILDI!", true, "PORTAL ACILDI");
@@ -11676,11 +11677,11 @@ function killEnemy(enemy) {
   spawnKillCubes(enemy.mesh.position, enemy.tier === "boss" ? 0xff3344 : enemy.tier === "unique" ? 0xff9ef4 : 0xff8866, enemy.isBoss ? 8 : 5);
   spawnFlash(enemy.mesh.position, enemy.tier === "unique" ? 0xff9ef4 : 0xff6a6a, 0.9, 0.22);
   triggerHitFreeze(enemy.isBoss ? 0.07 : 0.028);
-  if (typeof playSfx === "function") playSfx(180 + Math.random() * 90, 0.07, 0.45);
+  if (!playSample("kill", 0.7) && typeof playSfx === "function") playSfx(180 + Math.random() * 90, 0.07, 0.45);
   if (enemy.isBoss) {
     triggerBigShake();
     spawnBurst(enemy.mesh.position, 0xff2244, 10);
-    playSfx(180, 0.2, 0.4);
+    if (!playSample("boss", 0.6)) playSfx(180, 0.2, 0.4);
     triggerHitFreeze(0.06);
     if (enemy.isHerobrine && typeof showGameNotification === "function") {
       setTimeout(() => showGameNotification("HEROBRINE YOK EDILDI! Efsane!", { rainbow: true }), 800);
@@ -13546,6 +13547,7 @@ function updateEffects(dt) {
 
       if (fx.life <= 0 && !fx.triggered) {
         fx.triggered = true;
+        playSample("slam", 0.8);
         if (fx.source === "enemy") {
           const noDodge = !state.dodgeUntil || state.time >= state.dodgeUntil;
           if (player.mesh.position.distanceTo(fx.mesh.position) <= fx.radius && (!state.invincibleUntil || state.time >= state.invincibleUntil) && noDodge) {

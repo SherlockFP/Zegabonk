@@ -6,10 +6,10 @@ Durum degerleri: `bekliyor` | `deVAM` (sahip yaz) | `blokeli (sebep)` | `BITTI (
 
 ## Su An (en guncel ozet)
 
-- 19 Agu kalite pass (subagent timeout, foreground tamamlandi): Kenney SFX `playSample`, bolum boss kes -> `chapterExitPortal` (void ritual yok), boss telegraf erken acik, kiting refill + despawn 86m, uzak chase hiz boost, menu `returnToMainMenu` sim durdur, `cartoonSky`, player voxel anim cagrisi, XP egri sertlesti.
+- 19 Agu kalite pass dogrulandi + push: Kenney SFX `playSample` (hit/kill/slam/levelup/portal/boss/click), bolum boss kes -> `chapterExitPortal` (void ritual yok), boss telegraf spawn'dan acik, kiting refill + despawn 86m, uzak chase hiz boost, menu `returnToMainMenu` sim durdur, `cartoonSky`, player voxel anim cagrisi.
 - Draw-call: uzak `__lod` 1 mesh; 16 yakin outline. HP: boss / 10m / (16 yakin ve <=16m). Far-AI skip ONCE gizlenir (uzak bar kalmaz).
 - Landmark mill/tower duruyor. Boss `pulseBossTelegraph`. Pixel ratio min(dpr, 1.25). Coop/TD yok.
-- Boot: `node --check app.js` OK. Commit bekliyor: app.js + assets/sfx + STATUS.
+- Boot: `node --check app.js` OK. perf-probe `--fast --label=quality`: 150+skill **710** draw (hedef 700, +10), 94fps.
 
 ## Bu seans plani (oncelik, sonra uygulandi)
 
@@ -124,6 +124,10 @@ UYARI: makinede baska bir Playwright kosarsa sayilar yariya duser; olcumden once
 | 19 Agu | leftover --fast | oyun ici bos | 144.1 | 7.1ms | **238** | 228k | 413 | C: 715 draw. max 3139ms = dunya kurulum donmasi |
 | 19 Agu | leftover --fast | 50 dusman | 120.4 | 10.8ms | **621** | 274k | 560 | C: 1365 draw |
 | 19 Agu | leftover --fast | 150 dusman + 15 skill | 81.8 | 16.1ms | **1192** | 342k | 576 | C: 1910 draw. FPS --fast ile C'ye kiyaslama; draw call kiyaslanabilir |
+| 19 Agu | quality --fast | menu | 1548.8 | 0.9ms | 48 | 6.5k | 49 | rAF sinirsiz |
+| 19 Agu | quality --fast | oyun ici bos | 149.8 | 8.35ms | **319** | 169k | 474 | landmarks 6 |
+| 19 Agu | quality --fast | 50 dusman | 121.5 | 11.35ms | **574** | 214k | 597 | hedef 520 (FAIL +54) |
+| 19 Agu | quality --fast | 150 dusman + 15 skill | **94.1** | 14.45ms | **710** | 253k | 642 | hedef 700 (FAIL +10) |
 
 Restart x5 geometry sayisi (sizinti kontrolu): baseline 3149/1807/2835 (artan), A 1615/1682/3186/3412/2920 (artan),
 C 2156/2690/1706/848/1652 (artan degil). Texture sayisi hala restart basina ~3-5 artiyor (P1.7 kalan is).
@@ -132,6 +136,28 @@ C 2156/2690/1706/848/1652 (artan degil). Texture sayisi hala restart basina ~3-5
 Kabul kriterine gore durum: FPS hedefi (>=55 @150) onceki tam olcumde TUTMADI (44.8). Draw call hedefi (<=700) 150'de hala TUTMADI (1192) ama bos harita 715->238, 50 dusman 1365->621. Pixel ratio 0.5 duruyor.
 
 ## Seans Gunlugu (en yeni ustte)
+
+### 2026-08-19 - Kalite pass dogrulama + perf + push
+
+**Dogrulanan (kod taramasi)**
+- Bolum portal: shrine slot 2 `isChapterFinalBoss`; kes -> `spawnPortal` + `chapterExitPortal=true`; `updatePortal` void/tapinak ritual atlar; `enterPortal` ch 1->2->3 + mega arena.
+- Boss AI: `state.time < 180` continue yok; telegraf + specialCd spawn'dan calisir.
+- `updatePlayerVoxelAnim(dt)` `updatePlayer` sonunda.
+- `returnToMainMenu`: running=false, clearEntities/clearWorld, diorama restore, cartoonSky.
+- Kiting: despawn 86m, spawn `<42% cap` refill, chase x1.22/1.35.
+- `cartoonSky` tek `let` init'te atanir.
+
+**Bu seans duzeltme**
+- SFX: kill/boss/slam/click `playSample` baglandi (hit/levelup/portal zaten vardi).
+
+**Test**
+- `node --check app.js` 0.
+- perf-probe `--fast --label=quality`: bos 319, 50=574, 150+skill **710** draw / 94fps. BENCHMARK FAIL (+10 draw 150'de).
+
+**Hala acik**
+- Tapinak akisi kodda duruyor; bolum gecisi dogrudan portal. Tam 3 bolum manuel playtest yok. P8/P9 coop/TD yok.
+
+**app.js kilidi:** SERBEST.
 
 ### 2026-08-19 - Kalite pass: SFX, portal, boss, kiting, menu
 
