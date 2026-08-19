@@ -6,14 +6,16 @@ Durum degerleri: `bekliyor` | `deVAM` (sahip yaz) | `blokeli (sebep)` | `BITTI (
 
 ## Su An (en guncel ozet)
 
-- P1.5: koy/bina/duvar/sehir tekil mesh'ler InstancedMesh (mevcut helper, BufferGeometryUtils yok). Bunker tekil Group kaldi. Pixel ratio 0.5, golge 28 (P1.6 KAPALI; draw call dustu ama default gate).
-- P1.2/1.3: voxel dusman Group havuzu (8/tip, 80 cap) + sekilli projektil mesh havuzu (48 cap). Primitive/flying/boss ve efekt mesh havuzu yok.
-- P7.1: Fireball+burn=Inferno Orb, Frostball+freeze=Glacier, Swords+crit=Blade Storm (dmg karti max + eslesen pasif).
-- P7.4: horde surge 5dk / 30sn, soul-round spawn deseni, soul aktifken bekler, bitince sandik.
-- P6 diorama: menu arkasinda canvas acik; 1 idle oyuncu + goblin/wolf donuyor. Boot kirilmadi.
-- Playtest: `shot-director.mjs` 5 shot, 0 hata. perf-probe --fast leftover: bos 238 draw / 50 dusman 621 / 150 1192 (onceki C: 715 / 1365 / 1910).
+- P1.6 acik: pixel ratio min(dpr, 1.25), golge 1024 PCF.
+- P1.3 flash/burst mesh havuzu (paylasilan sphere geo, 24 cap). P1.7 isim etiketi cache restart'ta 48'e kirpiliyor.
+- P4 boss odasi 60x60 kutu arena (HALF=30). Faz 2 `*_p2` %50 HP.
+- P7.1 6 evrim: Inferno Orb, Glacier, Blade Storm, Arrow Wall, Storm Caller, Cataclysm.
+- P7.2/7.3 ek: Siginak, Momentum, Asiri Sarj. Ricochet/golge kopya zaten vardi.
+- P6 HUD emoji kaldirildi (ASCII etiket). map-audit grid step=4 (spec=2, Playwright asiri yavas).
+- Bug: M2 breach spawn sayaci, M4 Deadshot, M5 mermi hizi, M6 pause input, M8 cift XP.
+- Playtest: onceki leftover --fast bos 238 / 50=621 / 150=1192 draw. Bu seans perf-probe kosulmadi.
 - app.js kilidi: SERBEST.
-- Coop (P8/P9) yok.
+- Coop (P8/P9) yok - bilincli atlandi.
 
 ## Kod Haritasi Guncellemesi (PLAN.md'deki numaralar artik eski)
 
@@ -39,11 +41,11 @@ Guncel satirlar (19 Agu, leftover seans):
 | P0 Altyapi | BITTI (18 Agu 2026) | - | `npm run dev` = statik sunucu, `dev:vite` = vite; qa/perf scriptleri eklendi |
 | P1.1 Geometry/material cache | BITTI (18 Agu 2026) | - | THREE ctor sarmalayicisi + `withSharedGeo(Mat)`; app.js:106-182 |
 | P1.2 Dusman havuzu | YARIM | - | HP/cast + voxel Group havuzu (8/tip, 80 cap) `releaseEnemyVisuals`. Primitive fallback, flying/shadow/boss havuzda degil |
-| P1.3 Projektil/efekt havuzu | YARIM | - | Damage text + sekilli projektil mesh havuzu (fireball/frostball/comet/ok/vb, 48 cap). Flash/ring/particle yok |
+| P1.3 Projektil/efekt havuzu | BITTI kismi (19 Agu) | app.js | Damage text + sekilli projektil + flash/burst havuzu. Ring/wave hala spawn; unique mat |
 | P1.4 Dekor instancing | BITTI (19 Agu 2026) | app.js | LIVE classic instanced agac/kaya/cali/varil. Grass + voxel crate/oak/pine |
 | P1.5 Statik dunya merge | BITTI instanced (19 Agu) | app.js | BufferGeometryUtils yok; koy/bina/sinir duvari/sehir kutulari InstancedMesh. Bunker tekil. PointLight'lar tekil |
-| P1.6 Render ayarlari (pixel ratio/golge) | bekliyor | - | Draw call dustu (150: 1910->1192) ama default gate: pixel ratio 0.5, golge 28. ACMA |
-| P1.7 Dispose denetimi | YARIM | - | Sizinti azaldi (paylasilan kaynak dispose edilmiyor); texture sayisi hala restart basina ~4 artiyor |
+| P1.6 Render ayarlari (pixel ratio/golge) | BITTI (19 Agu 2026) | app.js | pixel ratio min(dpr, 1.25), golge 1024 PCF. Draw call hedefi 150'de hala 1192 (eski olcum) |
+| P1.7 Dispose denetimi | BITTI kismi (19 Agu) | app.js | Paylasilan geo dispose skip + NAME_LABEL_CACHE trim(48) restart. Tam 5x restart olcumu yok |
 | P1.8 Update maliyeti | BITTI (18 Agu 2026) | - | Uzak dusman 3 karede bir AI; HP bar 38m uzagi gizli + 2 karede bir cizim |
 | P2.1 VoxelModel fabrikasi | BITTI (2026-08-18) | voxel | voxel.js. Geometry cache + 2 paylasilan mat. Handoff: VOXEL-INTEGRATION.md |
 | P2.2 Outline | BITTI (2026-08-18) | voxel | Inverted hull, fat-cube, BackSide #1a1a22 |
@@ -52,14 +54,14 @@ Guncel satirlar (19 Agu, leftover seans):
 | P2.5 Oyuncu karakterleri | BITTI + wire | - | buildPlayer voxel + B/C/A recolor |
 | P3 Yaratiklar | BITTI wire | - | createEnemy attachVoxelModel; anim updateVoxelCreatureAnim |
 | P4.1 Boss modelleri | BITTI + wire | - | variant + herobrine/serafim/void/zonk |
-| P4.2-4.4 Portal sayaci + boss odasi | YARIM | - | portalsEntered HUD n/3; 3. portal mega arena + daire duvar + ZONK Avatari. Ozel 60x60 oda yok. Faz 2 `*_p2` %50 HP |
-| P5 Solo map iyilestirme | YARIM | - | map-audit.mjs (step=8 + Box3 floater). addClassicRamps live. Ground 96. 19 Agu: maxAbs 0.588, rampMismatch 0, 28 interpolasyon noktasi. Spec grid=2 yapilmadi |
+| P4.2-4.4 Portal sayaci + boss odasi | BITTI kismi (19 Agu) | app.js | portalsEntered HUD n/3; 3. portal 60x60 kutu arena + ZONK Avatari. Faz 2 `*_p2` %50 HP. Shot-director boss sahnesi yok |
+| P5 Solo map iyilestirme | BITTI kismi (19 Agu) | - | map-audit.mjs step=4 + Box3 floater. addClassicRamps live. Ground 96. Onceki: maxAbs 0.588, rampMismatch 0. Spec grid=2 asiri yavas |
 | P6.1 Ana menu | BITTI diorama (19 Agu) | app.js | Canvas acik; idle voxel oyuncu + goblin/wolf donuyor. Overlay blur duruyor |
 | P6.2 Levelup ekrani | CSS+JS kismi | - | rarity-* + cardIcon + xpBarFlash + synergyBadge (10 satir map) |
-| P6.3-6.4 HUD + tipografi | CSS kismi BITTI | UI (CSS) | Chip boy/radius + Press Start 2P + xpBarFlash. JS emoji kaldi. |
-| P7.1 Evrim sistemi | BITTI 3 evrim (19 Agu) | app.js | Inferno Orb / Glacier / Blade Storm. Arrow/Lightning/Aura evrimi yok |
-| P7.2 Yeni aktif skiller | BITTI (18 Agu 2026) | app.js | chain bolt, black hole pull+burst, poison trail. Caps korunuyor |
-| P7.3 Yeni pasifler | BITTI (18 Agu 2026) | app.js | greed gold+%, executioner %15 (19 Agu: hasar sonrasi kontrol). thorns zaten vardi (melee reflect) |
+| P6.3-6.4 HUD + tipografi | BITTI kismi (19 Agu) | app.js | Chip + Press Start 2P + xpBarFlash. Levelup/sandik emoji ASCII [+] / Aktif / Pasif |
+| P7.1 Evrim sistemi | BITTI (19 Agu 2026) | app.js | Inferno Orb, Glacier, Blade Storm, Arrow Wall, Storm Caller, Cataclysm |
+| P7.2 Yeni aktif skiller | BITTI kismi (19 Agu) | app.js | chain bolt, black hole, poison trail, siginak. Ricochet Disc / Mirror Image yok (ricochet + shadow_clone var) |
+| P7.3 Yeni pasifler | BITTI (19 Agu 2026) | app.js | greed, executioner, thorns, momentum, overcharge. Vampirism = mevcut lifesteal |
 | P7.4 Horde surge | BITTI (19 Agu 2026) | app.js | 300sn / 30sn, soul-round spawn deseni, soul varken bekler, bitince sandik |
 | P8.1 Lobby (trystero) | bekliyor | - | net.js yeni dosya |
 | P8.2 Oyuncu replikasyonu | bekliyor | - | |
@@ -77,22 +79,22 @@ Islem sirasi: voxel tanim -> animasyon -> hitbox -> screenshot -> isaretle. (Bri
 
 | Yaratik | Voxel | Anim | Test | | Yaratik | Voxel | Anim | Test |
 |---|---|---|---|---|---|---|---|---|
-| goblin | [x] | [ ] | [x] | | snake | [x] | [ ] | [x] |
-| wolf | [x] | [ ] | [x] | | beetle | [x] | [ ] | [x] |
-| skeleton | [x] | [ ] | [x] | | crow | [x] | [ ] | [x] |
-| spider | [x] | [ ] | [x] | | wraith | [x] | [ ] | [x] |
-| bat | [x] | [ ] | [x] | | void | [x] | [ ] | [x] |
-| slime | [x] | [ ] | [x] | | horror | [x] | [ ] | [x] |
-| bear | [x] | [ ] | [x] | | shadow | [x] | [ ] | [x] |
-| boar | [x] | [ ] | [x] | | vampire | [x] | [ ] | [x] |
-| fox | [x] | [ ] | [x] | | purpleShadow | [x] | [ ] | [x] |
-| ghost | [x] | [ ] | [x] | | purpleSkeleton | [x] | [ ] | [x] |
-| scorpion | [x] | [ ] | [x] | | purpleSlime | [x] | [ ] | [x] |
-| zombie | [x] | [ ] | [x] | | redBat | [x] | [ ] | [x] |
-| creeper | [x] | [ ] | [x] | | polarBear | [x] | [ ] | [x] |
-| flame | [x] | [ ] | [x] | | cactus | [x] | [ ] | [x] |
-| snail | [x] | [ ] | [x] | | tree (dusman) | [x] | [ ] | [x] |
-| flying (createFlyingEnemy) | [x] | [ ] | [x] | | waterShark | [x] | [ ] | [x] |
+| goblin | [x] | [x] | [x] | | snake | [x] | [x] | [x] |
+| wolf | [x] | [x] | [x] | | beetle | [x] | [x] | [x] |
+| skeleton | [x] | [x] | [x] | | crow | [x] | [x] | [x] |
+| spider | [x] | [x] | [x] | | wraith | [x] | [x] | [x] |
+| bat | [x] | [x] | [x] | | void | [x] | [x] | [x] |
+| slime | [x] | [x] | [x] | | horror | [x] | [x] | [x] |
+| bear | [x] | [x] | [x] | | shadow | [x] | [x] | [x] |
+| boar | [x] | [x] | [x] | | vampire | [x] | [x] | [x] |
+| fox | [x] | [x] | [x] | | purpleShadow | [x] | [x] | [x] |
+| ghost | [x] | [x] | [x] | | purpleSkeleton | [x] | [x] | [x] |
+| scorpion | [x] | [x] | [x] | | purpleSlime | [x] | [x] | [x] |
+| zombie | [x] | [x] | [x] | | redBat | [x] | [x] | [x] |
+| creeper | [x] | [x] | [x] | | polarBear | [x] | [x] | [x] |
+| flame | [x] | [x] | [x] | | cactus | [x] | [x] | [x] |
+| snail | [x] | [x] | [x] | | tree (dusman) | [x] | [x] | [x] |
+| flying (createFlyingEnemy) | [x] | [x] | [x] | | waterShark | [x] | [x] | [x] |
 
 ## Performans Olcumleri (perf-probe ciktilarini buraya isle)
 
@@ -124,6 +126,26 @@ C 2156/2690/1706/848/1652 (artan degil). Texture sayisi hala restart basina ~3-5
 Kabul kriterine gore durum: FPS hedefi (>=55 @150) onceki tam olcumde TUTMADI (44.8). Draw call hedefi (<=700) 150'de hala TUTMADI (1192) ama bos harita 715->238, 50 dusman 1365->621. Pixel ratio 0.5 duruyor.
 
 ## Seans Gunlugu (en yeni ustte)
+
+### 2026-08-19 - Coop haric leftover kapatma + push
+
+**Yapilan**
+- P1.6 kodda zaten acikti (1.25 / 1024 PCF); STATUS guncellendi.
+- P1.3 flash + burst paylasilan geo + 24 mesh havuzu. updateEffects / clearEntities dispose skip.
+- P1.7 NAME_LABEL_CACHE trim(48) startRun. Breach spawn M2: spawnBreachEnemy boolean, sayac gercek dogum.
+- P4 60x60 arena + P7 6 evrim + yaratik walk anim (biped/quad/crawl/slither/fly) zaten vardi.
+- P6 HUD emoji ASCII. map-audit step 8 -> 4.
+- P7.2 Siginak, P7.3 Momentum + Asiri Sarj.
+- Bug: M4 Deadshot applied fark, M5 ana atis projectileSpeedMult, M6 pause G/V/Q/Tab/P, M8 kill'de cift floating XP.
+- Coop/TD (P8/P9) dokunulmadi.
+
+**Yapilmadi**
+- P8/P9 coop + tower defense.
+- Mirror Image / ozel Ricochet Disc (mevcut ricochet + shadow_clone).
+- map-audit grid=2, perf-probe tekrar, boss-odasi shot-director sahnesi.
+- Primitive/flying/boss enemy havuzu, ring/wave havuzu.
+
+**app.js kilidi:** SERBEST.
 
 ### 2026-08-19 - Bug H7/M1 + puan notu
 - Random teleport portallari WORLD_HALF-30 icine alindi (once WORLD_HALF*1.6, ~%60 harita disi).

@@ -513,6 +513,29 @@ function updateVoxelCreatureAnim(e, dt) {
   } else if ((anim === "hover" || anim === "orbit") && parts.body) {
     parts.body.position.y = Math.sin(t * 2.1) * 0.07;
   }
+  const walk = Math.sin(t * 8) * 0.35;
+  const walk2 = Math.cos(t * 8) * 0.35;
+  if (anim === "biped" || anim === "quad" || !anim) {
+    if (parts.legL) parts.legL.rotation.x = walk;
+    if (parts.legR) parts.legR.rotation.x = -walk;
+    if (parts.armL) parts.armL.rotation.x = -walk * 0.6;
+    if (parts.armR) parts.armR.rotation.x = walk * 0.6;
+    if (parts.legL1) parts.legL1.rotation.x = walk;
+    if (parts.legR1) parts.legR1.rotation.x = -walk;
+    if (parts.legL2) parts.legL2.rotation.x = -walk;
+    if (parts.legR2) parts.legR2.rotation.x = walk;
+  }
+  if (anim === "crawl") {
+    for (let n = 1; n <= 8; n++) {
+      const p = parts["legL" + n] || parts["legR" + n];
+      if (p) p.rotation.y = Math.sin(t * 6 + n) * 0.25;
+    }
+  }
+  if (anim === "slither" && parts.body) parts.body.rotation.y = Math.sin(t * 4) * 0.12;
+  if (anim === "fly") {
+    if (parts.wingL) parts.wingL.rotation.z = Math.sin(t * 14) * 0.55;
+    if (parts.wingR) parts.wingR.rotation.z = -Math.sin(t * 14) * 0.55;
+  }
 }
 const ATTACK_ROUND_MAX_ENEMIES = 130;
 const ENEMY_DESPAWN_DISTANCE = 50;
@@ -802,6 +825,9 @@ const baseStats = {
   toxicTrail: 0,
   toxicTrailRadius: 2.2,
   toxicTrailPoison: 2.0,
+  arrowWall: false,
+  momentum: false,
+  executioner: false,
 };
 
 const stats = { ...baseStats };
@@ -838,6 +864,7 @@ const abilityState = {
   chainBolt: { level: 0, timer: 0, cooldown: 2.6, damage: 22, jumps: 4 },
   blackHole: { level: 0, timer: 0, cooldown: 6.8, damage: 48, radius: 7, zone: null },
   poisonTrail: { level: 0, timer: 0, cooldown: 0.32, damage: 9, radius: 2.4 },
+  sanctuary: { level: 0, timer: 0, cooldown: 9, heal: 14, radius: 4.8, left: 0 },
 };
 const MAX_PROJECTILES_PER_SKILL = 5;
 const MAX_ARROW_PROJECTILES = 4;
@@ -1944,6 +1971,10 @@ const skills = [
   { id: "poison_trail_dmg", name: "Zehir Hasar", desc: "Iz hasari artar.", max: 4, rarity: "magic", requires: "unlock_poison_trail", apply() { abilityState.poisonTrail.damage *= 1.12; } },
   { id: "greed", name: "Acgozluluk", desc: "Coin kazanci +%20.", max: 5, rarity: "magic", apply() { stats.goldGainMult = (stats.goldGainMult || 1) * 1.2; stats.coinMult = (stats.coinMult || 1) * 1.2; } },
   { id: "executioner", name: "Cellat", desc: "%15 alti HP dusmani infaz et.", max: 1, rarity: "rare", apply() { stats.executioner = true; } },
+  { id: "momentum", name: "Momentum", desc: "Hareket halinde hasar artar.", max: 3, rarity: "magic", apply() { stats.momentum = true; stats.moveSpeed *= 1.04; } },
+  { id: "overcharge", name: "Asiri Sarj", desc: "Skill cooldown %10 azalir.", max: 3, rarity: "rare", apply() { stats.globalCdReduction = Math.min(0.45, (stats.globalCdReduction || 0) + 0.10); } },
+  { id: "unlock_sanctuary", name: "Siginak", desc: "Zeminde iyilestirme alani birakir.", max: 1, rarity: "rare", apply() { abilityState.sanctuary.level = 1; ownedSkills.add("sanctuary"); } },
+  { id: "sanctuary_heal", name: "Siginak Iyilesme", desc: "Alan iyilestirmesi artar.", max: 4, rarity: "magic", requires: "unlock_sanctuary", apply() { abilityState.sanctuary.heal *= 1.15; } },
 ];
 
 const skillLookup = {};
@@ -2309,13 +2340,13 @@ function init() {
   camera.position.set(0, 4.9 + 0.6, 10);
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
-  const MAX_PIXEL_RATIO = 0.5;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
+  const MAX_PIXEL_RATIO = 1.25;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
   window._gameMaxPixelRatio = MAX_PIXEL_RATIO;
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.95;
-  if (canvas.style) canvas.style.imageRendering = "pixelated";
+  if (canvas.style) canvas.style.imageRendering = "auto";
 
   clock = new THREE.Clock();
 
@@ -2368,14 +2399,14 @@ function init() {
     const sun = new THREE.DirectionalLight(0xfffce8, 2.25);
     sun.position.set(35, 55, -12);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = 28;
-    sun.shadow.mapSize.height = 28;
+    sun.shadow.mapSize.width = 1024;
+    sun.shadow.mapSize.height = 1024;
     sun.shadow.camera.near = 5;
-    sun.shadow.camera.far = 65;
-    sun.shadow.camera.left = -28;
-    sun.shadow.camera.right = 28;
-    sun.shadow.camera.top = 28;
-    sun.shadow.camera.bottom = -28;
+    sun.shadow.camera.far = 90;
+    sun.shadow.camera.left = -42;
+    sun.shadow.camera.right = 42;
+    sun.shadow.camera.top = 42;
+    sun.shadow.camera.bottom = -42;
     sun.shadow.bias = -0.001;
     sun.shadow.normalBias = 0.02;
     scene.add(sun);
@@ -2383,7 +2414,7 @@ function init() {
     fill.position.set(-20, 15, 20);
     scene.add(fill);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.BasicShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     loadPlayerAppearance();
     try { buildPlayer(); } catch (e) { console.error("buildPlayer:", e); }
@@ -5030,6 +5061,18 @@ function makeNameLabel(name, tier) {
   }
   return spr;
 }
+function trimNameLabelCache(keep) {
+  keep = keep == null ? 48 : keep;
+  if (NAME_LABEL_CACHE.size <= keep) return;
+  const keys = Array.from(NAME_LABEL_CACHE.keys());
+  for (let i = 0; i < keys.length && NAME_LABEL_CACHE.size > keep; i++) {
+    const rec = NAME_LABEL_CACHE.get(keys[i]);
+    NAME_LABEL_CACHE.delete(keys[i]);
+    if (!rec || !rec.mat) continue;
+    if (rec.mat.map && rec.mat.map.dispose) rec.mat.map.dispose();
+    if (rec.mat.dispose && rec.mat.dispose !== noopDispose) rec.mat.dispose();
+  }
+}
 function makeNameLabelInner(name, tier) {
   const w = 256;
   const h = 28;
@@ -5158,7 +5201,7 @@ function bindEvents() {
   if (e.code === "KeyD") keys.d = true;
   if (e.code === "KeyQ") {
     keys.q = true;
-    if (running && !leveling && !gameOver) {
+    if (running && !paused && !leveling && !gameOver) {
       autoAttackEnabled = !autoAttackEnabled;
       const el = document.getElementById("autoAttackIndicator");
       if (el) { el.classList.toggle("visible", !autoAttackEnabled); }
@@ -5177,7 +5220,7 @@ function bindEvents() {
   if (e.code === "KeyF" && !e.repeat) keys.f = true;
   if (e.code === "KeyG") {
     keys.g = true;
-    if (running && !leveling && !gameOver && (state.magnetBurstCd || 0) <= 0) {
+    if (running && !paused && !leveling && !gameOver && (state.magnetBurstCd || 0) <= 0) {
       state.magnetBurstUntil = state.time + 2.5;
       state.magnetBurstCd = 25;
       if (typeof playSfx === "function") playSfx(660, 0.12);
@@ -5186,7 +5229,7 @@ function bindEvents() {
   }
   if (e.code === "KeyV") {
     keys.v = true;
-    if (running && !leveling && !gameOver && (state.rageMeter || 0) >= 100) {
+    if (running && !paused && !leveling && !gameOver && (state.rageMeter || 0) >= 100) {
       state.rageUntil = state.time + 12;
       state.rageMeter = 0;
       if (typeof playSfx === "function") playSfx(180, 0.2);
@@ -5198,7 +5241,7 @@ function bindEvents() {
   if (e.code === "Tab") {
     e.preventDefault();
     keys.tab = true;
-    if (running && !gameOver && !leveling && hud) {
+    if (running && !paused && !gameOver && !leveling && hud) {
       const tabPanel = document.getElementById("tabPanel");
       if (tabPanel) {
         tabPanel.classList.remove("hidden");
@@ -5207,7 +5250,7 @@ function bindEvents() {
     }
   }
   if (e.code === "Escape") handleEscape();
-  if (e.code === "KeyP" && !e.repeat && running && !gameOver && !leveling) {
+  if (e.code === "KeyP" && !e.repeat && running && !paused && !gameOver && !leveling) {
     const activityPanel = document.getElementById("activitySkillPanel");
     if (activityPanel && activityPanel.classList.contains("hidden")) openActivitySkillPanel();
     else if (activityPanel) closeActivitySkillPanel();
@@ -5860,6 +5903,12 @@ function clearEntities() {
   projectiles.forEach((p) => scene.remove(p.mesh));
   effects.forEach((fx) => {
     if (fx.pooled) { releaseDamageSprite(fx.mesh); return; }
+    if (fx.fxPooled && fx.mesh) {
+      scene.remove(fx.mesh);
+      fx.mesh.visible = false;
+      if (flashMeshPool.length < 24) flashMeshPool.push(fx.mesh);
+      return;
+    }
     if (fx.mesh && fx.mesh.material) {
       if (fx.mesh.material.map) fx.mesh.material.map.dispose();
       fx.mesh.material.dispose();
@@ -6191,6 +6240,7 @@ function startRun(selectedChapter, selectedMapId) {
   abilityState.chainBolt = { level: 0, timer: 0, cooldown: 2.6, damage: 22, jumps: 4 };
   abilityState.blackHole = { level: 0, timer: 0, cooldown: 6.8, damage: 48, radius: 7, zone: null };
   abilityState.poisonTrail = { level: 0, timer: 0, cooldown: 0.32, damage: 9, radius: 2.4 };
+  abilityState.sanctuary = { level: 0, timer: 0, cooldown: 9, heal: 14, radius: 4.8, left: 0 };
   specialState.frostNova.timer = 0;
   specialState.dash.timer = 0;
   specialState.meteorUlt.timer = 0;
@@ -6239,6 +6289,7 @@ function startRun(selectedChapter, selectedMapId) {
   stats.hp = Math.max(0, Math.min(stats.maxHp, stats.hp));
   stats.maxHp = Math.max(1, stats.maxHp);
   clearEntities();
+  trimNameLabelCache(48);
   shrineGroups.forEach((s) => { if (s.userData) { s.userData.used = false; s.userData.cooldown = 0; s.userData.insideTime = 0; s.userData._panelOpened = false; } });
 
   /* GLB asset yok – sadece default prosedürel yaratiklar
@@ -8815,26 +8866,36 @@ function enterPortal() {
 }
 
 function spawnMegaArenaWall() {
-  if (megaArenaWall || !mapGroup || !player.mesh) return;
-  const cx = player.mesh.position.x;
-  const cz = player.mesh.position.z;
-  const R = 58;
+  if (megaArenaWall && megaArenaWall.parent) megaArenaWall.parent.remove(megaArenaWall);
+  megaArenaWall = null;
+  if (!mapGroup || !player.mesh) return;
+  player.mesh.position.set(0, getGroundHeight(0, 0) + 0.3, 0);
+  player.vel.set(0, 0, 0);
+  player.vy = 0;
+  const HALF = 30;
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: 0x3a1822, emissive: 0x1a0810, roughness: 0.92 });
-  const segs = 20;
-  for (let i = 0; i < segs; i++) {
-    const a = (i / segs) * Math.PI * 2;
-    const x = cx + Math.cos(a) * R;
-    const z = cz + Math.sin(a) * R;
-    const y = getGroundHeight(x, z);
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(20, 14, 3.2), mat);
-    wall.position.set(x, y + 7, z);
-    wall.lookAt(cx, y + 7, cz);
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2, 0.6, HALF * 2), new THREE.MeshStandardMaterial({ color: 0x2a1520, roughness: 0.95 }));
+  floor.position.set(0, getGroundHeight(0, 0) - 0.2, 0);
+  g.add(floor);
+  const wallH = 16;
+  const thick = 3.2;
+  const y0 = getGroundHeight(0, 0) + wallH * 0.5;
+  const specs = [
+    { x: 0, z: HALF, sx: HALF * 2 + thick, sz: thick },
+    { x: 0, z: -HALF, sx: HALF * 2 + thick, sz: thick },
+    { x: HALF, z: 0, sx: thick, sz: HALF * 2 },
+    { x: -HALF, z: 0, sx: thick, sz: HALF * 2 }
+  ];
+  for (let i = 0; i < specs.length; i++) {
+    const s = specs[i];
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(s.sx, wallH, s.sz), mat);
+    wall.position.set(s.x, y0, s.z);
     g.add(wall);
   }
   mapGroup.add(g);
   megaArenaWall = g;
-  state.megaArenaCenter = { x: cx, z: cz, r: R - 4 };
+  state.megaArenaCenter = { x: 0, z: 0, r: HALF - 2 };
 }
 
 function trySwapBossPhase2(e) {
@@ -9378,8 +9439,10 @@ function getArrowShape() {
 
 function fireArrowShot(dir) {
   const arrowCount = countArrowProjectiles();
-  if (arrowCount >= MAX_ARROW_PROJECTILES) return;
-  const shots = Math.min(1 + (stats.multiShot || 0), MAX_ARROW_PROJECTILES - arrowCount);
+  const arrowCap = stats.arrowWall ? 8 : MAX_ARROW_PROJECTILES;
+  if (arrowCount >= arrowCap) return;
+  const extra = stats.arrowWall ? 2 : 0;
+  const shots = Math.min(1 + (stats.multiShot || 0) + extra, arrowCap - arrowCount);
   if (shots <= 0) return;
   const shape = getArrowShape();
   const muzzlePos = player.mesh.position.clone().add(new THREE.Vector3(0, 1.1, 0)).addScaledVector(dir, 1.0);
@@ -9435,7 +9498,7 @@ function fireMainShot(dir) {
     spawnProjectile({
       position: player.mesh.position.clone().add(new THREE.Vector3(0, 1.1, 0)).addScaledVector(shotDir, 1.0),
       direction: shotDir,
-      speed: stats.projectileSpeed,
+      speed: stats.projectileSpeed * (stats.projectileSpeedMult || 1),
       damage,
       radius: 0.14,
       life: 2.1,
@@ -9448,23 +9511,25 @@ function fireMainShot(dir) {
     playSfxShoot();
   }
   // Muzzle flash
-  if (effects.length < MAX_EFFECTS) {
-    const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.15, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffe48a, transparent: true, opacity: 0.7 }));
-    muzzle.position.copy(muzzlePos);
-    scene.add(muzzle);
-    effects.push({ type: "flash", mesh: muzzle, life: 0.06, total: 0.06 });
-  }
+  spawnFlash(muzzlePos.clone().add(new THREE.Vector3(0, -0.9, 0)), 0xffe48a, 0.22, 0.06);
 }
 
 var _sharedFlashGeo = null;
+var flashMeshPool = [];
 function spawnFlash(pos, color, size, life) {
   if (effects.length >= MAX_EFFECTS) return;
   if (!_sharedFlashGeo) _sharedFlashGeo = markShared(new THREE.SphereGeometry(1, 8, 6));
-  var mesh = new THREE.Mesh(_sharedFlashGeo, new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.62 }));
+  var mesh = flashMeshPool.pop();
+  if (!mesh) mesh = new THREE.Mesh(_sharedFlashGeo, new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.62 }));
+  else {
+    mesh.material.color.setHex(color);
+    mesh.material.opacity = 0.62;
+    mesh.visible = true;
+  }
   mesh.scale.setScalar(size);
   mesh.position.copy(pos).add(new THREE.Vector3(0, 0.9, 0));
   scene.add(mesh);
-  effects.push({ type: "flash", mesh: mesh, life: life, total: life });
+  effects.push({ type: "flash", mesh: mesh, life: life, total: life, fxPooled: true });
 }
 
 var _sharedRingSegments = 20;
@@ -9505,12 +9570,19 @@ var _sharedBurstParticleGeo = null;
 function spawnBurst(pos, color, count) {
   if (count == null) count = 6;
   if (effects.length + count >= MAX_EFFECTS) return;
-  if (!_sharedBurstParticleGeo) _sharedBurstParticleGeo = markShared(new THREE.SphereGeometry(0.12, 5, 5));
+  if (!_sharedFlashGeo) _sharedFlashGeo = markShared(new THREE.SphereGeometry(1, 8, 6));
   for (var i = 0; i < count; i++) {
     var angle = (i / count) * Math.PI * 2;
     var speed = 8 + Math.random() * 6;
     var vel = new THREE.Vector3(Math.cos(angle) * speed, 1 + Math.random() * 2, Math.sin(angle) * speed);
-    var particle = new THREE.Mesh(_sharedBurstParticleGeo, new THREE.MeshBasicMaterial({ color: color }));
+    var particle = flashMeshPool.pop();
+    if (!particle) particle = new THREE.Mesh(_sharedFlashGeo, new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.85 }));
+    else {
+      particle.material.color.setHex(color);
+      particle.material.opacity = 0.85;
+      particle.visible = true;
+    }
+    particle.scale.setScalar(0.12);
     particle.position.copy(pos).add(new THREE.Vector3(0, 0.5, 0));
     scene.add(particle);
     effects.push({
@@ -9519,7 +9591,8 @@ function spawnBurst(pos, color, count) {
       life: 0.6,
       total: 0.6,
       vel: vel,
-      gravity: true
+      gravity: true,
+      fxPooled: true
     });
   }
 }
@@ -10008,7 +10081,7 @@ function spawnBreach() {
 
 const BREACH_ENEMY_TYPES = ["breach"];
 function spawnBreachEnemy(breach, fromNewRingOnly) {
-  if (enemies.length >= getMaxEnemies()) return;
+  if (enemies.length >= getMaxEnemies()) return false;
   const forceType = BREACH_ENEMY_TYPES[0];
   const cfg = tierConfig.normal;
   const e = createEnemy("normal", cfg, { forceBeastType: forceType });
@@ -10035,6 +10108,7 @@ function spawnBreachEnemy(breach, fromNewRingOnly) {
   e.breachRef = breach;
   enemies.push(e);
   scene.add(e.mesh);
+  return true;
 }
 
 function updateBreaches(dt) {
@@ -10067,8 +10141,9 @@ function updateBreaches(dt) {
         if (b.ring) b.ring.scale.setScalar(1);
         if (b.interior) b.interior.scale.setScalar(1);
         const toSpawn = (b.totalEnemies ?? BREACH_PREDEFINED_COUNT) - (b.spawnedCount || 0);
-        for (let s = 0; s < toSpawn; s++) spawnBreachEnemy(b, false);
-        b.spawnedCount = b.totalEnemies ?? BREACH_PREDEFINED_COUNT;
+        for (let s = 0; s < toSpawn; s++) {
+          if (spawnBreachEnemy(b, false)) b.spawnedCount = (b.spawnedCount || 0) + 1;
+        }
         if (typeof showGameNotification === "function") showGameNotification("Breach açıldı! Açılış tamamlanınca " + Math.round(BREACH_OPEN_HOLD_DURATION) + " sn açık kalacak.");
       }
     } else if (b.phase === "active") {
@@ -10536,7 +10611,7 @@ function openChestPanel(skill, chestRef) {
   if (!el || !cardEl) return;
   el.classList.remove("hidden");
   cardEl.className = "card " + (skill.rarity || "common");
-  cardEl.innerHTML = `<span class="cardIcon">ðŸ“¦</span><h3>${skill.name}</h3><span class="badge">${(skill.rarity || "common").toUpperCase()}</span><p>${skill.desc}</p><p class="chestCoins">Mevcut: ${state.coins ?? 0} Coin</p><p class="chestAccept">F veya Tikla - Al</p><button id="chestAcceptBtn" class="btn primary">Al</button>`;
+  cardEl.innerHTML = `<span class="cardIcon">[+]</span><h3>${skill.name}</h3><span class="badge">${(skill.rarity || "common").toUpperCase()}</span><p>${skill.desc}</p><p class="chestCoins">Mevcut: ${state.coins ?? 0} Coin</p><p class="chestAccept">F veya Tikla - Al</p><button id="chestAcceptBtn" class="btn primary">Al</button>`;
   if (chestHint) chestHint.textContent = "F veya Tikla - Al";
   playSfx(260, 0.12, 0.7);
   playSfx((TIER_REVEAL_FREQ[skill.rarity || "common"] || TIER_REVEAL_FREQ.common), 0.14, 0.55);
@@ -10601,7 +10676,7 @@ function openChestPanelWithRoll(chestRef) {
       clearInterval(rollInterval);
       const finalRarity = rolled.rarity || "common";
       cardEl.className = "card " + finalRarity;
-      cardEl.innerHTML = "<span class=\"cardIcon\">\uD83D\uDCE6</span><h3>" + rolled.name + "</h3><span class=\"badge rarity-" + finalRarity + "\">" + finalRarity.toUpperCase() + "</span><p>" + rolled.desc + "</p><p class=\"chestCoins\">Mevcut: " + (state.coins ?? 0) + " Coin</p><p class=\"chestReveal\">Gelen bonus</p>";
+      cardEl.innerHTML = "<span class=\"cardIcon\">[+]</span><h3>" + rolled.name + "</h3><span class=\"badge rarity-" + finalRarity + "\">" + finalRarity.toUpperCase() + "</span><p>" + rolled.desc + "</p><p class=\"chestCoins\">Mevcut: " + (state.coins ?? 0) + " Coin</p><p class=\"chestReveal\">Gelen bonus</p>";
       if (chestHint) chestHint.textContent = "Kapaniyor...";
       const revealFreq = TIER_REVEAL_FREQ[finalRarity] || TIER_REVEAL_FREQ.common;
       playSfx(revealFreq, 0.2, 0.65);
@@ -11206,7 +11281,6 @@ function killEnemy(enemy) {
     }
   }
   dropXpOrbs(enemy.mesh.position, xpAmount, enemy.tier);
-  addFloatingXp(xpAmount);
   addFloatingGold(coinDrop);
   // Show XP gained (use actual xpAmount for accuracy)
   spawnDamageText(enemy.mesh.position.clone().add(new THREE.Vector3(0, 1.5, 0)), `+${Math.floor(xpAmount)} XP`, false, "xp");
@@ -11264,6 +11338,10 @@ function applyDamageEnemy(e, damage, dir, isCrit = false, damageType = null) {
   if ((e.tier === "rare" || e.tier === "unique" || e.isBoss) && stats.eliteDmgMult) d *= stats.eliteDmgMult;
   if (e.tier === "normal" && stats.normalEnemyDmgMult) d *= stats.normalEnemyDmgMult;
   if (stats.titanKiller && e.isBoss && e.hp <= (e.maxHp || e.hp) * 0.05) { e.hp = 0; killEnemy(e); return; }
+  if (stats.momentum && player.vel) {
+    const spd = Math.hypot(player.vel.x || 0, player.vel.z || 0);
+    d *= 1 + Math.min(0.35, spd * 0.045);
+  }
   if (stats.executioner && !e.isBoss && (e.hp - d) <= (e.maxHp || e.hp) * 0.15) { e.hp = 0; killEnemy(e); return; }
   if (stats.execute > 0 && e.hp <= (e.maxHp || e.hp) * 0.35) d *= 1 + stats.execute;
   if (state._bloodlustUntil && state.time < state._bloodlustUntil && stats.bloodlust) d *= 1 + stats.bloodlust;
@@ -13106,12 +13184,19 @@ function updateEffects(dt) {
         effects.splice(i, 1);
         continue;
       }
+      if (fx.fxPooled && fx.mesh) {
+        scene.remove(fx.mesh);
+        fx.mesh.visible = false;
+        if (flashMeshPool.length < 24) flashMeshPool.push(fx.mesh);
+        effects.splice(i, 1);
+        continue;
+      }
       if (fx.mesh) {
-        if (fx.mesh.material) {
+        if (fx.mesh.material && fx.mesh.material.dispose !== noopDispose) {
           if (fx.mesh.material.map) fx.mesh.material.map.dispose();
           fx.mesh.material.dispose();
         }
-        if (fx.mesh.geometry) fx.mesh.geometry.dispose();
+        if (fx.mesh.geometry && fx.mesh.geometry.dispose !== noopDispose) fx.mesh.geometry.dispose();
       }
       scene.remove(fx.mesh);
       effects.splice(i, 1);
@@ -13337,6 +13422,32 @@ function updateAbilities(dt) {
       const origin = player.mesh.position.clone().setY(player.mesh.position.y + 0.4);
       radialDamageEnemies(origin, a.radius, a.damage * (stats.projectileDamageMult || 1));
       spawnRing(origin, a.radius, 0x66cc44, 0.22);
+      a.timer = a.cooldown * cdMult;
+    }
+  }
+
+  if (abilityState.sanctuary && abilityState.sanctuary.level > 0) {
+    const a = abilityState.sanctuary;
+    a.timer -= dt;
+    if (a.left > 0) {
+      a.left -= dt;
+      a.tick = (a.tick || 0) - dt;
+      if (a.tick <= 0) {
+        a.tick = 0.45;
+        const origin = a.origin || player.mesh.position;
+        const dx = player.mesh.position.x - origin.x;
+        const dz = player.mesh.position.z - origin.z;
+        if (dx * dx + dz * dz <= a.radius * a.radius) {
+          stats.hp = Math.min(stats.maxHp, stats.hp + a.heal * 0.45);
+        }
+      }
+    }
+    if (a.timer <= 0) {
+      a.origin = player.mesh.position.clone();
+      a.left = 4;
+      a.tick = 0;
+      spawnRing(a.origin, a.radius, 0x88ffaa, 0.45);
+      spawnFlash(a.origin, 0x66ff99, 2.2, 0.25);
       a.timer = a.cooldown * cdMult;
     }
   }
@@ -14143,7 +14254,7 @@ function canPickSkill(skill) {
   return true;
 }
 
-const ABILITY_UNLOCK_IDS = new Set(["unlock_fireball", "unlock_comet", "unlock_swords", "unlock_meteor", "unlock_nova", "unlock_frostball", "unlock_frost_nova", "unlock_dash", "unlock_meteor_ult", "unlock_explosion", "unlock_spark", "unlock_smite", "unlock_kinetic_blast", "unlock_arrow_shock", "unlock_arrow_burn", "unlock_arrow_freeze", "comp_phoenix", "comp_drone", "comp_golem", "comp_skeleton_minion", "comp_wolf_minion", "comp_goblin_minion", "comp_healer_minion", "comp_archer_minion", "comp_mage_minion", "minyon_sayisi", "unlock_banana", "unlock_sword_throw", "unlock_boomerang", "unlock_shuriken", "unlock_bomb", "unlock_line_shot", "unlock_laser", "unlock_light_beam", "unlock_cone_blast", "unlock_reload_weapon", "unlock_dismantle", "unlock_gorilla_aura", "unlock_herald_thunder", "unlock_herald_ice", "unlock_herald_ash", "unlock_flicker_strike", "unlock_saturn_rings", "unlock_ult_mega_explosion", "unlock_ult_ice_apocalypse", "unlock_ult_lightning_storm", "unlock_ult_inferno", "unlock_ult_void_blast", "unlock_chain_bolt", "unlock_black_hole", "unlock_poison_trail"]);
+const ABILITY_UNLOCK_IDS = new Set(["unlock_fireball", "unlock_comet", "unlock_swords", "unlock_meteor", "unlock_nova", "unlock_frostball", "unlock_frost_nova", "unlock_dash", "unlock_meteor_ult", "unlock_explosion", "unlock_spark", "unlock_smite", "unlock_kinetic_blast", "unlock_arrow_shock", "unlock_arrow_burn", "unlock_arrow_freeze", "comp_phoenix", "comp_drone", "comp_golem", "comp_skeleton_minion", "comp_wolf_minion", "comp_goblin_minion", "comp_healer_minion", "comp_archer_minion", "comp_mage_minion", "minyon_sayisi", "unlock_banana", "unlock_sword_throw", "unlock_boomerang", "unlock_shuriken", "unlock_bomb", "unlock_line_shot", "unlock_laser", "unlock_light_beam", "unlock_cone_blast", "unlock_reload_weapon", "unlock_dismantle", "unlock_gorilla_aura", "unlock_herald_thunder", "unlock_herald_ice", "unlock_herald_ash", "unlock_flicker_strike", "unlock_saturn_rings", "unlock_ult_mega_explosion", "unlock_ult_ice_apocalypse", "unlock_ult_lightning_storm", "unlock_ult_inferno", "unlock_ult_void_blast", "unlock_chain_bolt", "unlock_black_hole", "unlock_poison_trail", "unlock_sanctuary"]);
 const GENERIC_STRENGTHENER_IDS = new Set(["dmg", "firerate", "speed", "hp", "proj_speed", "crit", "pierce", "multishot", "armor", "xp_gain", "sharp_edges", "regen", "impact", "pickup", "sans", "magnet_aura", "xp_magnet", "lucky", "heal", "global_cd"]);
 const CORE_SKILL_IDS = new Set([
   "dmg", "firerate", "speed", "hp", "heal", "pickup", "magnet", "armor", "crit", "crit_dmg", "cdr", "xp_boost", "gold_finder", "thick_skin", "quick_hands", "berserker_rage", "lucky_strike", "vampiric_touch", "elemental_affinity", "unlock_fireball", "fireball_dmg", "fireball_cd", "fireball_proj_speed", "multishot", "pierce", "regen", "sans", "xp_gain", "magnet_force", "lucky_coin", "coin_hunter",
@@ -14160,7 +14271,7 @@ const CORE_SKILL_IDS = new Set([
   "comp_phoenix", "comp_drone", "comp_golem", "comp_skeleton_minion", "comp_wolf_minion", "comp_goblin_minion", "comp_healer_minion", "comp_archer_minion", "comp_mage_minion", "minyon_sayisi",
   "unlock_ult_mega_explosion", "unlock_ult_ice_apocalypse", "unlock_ult_lightning_storm", "unlock_ult_inferno", "unlock_ult_void_blast",
   "lifesteal", "execute", "berserker", "thorns", "bleed", "burn", "freeze", "shock", "splash", "pack_frost", "pack_fire", "pack_shock",
-  "unlock_chain_bolt", "chain_bolt_dmg", "unlock_black_hole", "black_hole_dmg", "unlock_poison_trail", "poison_trail_dmg", "greed", "executioner",
+  "unlock_chain_bolt", "chain_bolt_dmg", "unlock_black_hole", "black_hole_dmg", "unlock_poison_trail", "poison_trail_dmg", "greed", "executioner", "momentum", "overcharge", "unlock_sanctuary", "sanctuary_heal",
   "explosive_shot", "frost_aura", "bloodlust", "fire_trail", "dodge", "second_wind", "shadow_clone", "rage_mode", "glass_cannon", "tank_mode",
   "unlock_shield", "shield_regen", "impact", "unlock_sprint", "unlock_toxic_trail", "toxic_trail_radius", "toxic_trail_poison",
   "runaan", "rapid_fire",
@@ -14196,6 +14307,9 @@ const SKILL_UNLOCKS = [
   { id: "unlock_poison_trail", condition: (s) => (s.kills || 0) >= 28 },
   { id: "greed", condition: (s) => (s.kills || 0) >= 20 },
   { id: "executioner", condition: (s) => (s.kills || 0) >= 120 },
+  { id: "momentum", condition: (s) => (s.kills || 0) >= 45 },
+  { id: "overcharge", condition: (s) => (s.kills || 0) >= 80 },
+  { id: "unlock_sanctuary", condition: (s) => (s.kills || 0) >= 55 },
 ];
 function tryUnlockSkills() {
   if (!state.unlockedSkillIds) return;
@@ -14317,11 +14431,40 @@ function tryEvolveSkills() {
     abilityState.swords.spin *= 1.25;
     showGameNotification("Evrim: Blade Storm!");
   }
+  if (stats.archerBow && !stats.arrowWall && (skillLevels.arrow_dmg || 0) >= 5 && (owned("multishot") || owned("arrow_multishot"))) {
+    stats.arrowWall = true;
+    stats.multiShot = Math.min(8, (stats.multiShot || 0) + 2);
+    showGameNotification("Evrim: Arrow Wall!");
+  }
+  if (abilityState.spark && !abilityState.spark.evolved && abilityState.spark.level > 0 && (skillLevels.spark_dmg || 0) >= 4 && owned("unlock_herald_thunder")) {
+    abilityState.spark.evolved = "storm";
+    abilityState.spark.count = Math.min(15, (abilityState.spark.count || 5) + 4);
+    abilityState.spark.damage *= 1.25;
+    abilityState.spark.cooldown *= 0.8;
+    showGameNotification("Evrim: Storm Caller!");
+  }
+  if (abilityState.gorillaAura && !abilityState.gorillaAura.evolved && abilityState.gorillaAura.level > 0 && (skillLevels.gorilla_dmg || 0) >= 4 && (owned("unlock_nova") || owned("nova_radius"))) {
+    abilityState.gorillaAura.evolved = "cataclysm";
+    abilityState.gorillaAura.radius += 2.2;
+    abilityState.gorillaAura.damage *= 1.35;
+    abilityState.gorillaAura.tickRate = Math.max(0.22, abilityState.gorillaAura.tickRate * 0.75);
+    showGameNotification("Evrim: Cataclysm Field!");
+  }
+  if (abilityState.nova && !abilityState.nova.evolved && abilityState.nova.level > 0 && (skillLevels.nova_dmg || 0) >= 4 && (owned("unlock_gorilla_aura") || owned("nova_radius"))) {
+    abilityState.nova.evolved = "cataclysm";
+    abilityState.nova.radius += 1.8;
+    abilityState.nova.damage *= 1.3;
+    abilityState.nova.cooldown *= 0.85;
+    if (!abilityState.gorillaAura.evolved) showGameNotification("Evrim: Cataclysm Nova!");
+  }
 }
 function evolvedSkillName(kind, fallback) {
   if (kind === "fireball" && abilityState.fireball && abilityState.fireball.evolved === "inferno") return "Inferno Orb";
   if (kind === "frostball" && abilityState.frostball && abilityState.frostball.evolved === "glacier") return "Glacier";
   if (kind === "swords" && abilityState.swords && abilityState.swords.evolved === "bladestorm") return "Blade Storm";
+  if (kind === "spark" && abilityState.spark && abilityState.spark.evolved === "storm") return "Storm Caller";
+  if (kind === "nova" && abilityState.nova && abilityState.nova.evolved === "cataclysm") return "Cataclysm Nova";
+  if (kind === "gorilla" && abilityState.gorillaAura && abilityState.gorillaAura.evolved === "cataclysm") return "Cataclysm Field";
   return fallback;
 }
 
@@ -14534,6 +14677,7 @@ function renderLevelupCards() {
     if (abilityState.chainBolt?.level > 0) actives.push({ name: "Zincir Yildirim", lvl: abilityState.chainBolt.level });
     if (abilityState.blackHole?.level > 0) actives.push({ name: "Kara Delik", lvl: abilityState.blackHole.level });
     if (abilityState.poisonTrail?.level > 0) actives.push({ name: "Zehir Izi", lvl: abilityState.poisonTrail.level });
+    if (abilityState.sanctuary?.level > 0) actives.push({ name: "Siginak", lvl: abilityState.sanctuary.level });
     if (abilityState.comet.level > 0) actives.push({ name: "Comet", lvl: abilityState.comet.level });
     if (abilityState.swords.level > 0) actives.push({ name: evolvedSkillName("swords", "Kiliclar"), lvl: abilityState.swords.count });
     if (abilityState.frostball?.level > 0) actives.push({ name: evolvedSkillName("frostball", "Frostball"), lvl: abilityState.frostball.level });
@@ -14546,26 +14690,26 @@ function renderLevelupCards() {
     if (abilityState.laser?.level > 0) actives.push({ name: "Lazer", lvl: abilityState.laser.level });
     if (abilityState.dismantle?.level > 0) actives.push({ name: "Dismantle", lvl: abilityState.dismantle.level });
     const passives = acquiredOrder.filter((id) => !["fireball", "comet", "swords", "meteor", "nova", "unlock_banana", "unlock_sword_throw", "unlock_boomerang", "unlock_shuriken", "unlock_laser", "unlock_dismantle"].includes(id)).slice(-8).map((id) => ({ name: (skillLookup[id] && skillLookup[id].name) || id, lvl: skillLevels[id] || 1 }));
-    skillsListEl.innerHTML = "<div class=\"statRow\"><strong>âš¡ Aktif</strong></div>" + actives.map((s) => `<div class="skillItem">${s.name} Lv${s.lvl}</div>`).join("") + "<div class=\"statRow\"><strong>ðŸ“‹ Pasif</strong></div>" + passives.map((s) => `<div class="skillItem">${s.name} Lv${s.lvl}</div>`).join("") || "<div class=\"skillItem\">-</div>";
+    skillsListEl.innerHTML = "<div class=\"statRow\"><strong>Aktif</strong></div>" + actives.map((s) => `<div class="skillItem">${s.name} Lv${s.lvl}</div>`).join("") + "<div class=\"statRow\"><strong>Pasif</strong></div>" + passives.map((s) => `<div class="skillItem">${s.name} Lv${s.lvl}</div>`).join("") || "<div class=\"skillItem\">-</div>";
   }
 
   const statsListEl = document.getElementById("levelupStatsList");
   if (statsListEl) {
     statsListEl.innerHTML = `
-      <div class="statRow">â¤ï¸ HP ${Math.floor(stats.hp)} / ${Math.floor(stats.maxHp)}</div>
-      <div class="statRow">ðŸ›¡ï¸ Kalkan ${Math.floor(stats.shield || 0)}</div>
-      <div class="statRow">âš”ï¸ Hasar ${stats.damage.toFixed(1)}</div>
-      <div class="statRow">ðŸ”¥ Atis/s ${(1/stats.fireRate).toFixed(1)}</div>
-      <div class="statRow">ðŸ‘Ÿ Hiz ${stats.moveSpeed.toFixed(1)}</div>
-      <div class="statRow">âš¡ Kritik %${Math.min(100, Math.round((stats.critChance||0)*100))}</div>
-      <div class="statRow">âš¡ Krit hasar x${(stats.critMult||1.9).toFixed(1)}</div>
-      <div class="statRow">ðŸ§² Magnet ${stats.magnetRange.toFixed(1)}</div>
-      <div class="statRow">ðŸ“¦ Toplama ${stats.pickupRange.toFixed(1)}</div>
-      <div class="statRow">ðŸ’‰ Vampir %${((stats.lifesteal||0)*100).toFixed(0)}</div>
-      <div class="statRow">ðŸ›¡ï¸ Zirh %${((stats.armor||0)*100).toFixed(0)}</div>
-      <div class="statRow">ðŸ”§ Turret ${placeableTurrets.length} / ${stats.maxTurrets || 1}</div>
-      <div class="statRow">ðŸ° Bhop Streak ${bhop.streak} (+${bhop.speedBonus.toFixed(1)} hiz)</div>
-      <div class="statRow">ðŸš€ Proj. Hiz ${(stats.projectileSpeed * (stats.projectileSpeedMult || 1)).toFixed(1)}</div>
+      <div class="statRow">HP ${Math.floor(stats.hp)} / ${Math.floor(stats.maxHp)}</div>
+      <div class="statRow">Kalkan ${Math.floor(stats.shield || 0)}</div>
+      <div class="statRow">Hasar ${stats.damage.toFixed(1)}</div>
+      <div class="statRow">Atis/s ${(1/stats.fireRate).toFixed(1)}</div>
+      <div class="statRow">Hiz ${stats.moveSpeed.toFixed(1)}</div>
+      <div class="statRow">Kritik %${Math.min(100, Math.round((stats.critChance||0)*100))}</div>
+      <div class="statRow">Krit hasar x${(stats.critMult||1.9).toFixed(1)}</div>
+      <div class="statRow">Magnet ${stats.magnetRange.toFixed(1)}</div>
+      <div class="statRow">Toplama ${stats.pickupRange.toFixed(1)}</div>
+      <div class="statRow">Vampir %${((stats.lifesteal||0)*100).toFixed(0)}</div>
+      <div class="statRow">Zirh %${((stats.armor||0)*100).toFixed(0)}</div>
+      <div class="statRow">Turret ${placeableTurrets.length} / ${stats.maxTurrets || 1}</div>
+      <div class="statRow">Bhop ${bhop.streak} (+${bhop.speedBonus.toFixed(1)})</div>
+      <div class="statRow">Proj. hiz ${(stats.projectileSpeed * (stats.projectileSpeedMult || 1)).toFixed(1)}</div>
     `;
   }
 
@@ -16117,7 +16261,7 @@ const VENDING_ITEMS = [
   { name: "Juggernaut", cost: 60, color: 0xff4444, duration: 45, desc: "Max HP +100 (45sn)", effect: () => { stats.maxHp += 100; stats.hp += 100; }, revert: () => { stats.maxHp -= 100; stats.hp = Math.min(stats.hp, stats.maxHp); } },
   { name: "Double Tap", cost: 50, color: 0xffaa00, duration: 30, desc: "Ates hizi x2 (30sn)", effect: () => { stats.fireRate *= 0.5; }, revert: () => { stats.fireRate *= 2; } },
   { name: "Quick Revive", cost: 30, color: 0x4488ff, duration: 40, desc: "Regen +5/sn (40sn)", effect: () => { stats.regen = (stats.regen || 0) + 5; }, revert: () => { stats.regen = Math.max(0, (stats.regen || 0) - 5); } },
-  { name: "Deadshot", cost: 45, color: 0xff44ff, duration: 35, desc: "Krit +30% (35sn)", effect: () => { stats.critChance = Math.min(1, (stats.critChance || 0) + 0.30); }, revert: () => { stats.critChance = Math.max(0, (stats.critChance || 0) - 0.30); } },
+  { name: "Deadshot", cost: 45, color: 0xff44ff, duration: 35, desc: "Krit +30% (35sn)", effect: (buff) => { const c = stats.critChance || 0; const add = Math.min(1, c + 0.30) - c; stats.critChance = c + add; if (buff) buff.applied = add; }, revert: (buff) => { stats.critChance = Math.max(0, (stats.critChance || 0) - (buff && buff.applied != null ? buff.applied : 0.30)); } },
 ];
 let activeVendingBuffs = [];
 
@@ -16162,7 +16306,7 @@ function updateVendingMachines(dt) {
     const buff = activeVendingBuffs[i];
     buff.timeLeft -= dt;
     if (buff.timeLeft <= 0) {
-      buff.revert();
+      buff.revert(buff);
       spawnDamageText(player.mesh.position.clone().add(new THREE.Vector3(0, 3, 0)), `${buff.name} BITTI`, false, `${buff.name} BITTI`);
       activeVendingBuffs.splice(i, 1);
     }
@@ -16185,8 +16329,9 @@ function updateVendingMachines(dt) {
         keys.e = false;
         if (state.coins >= item.cost) {
           state.coins -= item.cost;
-          item.effect();
-          activeVendingBuffs.push({ name: item.name, timeLeft: item.duration, revert: item.revert });
+          const buff = { name: item.name, timeLeft: item.duration, revert: item.revert };
+          item.effect(buff);
+          activeVendingBuffs.push(buff);
           spawnDamageText(player.mesh.position.clone().add(new THREE.Vector3(0, 3, 0)), `${item.name} AKTIF!`, true, `${item.name} AKTIF!`);
           playSfx(880, 0.08, 0.55);
         } else {

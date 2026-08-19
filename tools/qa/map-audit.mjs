@@ -28,7 +28,7 @@ await page.waitForTimeout(2500);
 
 const result = await page.evaluate(() => {
   const HALF = typeof WORLD_HALF === "number" ? WORLD_HALF : 460;
-  const step = 8;
+  const step = 4;
   const critical = [];
   const slopeFlags = [];
   const rc = new THREE.Raycaster();
