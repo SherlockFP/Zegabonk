@@ -98,6 +98,9 @@ function getXpNextForLevel(level) {
 }
 let windAmbientTimer = 0;
 let bgMusicGain = null;
+let _noiseBuffer = null;
+let hordeTensionOsc = null;
+let hordeTensionGain = null;
 
 // --- Paylasilan geometry/material cache (P1.1) ---
 // Yaratik ve efekt fabrikalari her spawn'da yeni geometry+material yaratiyordu.
@@ -654,10 +657,10 @@ function updateVoxelCreatureAnim(e, dt) {
   }
   if (anim === "slither" && parts.body) parts.body.rotation.y = Math.sin(t * 4) * 0.12;
   if (e.hitPunch > 0) {
-    e.hitPunch = Math.max(0, e.hitPunch - dt * 7);
+    e.hitPunch = Math.max(0, e.hitPunch - dt * 8);
     if (parts.body) {
-      const p = 1 + e.hitPunch * 0.9;
-      parts.body.scale.set(p, 1 / Math.max(0.82, p * 0.92), p);
+      const p = 1 + e.hitPunch * 1.15;
+      parts.body.scale.set(p, 1 / Math.max(0.78, p * 0.88), p);
     }
   }
   if (anim === "fly") {
@@ -1761,33 +1764,151 @@ function playSfxShoot() {
   bonk.start(now); bonk.stop(now + 0.075);
 }
 
-function playSfxHit(freq = 320) {
-  if (playSample("hit", 0.9)) return;
+function ensureNoiseBuffer() {
+  if (!audioCtx || _noiseBuffer) return;
+  const len = Math.floor(audioCtx.sampleRate * 0.12);
+  _noiseBuffer = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = _noiseBuffer.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.85;
+}
+
+function playSfxHit(freq = 320, opts) {
+  ensureAudio();
+  if (!audioCtx) return;
+  if (activeSfxCount >= MAX_CONCURRENT_SFX) return;
+  const isCrit = opts && opts.crit;
+  const isHeavy = opts && opts.heavy;
+  activeSfxCount++;
+  const dur = isCrit ? 0.11 : isHeavy ? 0.09 : 0.065;
+  setTimeout(function() { activeSfxCount = Math.max(0, activeSfxCount - 1); }, (dur + 0.05) * 1000);
+  const now = audioCtx.currentTime;
+  const vol = (camSettings.soundVolume || 1) * (camSettings.effectVolume ?? 1);
+  const pitchVar = 0.88 + Math.random() * 0.24;
+  const base = Math.max(90, freq * pitchVar);
+  const thumpFreq = 80 + Math.random() * 40;
+  const tickFreq = base * (isCrit ? 2.1 : 1.65);
+
+  const thump = audioCtx.createOscillator();
+  thump.type = "sine";
+  thump.frequency.setValueAtTime(thumpFreq * 1.35, now);
+  thump.frequency.exponentialRampToValueAtTime(Math.max(42, thumpFreq * 0.55), now + dur * 0.7);
+  const thumpG = audioCtx.createGain();
+  const thumpPeak = (isCrit ? 0.19 : isHeavy ? 0.15 : 0.11) * vol;
+  thumpG.gain.setValueAtTime(0.0001, now);
+  thumpG.gain.linearRampToValueAtTime(thumpPeak, now + 0.004);
+  thumpG.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  thump.connect(thumpG);
+  thumpG.connect(audioCtx.destination);
+
+  const tick = audioCtx.createOscillator();
+  tick.type = "square";
+  tick.frequency.setValueAtTime(tickFreq, now);
+  tick.frequency.exponentialRampToValueAtTime(Math.max(80, tickFreq * 0.35), now + dur * 0.45);
+  const tickG = audioCtx.createGain();
+  tickG.gain.setValueAtTime((isCrit ? 0.07 : 0.05) * vol, now);
+  tickG.gain.exponentialRampToValueAtTime(0.0001, now + dur * 0.5);
+  const tickF = audioCtx.createBiquadFilter();
+  tickF.type = "highpass";
+  tickF.frequency.value = 280;
+  tick.connect(tickF);
+  tickF.connect(tickG);
+  tickG.connect(audioCtx.destination);
+
+  ensureNoiseBuffer();
+  if (_noiseBuffer) {
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = _noiseBuffer;
+    const noiseF = audioCtx.createBiquadFilter();
+    noiseF.type = "bandpass";
+    noiseF.frequency.value = 900 + Math.random() * 400;
+    noiseF.Q.value = 0.8;
+    const noiseG = audioCtx.createGain();
+    noiseG.gain.setValueAtTime((isCrit ? 0.09 : 0.06) * vol, now);
+    noiseG.gain.exponentialRampToValueAtTime(0.0001, now + dur * 0.35);
+    noise.connect(noiseF);
+    noiseF.connect(noiseG);
+    noiseG.connect(audioCtx.destination);
+    noise.start(now);
+    noise.stop(now + dur * 0.4);
+  }
+
+  thump.start(now); thump.stop(now + dur + 0.01);
+  tick.start(now); tick.stop(now + dur * 0.55);
+
+  if (Math.random() < 0.3) playSample("hit", isCrit ? 0.32 : 0.22);
+}
+
+function playSfxKill(streak) {
   ensureAudio();
   if (!audioCtx) return;
   if (activeSfxCount >= MAX_CONCURRENT_SFX) return;
   activeSfxCount++;
-  setTimeout(function() { activeSfxCount = Math.max(0, activeSfxCount - 1); }, 80);
+  setTimeout(function() { activeSfxCount = Math.max(0, activeSfxCount - 1); }, 140);
   const now = audioCtx.currentTime;
   const vol = (camSettings.soundVolume || 1) * (camSettings.effectVolume ?? 1);
-  // Retro crunch hit
-  const osc = audioCtx.createOscillator();
-  osc.type = "square";
-  osc.frequency.setValueAtTime(freq * 1.5, now);
-  osc.frequency.exponentialRampToValueAtTime(freq * 0.2, now + 0.05);
-  const noise = audioCtx.createOscillator();
-  noise.type = "sawtooth";
-  noise.frequency.setValueAtTime(100, now);
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0.06 * vol, now);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
-  const noiseG = audioCtx.createGain();
-  noiseG.gain.setValueAtTime(0.04 * vol, now);
-  noiseG.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
-  osc.connect(gain); gain.connect(audioCtx.destination);
-  noise.connect(noiseG); noiseG.connect(audioCtx.destination);
-  osc.start(now); osc.stop(now + 0.08);
-  noise.start(now); noise.stop(now + 0.05);
+  const s = Math.min(12, streak || 1);
+  const popFreq = 140 + s * 18 + Math.random() * 30;
+  const chimeFreq = 520 + s * 35 + Math.random() * 40;
+
+  const pop = audioCtx.createOscillator();
+  pop.type = "sine";
+  pop.frequency.setValueAtTime(popFreq * 1.4, now);
+  pop.frequency.exponentialRampToValueAtTime(Math.max(55, popFreq * 0.4), now + 0.09);
+  const popG = audioCtx.createGain();
+  popG.gain.setValueAtTime(0.14 * vol, now);
+  popG.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+  pop.connect(popG);
+  popG.connect(audioCtx.destination);
+
+  const chime = audioCtx.createOscillator();
+  chime.type = "triangle";
+  chime.frequency.setValueAtTime(chimeFreq, now + 0.02);
+  const chimeG = audioCtx.createGain();
+  chimeG.gain.setValueAtTime(0.0001, now + 0.02);
+  chimeG.gain.linearRampToValueAtTime(0.08 * vol, now + 0.035);
+  chimeG.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+  chime.connect(chimeG);
+  chimeG.connect(audioCtx.destination);
+
+  pop.start(now); pop.stop(now + 0.12);
+  chime.start(now + 0.02); chime.stop(now + 0.16);
+
+  if (s >= 5) {
+    const sparkle = audioCtx.createOscillator();
+    sparkle.type = "sine";
+    sparkle.frequency.setValueAtTime(chimeFreq * 1.5, now + 0.04);
+    const spG = audioCtx.createGain();
+    spG.gain.setValueAtTime(0.04 * vol, now + 0.04);
+    spG.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+    sparkle.connect(spG);
+    spG.connect(audioCtx.destination);
+    sparkle.start(now + 0.04); sparkle.stop(now + 0.14);
+  }
+
+  if (Math.random() < 0.35) playSample("kill", 0.38);
+}
+
+function ensureHordeTension() {
+  ensureAudio();
+  if (!audioCtx || hordeTensionOsc) return;
+  hordeTensionGain = audioCtx.createGain();
+  hordeTensionGain.gain.value = 0;
+  hordeTensionOsc = audioCtx.createOscillator();
+  hordeTensionOsc.type = "sine";
+  hordeTensionOsc.frequency.value = 38;
+  hordeTensionOsc.connect(hordeTensionGain);
+  hordeTensionGain.connect(audioCtx.destination);
+  hordeTensionOsc.start();
+}
+
+function updateHordeTension(nearCount) {
+  if (!audioCtx || (camSettings.soundVolume || 0) <= 0) return;
+  ensureHordeTension();
+  if (!hordeTensionGain) return;
+  const baseVol = (camSettings.soundVolume || 1) * (camSettings.effectVolume ?? 1);
+  const tension = Math.max(0, Math.min(1, (nearCount - 7) / 14));
+  const target = tension * 0.028 * baseVol;
+  hordeTensionGain.gain.setTargetAtTime(target, audioCtx.currentTime, 0.35);
 }
 
 function playSfxLevel() {
@@ -5156,7 +5277,7 @@ function updateRagdoll(dt) {
       const damage = stats.damage * (crit ? (stats.critMult || 1.9) : 1);
       sectorDamageEnemies(origin, aimDir, MELEE_RANGE, MELEE_HALF_ANGLE, damage, crit);
       spawnSlash(player.mesh.position.clone().add(new THREE.Vector3(aimDir.x * 1.2, 0.9, aimDir.z * 1.2)), aimDir, crit ? 0xffe48a : 0xffd700);
-      playSfxHit(crit ? 420 : 320);
+      playSfxHit(crit ? 420 : 320, { crit: crit });
     }
   } else {
     ragdoll.armLSwing = Math.sin(movePhase) * 0.4 * Math.min(speed * 0.15, 1);
@@ -11753,8 +11874,8 @@ function killEnemy(enemy) {
   spawnDustCloud(enemy.mesh.position, enemy.tier === "boss" ? 0xff4444 : 0xaa9977, enemy.isBoss ? 8 : 3);
   spawnKillCubes(enemy.mesh.position, enemy.tier === "boss" ? 0xff3344 : enemy.tier === "unique" ? 0xff9ef4 : 0xff8866, enemy.isBoss ? 8 : 5);
   spawnFlash(enemy.mesh.position, enemy.tier === "unique" ? 0xff9ef4 : 0xff6a6a, 0.9, 0.22);
-  triggerHitFreeze(enemy.isBoss ? 0.07 : 0.028);
-  if (!playSample("kill", 0.7) && typeof playSfx === "function") playSfx(180 + Math.random() * 90, 0.07, 0.45);
+  triggerHitFreeze(enemy.isBoss ? 0.08 : 0.035);
+  playSfxKill(state.killCombo || 1);
   if (enemy.isBoss) {
     triggerBigShake();
     spawnBurst(enemy.mesh.position, 0xff2244, 10);
@@ -11953,17 +12074,18 @@ function applyDamageEnemy(e, damage, dir, isCrit = false, damageType = null) {
   }
 
   if (!skipHitEffect) {
-    e.hitPunch = 0.16;
-    if (typeof triggerCameraShake === "function") triggerCameraShake(0.24);
-    if (typeof triggerHitFreeze === "function") triggerHitFreeze(0.022);
+    e.hitPunch = isCrit ? 0.32 : 0.24;
+    if (typeof triggerCameraShake === "function") triggerCameraShake(isCrit ? 0.38 : 0.3);
+    if (typeof triggerHitFreeze === "function") triggerHitFreeze(isCrit ? 0.04 : 0.028);
+    const heavy = d >= (stats.damage || 10) * 1.4;
+    playSfxHit(isCrit ? 400 : heavy ? 300 : 260, { crit: isCrit, heavy: heavy });
   }
   const dmgText = isCrit ? "CRIT! " + Math.floor(d) : "" + Math.floor(d);
   spawnDamageText(e.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)), d, isCrit, dmgText);
   if (isCrit && !skipHitEffect) {
     spawnBurst(e.mesh.position, 0xffdd44, 3);
-    if (typeof triggerCameraShake === "function") triggerCameraShake(0.48);
-    if (typeof triggerHitFreeze === "function") triggerHitFreeze(0.055);
-    playSfx(720, 0.12, 0.5);
+    if (typeof triggerCameraShake === "function") triggerCameraShake(0.52);
+    if (typeof triggerHitFreeze === "function") triggerHitFreeze(0.065);
   }
   if (Math.random() < 0.02 && (e.speechBubbleUntil || 0) <= state.time) {
     const lines = e.isBoss ? ENEMY_SPEECH_BOSS : ENEMY_SPEECH_LINES;
@@ -17579,6 +17701,19 @@ function animate() {
       if (state.magnetBurstCd != null) state.magnetBurstCd = Math.max(0, state.magnetBurstCd - dt);
       if (state.endlessMode) state.endlessTime += dt;
       if (state.time - (state.lastKillTime || 0) > 2.5) state.killCombo = 0;
+      if (player.mesh && _perfFrame % 4 === 0) {
+        let nearEnemies = 0;
+        const px = player.mesh.position.x;
+        const pz = player.mesh.position.z;
+        for (let hi = 0; hi < enemies.length; hi++) {
+          const he = enemies[hi];
+          if (!he || he._dead || he.hp <= 0) continue;
+          const dx = he.mesh.position.x - px;
+          const dz = he.mesh.position.z - pz;
+          if (dx * dx + dz * dz < 576) nearEnemies++;
+        }
+        updateHordeTension(nearEnemies);
+      }
       if (state.reloadTimer > 0) {
         state.reloadTimer -= dt;
         if (state.reloadTimer <= 0) state.reloadAmmo = state.reloadMax || 4;

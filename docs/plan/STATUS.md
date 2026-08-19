@@ -6,6 +6,7 @@ Durum degerleri: `bekliyor` | `deVAM` (sahip yaz) | `blokeli (sebep)` | `BITTI (
 
 ## Su An (en guncel ozet)
 
+- Hit juice pass: procedural `playSfxHit` (thump+tick+noise), `playSfxKill` chime, horde tension drone, stronger hitPunch/shake/freeze.
 - 19 Agu cartoon pass push: yaratik outline (12 yakin), sky dome + bulut, dev agaclar, cimen/bush/efekt, spawn 24-42m.
 - ESC/cikis: `releasePointerLock`, menu donusunde sim durur, pointer menu'de kilitlenmez.
 - perf-probe `--fast --label=cartoon-pass`: 150+skill **573** draw, 133fps. **BENCHMARK PASS**.
@@ -135,6 +136,17 @@ C 2156/2690/1706/848/1652 (artan degil). Texture sayisi hala restart basina ~3-5
 Kabul kriterine gore durum: FPS hedefi (>=55 @150) onceki tam olcumde TUTMADI (44.8). Draw call hedefi (<=700) 150'de hala TUTMADI (1192) ama bos harita 715->238, 50 dusman 1365->621. Pixel ratio 0.5 duruyor.
 
 ## Seans Gunlugu (en yeni ustte)
+
+### 2026-08-19 - Hit SFX + Megabonk combat juice
+
+**Yapilan**
+- `playSfxHit`: layered Web Audio (bass thump 80-120Hz + tick + noise burst), pitch variance, crit/heavy louder; Kenney sample mix at low vol.
+- `playSfxKill`: pop + rising chime on kill streak; replaces flat kill sample.
+- Hit feel: hitPunch 0.24/0.32 crit, camera shake 0.3/0.52, hit-freeze 0.035 kill / 0.065 crit.
+- Horde tension: procedural 38Hz drone fades in when 8+ enemies within 24m.
+- `applyDamageEnemy` now triggers hit SFX on all non-skill hits.
+
+**Test:** `node --check app.js` 0.
 
 ### 2026-08-19 - Cartoon pass: outline, sky, map, ESC fix
 
