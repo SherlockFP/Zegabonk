@@ -77,6 +77,13 @@ let audioCtx = null;
 let activeSfxCount = 0;
 const MAX_CONCURRENT_SFX = 10;
 let pointerLocked = false;
+function releasePointerLock() {
+  pointerLocked = false;
+  try {
+    if (document.pointerLockElement) document.exitPointerLock();
+  } catch (e) {}
+  if (canvas) canvas.style.cursor = "default";
+}
 let skipMouseFramesAfterLock = 0;
 let bgMusicPlaying = false;
 let bgMusicAudio = null;
@@ -431,6 +438,37 @@ function addInstancedForest(positions) {
   oakInst.count = oakN; oakInst.instanceMatrix.needsUpdate = true;
   mapGroup.add(trunkInst, pine1Inst, pine2Inst, oakInst);
 }
+function addGiantTrees() {
+  if (!mapGroup || !_chunkTrunkMat || !_chunkLeafMats) return;
+  const spots = [
+    { x: 140, z: 210, s: 2.8 }, { x: -190, z: 160, s: 3.1 }, { x: 280, z: -120, s: 2.6 },
+    { x: -320, z: -80, s: 3.4 }, { x: 60, z: -260, s: 2.9 }, { x: -80, z: 300, s: 3.0 },
+    { x: 350, z: 90, s: 2.7 }, { x: -240, z: -220, s: 3.2 },
+  ];
+  const trunkGeo = new THREE.BoxGeometry(0.9, 1, 0.9);
+  const canopyGeo = new THREE.BoxGeometry(5.5, 4.2, 5.5);
+  const canopy2Geo = new THREE.BoxGeometry(4.2, 3.2, 4.2);
+  const trunkInst = addInstancedMesh(trunkGeo, _chunkTrunkMat, spots.length);
+  const canopyInst = addInstancedMesh(canopyGeo, _chunkLeafMats[2], spots.length);
+  const canopy2Inst = addInstancedMesh(canopy2Geo, _chunkLeafMats[0], spots.length);
+  for (let i = 0; i < spots.length; i++) {
+    const sp = spots[i];
+    if (colliderHits(sp.x, sp.z, 2.8 * sp.s)) continue;
+    const y = sampleTerrainHeight(sp.x, sp.z);
+    const th = 8.5 * sp.s;
+    setInstanceAt(trunkInst, i, sp.x, y + th * 0.5, sp.z, 0, sp.s, th, sp.s);
+    setInstanceAt(canopyInst, i, sp.x, y + th + 2.8 * sp.s, sp.z, Math.random() * 0.4, sp.s, sp.s, sp.s);
+    setInstanceAt(canopy2Inst, i, sp.x, y + th + 5.6 * sp.s, sp.z, Math.random() * 0.3, sp.s * 0.82, sp.s * 0.82, sp.s * 0.82);
+    colliders.push({ x: sp.x, z: sp.z, r: 2.4 * sp.s });
+  }
+  trunkInst.count = spots.length;
+  canopyInst.count = spots.length;
+  canopy2Inst.count = spots.length;
+  trunkInst.instanceMatrix.needsUpdate = true;
+  canopyInst.instanceMatrix.needsUpdate = true;
+  canopy2Inst.instanceMatrix.needsUpdate = true;
+  mapGroup.add(trunkInst, canopyInst, canopy2Inst);
+}
 function ensureWorldDecorMats() {
   if (!worldDecorRockMats) {
     worldDecorRockMats = [
@@ -650,8 +688,8 @@ function applyEnemyLod(e, dist) {
       for (const k in parts) if (parts[k]) parts[k].visible = !far;
     }
   }
-  if (typeof setVoxelOutlineVisible === "function") setVoxelOutlineVisible(root, !far && (e.tier === "rare" || e.tier === "unique"));
-  if (e.nameLabel) e.nameLabel.visible = !far && (e.tier === "rare" || e.tier === "unique");
+  if (typeof setVoxelOutlineVisible === "function") setVoxelOutlineVisible(root, !far);
+  if (e.nameLabel) e.nameLabel.visible = !far && e.tier !== "normal";
   if (root.userData.blob) root.userData.blob.visible = false;
 }
 function pulseBossTelegraph(e) {
@@ -1162,6 +1200,7 @@ let randomTeleportPortals = [];
 let hardcorePortalData = null;
 let defaultSkyTex = null;
 let cartoonSky = null;
+let skyDome = null;
 let defaultFogColor = 0x88c8ee;
 let defaultFogDensity = 0.0055;
 const MAX_CHAPTER = 3;
@@ -2635,12 +2674,22 @@ function init() {
       skyCtx.fillStyle = "rgba(255,255,255," + a + ")";
       skyCtx.beginPath(); skyCtx.arc(x, y, r, 0, Math.PI * 2); skyCtx.fill();
     }
+    for (let c = 0; c < 14; c++) {
+      const cx = Math.random() * 256, cy = 30 + Math.random() * 70;
+      skyCtx.fillStyle = "rgba(255,255,255," + (0.35 + Math.random() * 0.35) + ")";
+      skyCtx.beginPath();
+      skyCtx.arc(cx, cy, 8 + Math.random() * 10, 0, Math.PI * 2);
+      skyCtx.arc(cx + 10, cy + 2, 6 + Math.random() * 8, 0, Math.PI * 2);
+      skyCtx.arc(cx - 8, cy + 1, 5 + Math.random() * 7, 0, Math.PI * 2);
+      skyCtx.fill();
+    }
     const skyTex = new THREE.CanvasTexture(skyCanvas);
     skyTex.magFilter = THREE.LinearFilter;
     skyTex.minFilter = THREE.LinearMipmapLinearFilter;
     scene.background = skyTex;
     defaultSkyTex = skyTex;
     cartoonSky = skyTex;
+    buildCartoonSkyDome(skyTex);
 
     const hemi = new THREE.HemisphereLight(0xe4f4ff, 0x6aaa6a, 1.75);
     scene.add(hemi);
@@ -2698,16 +2747,33 @@ function setupMenuDiorama() {
   dioramaOn = true;
   if (player.mesh) player.mesh.position.set(0, 0, 0);
 }
+function buildCartoonSkyDome(tex) {
+  if (!tex || !scene) return;
+  if (skyDome) {
+    scene.remove(skyDome);
+    if (skyDome.geometry) skyDome.geometry.dispose();
+    if (skyDome.material) skyDome.material.dispose();
+    skyDome = null;
+  }
+  const domeGeo = new THREE.SphereGeometry(480, 36, 18);
+  const domeMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false });
+  skyDome = new THREE.Mesh(domeGeo, domeMat);
+  skyDome.renderOrder = -1000;
+  scene.add(skyDome);
+  scene.background = tex;
+}
 function hideMenuDiorama() {
   if (dioramaGroup && scene) scene.remove(dioramaGroup);
   dioramaGroup = null;
   dioramaOn = false;
 }
 function returnToMainMenu() {
+  releasePointerLock();
   running = false;
   paused = false;
   leveling = false;
   gameOver = false;
+  chestPanelOpen = false;
   stopBgMusic();
   stopMenuMusic();
   if (typeof clearFloatingCounters === "function") clearFloatingCounters();
@@ -2717,6 +2783,10 @@ function returnToMainMenu() {
   if (gameOverPanel) gameOverPanel.classList.add("hidden");
   if (bossBarWrap) bossBarWrap.classList.add("hidden");
   if (skillBarEl) skillBarEl.classList.add("hidden");
+  const chestPanel = document.getElementById("chestPanel");
+  if (chestPanel) chestPanel.classList.add("hidden");
+  const settingsMenu = document.getElementById("settingsMenu");
+  if (settingsMenu) settingsMenu.classList.add("hidden");
   const pauseEl = document.getElementById("pauseMenu");
   if (pauseEl) pauseEl.classList.add("hidden");
   const lowHp = document.getElementById("lowHpOverlay");
@@ -2735,8 +2805,15 @@ function returnToMainMenu() {
     player.mesh.position.set(0, 0, 0);
     player.mesh.rotation.set(0, 0, 0);
   }
-  if (typeof cartoonSky !== "undefined" && cartoonSky) scene.background = cartoonSky;
-  else if (typeof defaultSkyTex !== "undefined" && defaultSkyTex) scene.background = defaultSkyTex;
+  if (typeof cartoonSky !== "undefined" && cartoonSky) {
+    scene.background = cartoonSky;
+    if (skyDome && skyDome.material) skyDome.material.map = cartoonSky;
+  } else if (typeof defaultSkyTex !== "undefined" && defaultSkyTex) scene.background = defaultSkyTex;
+  if (document.body) document.body.classList.remove("death-grayscale");
+  const nightOverlay = document.getElementById("dayNightOverlay");
+  if (nightOverlay) nightOverlay.style.opacity = "0";
+  if (renderer) renderer.toneMappingExposure = 1.95;
+  if (scene && scene.fog) scene.fog.color.setHex(defaultFogColor);
   if (startScreen) startScreen.classList.remove("hidden");
   const lobbyScreen = document.getElementById("lobbyScreen");
   if (lobbyScreen) lobbyScreen.classList.add("hidden");
@@ -3468,6 +3545,7 @@ function buildWorldClassic() {
     treePos.push({ x, z });
   }
   addInstancedForest(treePos);
+  addGiantTrees();
   worldDecorData.length = 0;
   worldDecorInstanced = false;
   for (let i = 0; i < 620; i++) {
@@ -3479,7 +3557,7 @@ function buildWorldClassic() {
     if (s > 0.8) colliders.push({ x, z, r: 0.5 * s });
   }
   const flowerColors = [0xff6688, 0xffaa44, 0xdd66ff, 0x66ccff, 0xffff66];
-  for (let i = 0; i < 780; i++) {
+  for (let i = 0; i < 920; i++) {
     const x = (Math.random() - 0.5) * WORLD_HALF * 2, z = (Math.random() - 0.5) * WORLD_HALF * 2;
     if (Math.hypot(x, z) < 12 || Math.hypot(x, z) > WORLD_HALF - 2) continue;
     const s = 0.45 + Math.random() * 0.75;
@@ -4813,25 +4891,26 @@ function addLamppostsAndWells() {
 }
 
 function addGrassField() {
-  const count = 2200;
-  const geo = new THREE.PlaneGeometry(0.3, 0.9);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x3db84d, emissive: 0x1a5a2a, emissiveIntensity: 0.1, roughness: 0.88, side: THREE.DoubleSide });
+  const count = 2600;
+  const geo = new THREE.PlaneGeometry(0.28, 0.85);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x46c85a, emissive: 0x1a6a2a, emissiveIntensity: 0.14, roughness: 0.86, side: THREE.DoubleSide });
   const inst = new THREE.InstancedMesh(geo, mat, count);
   const dummy = new THREE.Object3D();
   for (let i = 0; i < count; i++) {
     let x = (Math.random() - 0.5) * WORLD_HALF * 2, z = (Math.random() - 0.5) * WORLD_HALF * 2;
-    if (Math.hypot(x, z) > WORLD_HALF - 4) { x *= 0.8; z *= 0.8; }
-    dummy.position.set(x, getGroundHeight(x, z) + 0.02, z);
+    if (Math.hypot(x, z) < 16 || Math.hypot(x, z) > WORLD_HALF - 4) { x *= 0.85; z *= 0.85; }
+    dummy.position.set(x, getGroundHeight(x, z) + 0.03, z);
     dummy.rotation.y = Math.random() * Math.PI * 2;
-    const s = 0.5 + Math.random() * 0.9;
-    dummy.scale.set(s, s * (0.7 + Math.random() * 0.5), s);
+    dummy.rotation.x = (Math.random() - 0.5) * 0.25;
+    const s = 0.55 + Math.random() * 1.0;
+    dummy.scale.set(s, s * (0.75 + Math.random() * 0.55), s);
     dummy.updateMatrix(); inst.setMatrixAt(i, dummy.matrix);
   }
   inst.instanceMatrix.needsUpdate = true; mapGroup.add(inst); grassField = inst;
 }
 
 function addAmbientParticles() {
-  const pCount = 60;
+  const pCount = 90;
   const pGeo = new THREE.SphereGeometry(0.06, 3, 3);
   const pMat = new THREE.MeshBasicMaterial({ color: 0xffffcc, transparent: true, opacity: 0.35 });
   for (let i = 0; i < pCount; i++) {
@@ -5690,12 +5769,13 @@ document.addEventListener("keyup", (e) => {
   document.addEventListener("contextmenu", (e) => e.preventDefault());
   canvas.addEventListener("mousedown", () => {
     canvas.focus();
-    if (!pointerLocked) canvas.requestPointerLock();
+    if (running && !paused && !gameOver && !leveling && !pointerLocked) canvas.requestPointerLock();
   });
   document.addEventListener("pointerlockchange", () => {
     const nowLocked = document.pointerLockElement === canvas;
     if (nowLocked && !pointerLocked) skipMouseFramesAfterLock = 5;
     pointerLocked = nowLocked;
+    if (canvas) canvas.style.cursor = nowLocked ? "none" : "default";
     if (nowLocked && running && !bgMusicPlaying && typeof startBgMusic === "function") startBgMusic();
   });
 
@@ -5818,12 +5898,12 @@ function handleEscape() {
     openPauseMenu();
     return;
   }
-  if (pointerLocked) document.exitPointerLock();
+  if (pointerLocked) releasePointerLock();
 }
 
 function openPauseMenu() {
   paused = true;
-  if (pointerLocked) document.exitPointerLock();
+  releasePointerLock();
   document.getElementById("pauseMenu").classList.remove("hidden");
 }
 
@@ -5840,7 +5920,7 @@ function closePauseMenu() {
 
 function openSkillTreePanel() {
   paused = true;
-  if (pointerLocked) document.exitPointerLock();
+  if (pointerLocked) releasePointerLock();
   skillTreeZoom = 1;
   skillTreePanX = 0;
   skillTreePanY = 0;
@@ -6118,10 +6198,7 @@ function bindPauseMenu() {
     document.getElementById("pauseMenu").classList.add("hidden");
     document.getElementById("settingsMenu").classList.remove("hidden");
   });
-  if (quitBtn) quitBtn.addEventListener("click", () => {
-    closePauseMenu();
-    returnToMainMenu();
-  });
+  if (quitBtn) quitBtn.addEventListener("click", () => returnToMainMenu());
 }
 
 function bindSettingsMenu() {
@@ -8201,7 +8278,7 @@ function spawnEnemy(angleOverride, forAttackRound) {
   }
 
   const a = angleOverride != null ? angleOverride : Math.random() * Math.PI * 2;
-  const r = (14 + Math.random() * 14) * 0.95;
+  const r = 24 + Math.random() * 18;
   const sBound = (state.currentMapId === "island" ? ISLAND_RADIUS : (state.currentMapId === "temple1" || state.currentMapId === "temple2" ? TEMPLE_HALF : WORLD_HALF)) - 2;
   const x = clamp(player.mesh.position.x + Math.cos(a) * r, -sBound, sBound);
   const z = clamp(player.mesh.position.z + Math.sin(a) * r, -sBound, sBound);
@@ -15750,6 +15827,14 @@ function openShrineSkillPanel(shrine) {
 
 function updateCamera(dt) {
   if (!player.mesh) return;
+  if (!running && dioramaOn) {
+    const t = clock.elapsedTime;
+    camera.position.set(Math.sin(t * 0.07) * 0.6, 5.4, 10.5 + Math.cos(t * 0.05) * 0.4);
+    camera.lookAt(0, 1.15, 0);
+    if (camera.fov !== camSettings.fov) { camera.fov = camSettings.fov; camera.updateProjectionMatrix(); }
+    return;
+  }
+  if (!running) return;
   const playerPos = player.mesh.position;
   const angleMode = camSettings.cameraAngle || "default";
   const isometric = angleMode === "isometric";
@@ -17627,6 +17712,7 @@ function animate() {
     if (!frameBehind && _perfFrame % 14 === 0) updateWorldDecors();
     updateCamera(dt);
     if (!frameBehind) { updateDayNight(dt); updateChaos(dt); }
+    if (running && player.mesh && skyDome) skyDome.position.copy(player.mesh.position);
     _perfFrame++;
     const hudInterval = frameBehind ? 8 : 5;
     if (_perfFrame % hudInterval === 0) {

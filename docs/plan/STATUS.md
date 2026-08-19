@@ -6,10 +6,9 @@ Durum degerleri: `bekliyor` | `deVAM` (sahip yaz) | `blokeli (sebep)` | `BITTI (
 
 ## Su An (en guncel ozet)
 
-- 19 Agu perf fix push: `ENEMY_LOD_NEAR_MAX` 12, HP bar yalniz hasar/boss, outline+isim yalniz rare/unique yakin, trash blob kapali.
-- Draw-call: uzak `__lod` 1 mesh; 12 yakin tam voxel. HP: boss veya hasar almis + 10m.
-- perf-probe `--fast --label=lod-fix`: 150+skill **548** draw (hedef 700), 79fps. 50 dusman 355 (hedef 520). **BENCHMARK PASS**.
-- Landmark mill/tower duruyor. Boss `pulseBossTelegraph`. Pixel ratio min(dpr, 1.25). Coop/TD yok.
+- 19 Agu cartoon pass push: yaratik outline (12 yakin), sky dome + bulut, dev agaclar, cimen/bush/efekt, spawn 24-42m.
+- ESC/cikis: `releasePointerLock`, menu donusunde sim durur, pointer menu'de kilitlenmez.
+- perf-probe `--fast --label=cartoon-pass`: 150+skill **573** draw, 133fps. **BENCHMARK PASS**.
 
 ## Bu seans plani (oncelik, sonra uygulandi)
 
@@ -136,6 +135,19 @@ C 2156/2690/1706/848/1652 (artan degil). Texture sayisi hala restart basina ~3-5
 Kabul kriterine gore durum: FPS hedefi (>=55 @150) onceki tam olcumde TUTMADI (44.8). Draw call hedefi (<=700) 150'de hala TUTMADI (1192) ama bos harita 715->238, 50 dusman 1365->621. Pixel ratio 0.5 duruyor.
 
 ## Seans Gunlugu (en yeni ustte)
+
+### 2026-08-19 - Cartoon pass: outline, sky, map, ESC fix
+
+**Yapilan**
+- Yaratik outline: 12 yakin tam voxel hepsinde cartoon hull; magic+ isim etiketi.
+- Sky: `buildCartoonSkyDome` (480m sphere, bulutlu canvas), oyuncu ile takip eder.
+- Harita: `addGiantTrees` (8 dev agac), cimen 2600, ambient parcacik 90, bush/cicek +140.
+- Spawn: 24-42m halka (once 14-28m).
+- ESC/cikis: `releasePointerLock`, quit dogrudan `returnToMainMenu`, menu kamera orbit, pointer menu'de acilmaz.
+
+**Olcum (`--fast --label=cartoon-pass`)**: empty 190, 50=358, 150+skill **573** / 133fps. PASS.
+
+**Push:** bekliyor -> commit bu seans
 
 ### 2026-08-19 - Draw call LOD trim (BENCHMARK PASS)
 
