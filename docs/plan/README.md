@@ -8,6 +8,7 @@ Bu klasor projenin tek dogruluk kaynagidir. Buradaki dosyalar uzerinde birden fa
 2. **PLAN.md** - Ana plan: fazlar, isler, kabul kriterleri, bagimliliklar.
 3. **ART-DIRECTION.md** - Voxel gorsel dil, yaratik/boss model brief'leri. (Sadece gorsel is yapiyorsan)
 4. **TEST-PLAYBOOK.md** - Playtest, performans olcumu, map denetimi, coop sync testleri. (Is bitirmeden once ilgili testi kos)
+5. **BENCHMARK.md** - Draw call / FPS pass-fail (150 dusman <=700, >=55 FPS).
 
 ## Ajan calisma kurallari
 

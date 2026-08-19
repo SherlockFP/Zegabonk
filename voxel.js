@@ -267,6 +267,13 @@
       });
     }
 
+    var lodPivot = [(minX + maxX + 1) * 0.5, minY, (minZ + maxZ + 1) * 0.5];
+    var allVox = [];
+    for (p = 0; p < parsed.length; p++) {
+      voxels = parsed[p].voxels;
+      for (k = 0; k < voxels.length; k++) allVox.push(voxels[k]);
+    }
+
     return {
       id: id,
       scale: scale,
@@ -279,7 +286,10 @@
       depth: depth,
       radius: Math.max(width, depth) * 0.5,
       outlineThickness: thickness,
-      parts: bakedParts
+      parts: bakedParts,
+      lodPivot: lodPivot,
+      lodOpaque: buildGeom(allVox, globalOcc, palette, def, false, scale, lodPivot, 0),
+      lodEmissive: buildGeom(allVox, globalOcc, palette, def, true, scale, lodPivot, 0)
     };
   }
 
@@ -337,6 +347,23 @@
       root.add(wrap);
       partMap[p.name] = wrap;
     }
+    if (opts.lod && (baked.lodOpaque || baked.lodEmissive)) {
+      var lodWrap = new T.Group();
+      lodWrap.name = "__lod";
+      lodWrap.visible = false;
+      lodWrap.position.set(baked.lodPivot[0] * baked.scale, baked.lodPivot[1] * baked.scale, baked.lodPivot[2] * baked.scale);
+      var lodSrc = baked.lodOpaque || baked.lodEmissive;
+      var lodMesh = new T.Mesh(lodSrc, baked.lodOpaque ? mats.opaque : mats.emissive);
+      lodMesh.name = "__lod_mesh";
+      lodWrap.add(lodMesh);
+      if (opts.center !== false) {
+        lodWrap.position.x -= cx;
+        lodWrap.position.y -= dy;
+        lodWrap.position.z -= cz;
+      }
+      root.add(lodWrap);
+      root.userData.lod = lodWrap;
+    }
     if (opts.fitHeight && baked.height > 0) {
       root.scale.setScalar(opts.fitHeight / baked.height);
     }
@@ -381,6 +408,8 @@
         dump(baked.parts[i].emissive);
         dump(baked.parts[i].outline);
       }
+      dump(baked.lodOpaque);
+      dump(baked.lodEmissive);
     }
     if (id) {
       if (geoCache[id]) { dumpOne(geoCache[id]); delete geoCache[id]; }

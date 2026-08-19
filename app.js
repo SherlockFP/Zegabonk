@@ -225,9 +225,10 @@ function pickEnemyVoxelId(isBoss, beastType, opts) {
   }
   return (beastType && hasVoxel(beastType)) ? beastType : null;
 }
-function attachVoxelModel(g, id, height, radius, scaleVar) {
+function attachVoxelModel(g, id, height, radius, scaleVar, extra) {
   if (!hasVoxel(id)) return false;
-  const built = buildVoxelModel(id, { outline: true });
+  extra = extra || {};
+  const built = buildVoxelModel(id, { outline: extra.outline !== false, lod: extra.lod === true });
   const info = built.userData.voxelInfo || {};
   const sH = height / Math.max(info.height, 0.01);
   const sR = (radius * 2) / Math.max(info.width, 0.01);
@@ -237,6 +238,7 @@ function attachVoxelModel(g, id, height, radius, scaleVar) {
   g.userData.parts = built.userData.parts;
   g.userData.anim = built.userData.anim;
   g.userData.voxelInfo = info;
+  g.userData.lod = built.userData.lod || null;
   return true;
 }
 function isVoxelSharedMesh(c) {
@@ -281,6 +283,7 @@ function attachBlobShadow(group, radius) {
   s.renderOrder = -1;
   group.add(s);
   group.userData.hasBlob = true;
+  group.userData.blob = s;
 }
 function addInstancedMesh(geo, mat, count) {
   const inst = new THREE.InstancedMesh(geo, mat, Math.max(1, count));
@@ -322,7 +325,7 @@ function addVoxelPropInstances(id, placements, fitHeight) {
   proto.updateMatrixWorld(true);
   const slots = [];
   proto.traverse(function (c) {
-    if (c.isMesh && c.geometry) slots.push({ geo: c.geometry, mat: c.material, local: c.matrixWorld.clone() });
+    if (c.isMesh && c.geometry && c.name !== "__lod_mesh") slots.push({ geo: c.geometry, mat: c.material, local: c.matrixWorld.clone() });
   });
   const parent = new THREE.Matrix4();
   const finalM = new THREE.Matrix4();
@@ -522,6 +525,10 @@ function updateVoxelCreatureAnim(e, dt) {
   } else if ((anim === "hover" || anim === "orbit") && parts.body) {
     parts.body.position.y = Math.sin(t * 2.1) * 0.07;
   }
+  if (e.telegraphLeft > 0) {
+    e.telegraphLeft = Math.max(0, e.telegraphLeft - dt);
+    return;
+  }
   const walk = Math.sin(t * 8) * 0.35;
   const walk2 = Math.cos(t * 8) * 0.35;
   if (anim === "biped" || anim === "quad" || !anim) {
@@ -553,12 +560,55 @@ function updateVoxelCreatureAnim(e, dt) {
     if (parts.wingR) parts.wingR.rotation.z = -Math.sin(t * 14) * 0.55;
   }
 }
+function resetEnemyLod(root) {
+  if (!root || !root.userData) return;
+  if (root.userData.lod) root.userData.lod.visible = false;
+  const parts = root.userData.parts;
+  if (parts) {
+    for (const k in parts) if (parts[k]) parts[k].visible = true;
+  }
+  if (root.userData.blob) root.userData.blob.visible = true;
+}
+function applyEnemyLod(e, dist) {
+  if (!e || !e.mesh || e.isBoss) return;
+  const far = !e._lodNear || dist > ENEMY_LOD_DIST * 2;
+  if (e._lodFar === far) return;
+  e._lodFar = far;
+  const root = e.mesh;
+  const lod = root.userData.lod;
+  const parts = root.userData.parts;
+  if (lod) {
+    lod.visible = far;
+    if (parts) {
+      for (const k in parts) if (parts[k]) parts[k].visible = !far;
+    }
+  }
+  if (typeof setVoxelOutlineVisible === "function") setVoxelOutlineVisible(root, !far && (e.tier === "unique" || e.tier === "rare"));
+  if (e.nameLabel) e.nameLabel.visible = !far && e.tier !== "normal";
+  if (root.userData.blob) root.userData.blob.visible = !far;
+}
+function pulseBossTelegraph(e) {
+  if (!e || !e.mesh) return;
+  e.telegraphLeft = 0.55;
+  const p = e.mesh.position;
+  if (typeof spawnFlash === "function") spawnFlash(p, 0xff425c, 1.35, 0.18);
+  const parts = e.mesh.userData && e.mesh.userData.parts;
+  if (parts) {
+    if (parts.armL) parts.armL.rotation.x = -1.15;
+    if (parts.armR) parts.armR.rotation.x = -1.15;
+    if (parts.jaw) parts.jaw.rotation.x = 0.7;
+    if (parts.wingL) parts.wingL.rotation.z = 0.85;
+    if (parts.wingR) parts.wingR.rotation.z = -0.85;
+  }
+}
 const ATTACK_ROUND_MAX_ENEMIES = 130;
 const ENEMY_DESPAWN_DISTANCE = 50;
 // Uzaktaki dusmanlar icin seyrek AI tick (P1.8)
 const ENEMY_FAR_DIST = 34;
 const ENEMY_FAR_TICK = 3;
-const HP_BAR_DRAW_DIST = 38;
+const HP_BAR_DRAW_DIST = 10;
+const ENEMY_LOD_DIST = 8;
+const ENEMY_LOD_NEAR_MAX = 16;
 const ATTACK_ROUND_START_TIME = 420;
 const ATTACK_ROUND_WAVE1_COUNT = 50;
 const ATTACK_ROUND_WAVE2_COUNT = 80;
@@ -3792,9 +3842,6 @@ function addCityZone() {
     const y = sampleTerrainHeight(x, z);
     posts.push({ x, y: y + 2, z, sx: 1, sy: 1, sz: 1 });
     bulbs.push({ x, y: y + 4.2, z, sx: 1, sy: 1, sz: 1 });
-    const light = new THREE.PointLight(0xffdd99, 0.5, 12);
-    light.position.set(x, y + 4.5, z);
-    mapGroup.add(light);
   }
   addInstancedPlacements(new THREE.CylinderGeometry(0.08, 0.12, 4, 6), lampMat, posts);
   addInstancedPlacements(new THREE.SphereGeometry(0.25, 8, 6), lampLightMat, bulbs);
@@ -3982,9 +4029,6 @@ function addCityZoneChunked(reportFn, onDone) {
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 6), lampLightMat);
       bulb.position.set(x, y + 4.2, z);
       mapGroup.add(bulb);
-      const light = new THREE.PointLight(0xffdd99, 0.5, 12);
-      light.position.set(x, y + 4.5, z);
-      mapGroup.add(light);
       lampIdx++;
     }
     if (reportFn) reportFn(87.5 + (lampIdx / 60) * 0.5, "Bolge");
@@ -4027,8 +4071,6 @@ function addBoundaryWalls() {
   for (const cx of [-half, half]) { for (const cz of [-half, half]) {
     const cy = getGroundHeight(cx, cz);
     pillars.push({ x: cx, y: cy + (wallH + 6) * 0.5, z: cz, sx: 1, sy: 1, sz: 1 });
-    const torch = new THREE.PointLight(0xff8844, 0.6, 20);
-    torch.position.set(cx, cy + wallH + 8, cz); mapGroup.add(torch);
   }}
   addInstancedPlacements(new THREE.CylinderGeometry(3.5, 4.5, wallH + 6, 8), topMat, pillars, { castShadow: true });
 }
@@ -4092,14 +4134,13 @@ function addVillages() {
       npcG.userData.isNpc = true; npcG.userData.npcType = npcTypes[ni % npcTypes.length]; npcG.userData.village = village.name;
       mapGroup.add(npcG); npcMeshes.push(npcG);
     }
-    const vLight = new THREE.PointLight(0xffaa44, 0.5, 22);
-    vLight.position.set(village.x, vy + 4, village.z); mapGroup.add(vLight);
   }
   addInstancedPlacements(new THREE.CircleGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.9 }), vGrounds, { fullRot: true });
   addInstancedPlacements(new THREE.BoxGeometry(4, 3, 4), houseMat, vWalls, { castShadow: true });
   addInstancedPlacements(new THREE.ConeGeometry(3.5, 2, 4), roofMat, vRoofs);
   addInstancedPlacements(new THREE.BoxGeometry(1, 2, 0.1), woodMat, vDoors);
   addInstancedPlacements(new THREE.CylinderGeometry(0.08, 0.1, 1.3, 4), woodMat, vFences);
+  addRegionLandmarks();
 }
 
 function addDifficultyAltars() {
@@ -4353,8 +4394,6 @@ function addShrines() {
     g.userData.cooldown = 0;
     g.userData.phase = si * 1.7;
     mapGroup.add(g); shrineGroups.push(g);
-    const light = new THREE.PointLight(0x66ff88, 0.5, SHRINE_RADIUS * 2);
-    light.position.set(sp.x, y + 2.5, sp.z); mapGroup.add(light);
   }
 }
 
@@ -4399,6 +4438,37 @@ function addDecorativeProps() {
   if (pineP.length) addVoxelPropInstances("tree_pine", pineP, 3.6);
 }
 
+function addRegionLandmarks() {
+  if (!mapGroup) return;
+  const mills = [];
+  for (let i = 0; i < VILLAGES.length; i++) {
+    const v = VILLAGES[i];
+    if (state.currentMapId === "island" && Math.hypot(v.x, v.z) >= ISLAND_RADIUS - 25) continue;
+    const mx = v.x + 22, mz = v.z + 8;
+    mills.push({ x: mx, y: getGroundHeight(mx, mz), z: mz, rotY: 0.35, scale: 1 });
+    colliders.push({ x: mx, z: mz, r: 3.2 });
+  }
+  const towers = [
+    { x: 220, z: 40 },
+    { x: -260, z: -140 }
+  ];
+  const towerP = [];
+  for (let i = 0; i < towers.length; i++) {
+    const t = towers[i];
+    if (state.currentMapId === "island" && Math.hypot(t.x, t.z) >= ISLAND_RADIUS - 25) continue;
+    towerP.push({ x: t.x, y: getGroundHeight(t.x, t.z), z: t.z, rotY: 0.15, scale: 1 });
+    colliders.push({ x: t.x, z: t.z, r: 4 });
+  }
+  let n = 0;
+  if (mills.length && hasVoxel("landmark_mill")) n += addVoxelPropInstances("landmark_mill", mills, 12);
+  if (towerP.length && hasVoxel("landmark_tower")) n += addVoxelPropInstances("landmark_tower", towerP, 16);
+  if (!n) {
+    addRegionBeacons();
+    n = 2;
+  }
+  state.landmarkCount = (mills.length || 0) + (towerP.length || 0) || n;
+}
+
 function addRegionBeacons() {
   if (!mapGroup) return;
   const spots = [
@@ -4416,6 +4486,7 @@ function addRegionBeacons() {
     tip.position.set(sp.x, y + 39, sp.z);
     mapGroup.add(tip);
     colliders.push({ x: sp.x, z: sp.z, r: 3.2 });
+    shaft.userData.isLandmark = true;
   }
 }
 
@@ -4433,8 +4504,6 @@ function addLamppostsAndWells() {
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffdd88 }));
       bulb.position.set(lp.x, y + 3.6, lp.z); mapGroup.add(bulb);
     }
-    const lamp = new THREE.PointLight(0xffdd88, 0.4, 12);
-    lamp.position.set(lp.x, y + 3.8, lp.z); mapGroup.add(lamp);
   }
   const torchMat = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.9 });
   const flameMat = new THREE.MeshBasicMaterial({ color: 0xff6622, transparent: true, opacity: 0.9 });
@@ -4446,13 +4515,11 @@ function addLamppostsAndWells() {
     pole.position.set(tp.x, y + 1.1, tp.z); mapGroup.add(pole);
     const flame = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6, 6), flameMat);
     flame.position.set(tp.x, y + 2.4, tp.z); mapGroup.add(flame);
-    const torchLight = new THREE.PointLight(0xff8844, 0.25, 8);
-    torchLight.position.set(tp.x, y + 2.3, tp.z); mapGroup.add(torchLight);
   }
 }
 
 function addGrassField() {
-  const count = 5000;
+  const count = 2200;
   const geo = new THREE.PlaneGeometry(0.3, 0.9);
   const mat = new THREE.MeshStandardMaterial({ color: 0x3db84d, emissive: 0x1a5a2a, emissiveIntensity: 0.1, roughness: 0.88, side: THREE.DoubleSide });
   const inst = new THREE.InstancedMesh(geo, mat, count);
@@ -4794,7 +4861,7 @@ function createFlyingEnemyInner() {
   const isVoidMoth = !isPhoenix && roll < 0.73;
   const g = new THREE.Group();
   const flyId = hasVoxel("flying") ? "flying" : (hasVoxel("crow") ? "crow" : null);
-  if (!(flyId && attachVoxelModel(g, flyId, 1.4, 0.7, 1))) {
+  if (!(flyId && attachVoxelModel(g, flyId, 1.4, 0.7, 1, { outline: false, lod: true }))) {
   let bodyColor, wingColor, mat, wingMat, eyeMat, beakColor;
   if (isPhoenix) {
     bodyColor = 0xcc3311;
@@ -4876,7 +4943,7 @@ function createShadowEnemy() {
 function createShadowEnemyInner() {
   const g = new THREE.Group();
   const shadowId = hasVoxel("shadow") ? "shadow" : (hasVoxel("wraith") ? "wraith" : null);
-  if (!(shadowId && attachVoxelModel(g, shadowId, 2.5, 0.6, 1))) {
+  if (!(shadowId && attachVoxelModel(g, shadowId, 2.5, 0.6, 1, { outline: false, lod: true }))) {
   const shadowMat = new THREE.MeshStandardMaterial({ color: 0x111118, emissive: 0x220033, emissiveIntensity: 0.6, roughness: 0.2, metalness: 0.3, transparent: true, opacity: 0.85 });
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0044 });
 
@@ -4957,6 +5024,7 @@ function acquireEnemyMesh(voxelId) {
   g.position.set(0, 0, 0);
   g.rotation.set(0, 0, 0);
   if (g.quaternion) g.quaternion.identity();
+  resetEnemyLod(g);
   return g;
 }
 function stashEnemyMesh(g, voxelId) {
@@ -4975,6 +5043,7 @@ function stashEnemyMesh(g, voxelId) {
   }
   if (g.parent) g.parent.remove(g);
   g.visible = false;
+  resetEnemyLod(g);
   bucket.push(g);
   enemyMeshPoolCount++;
   return true;
@@ -6481,7 +6550,7 @@ function createEnemyInner(tier, cfg, opts) {
     g.scale.setScalar(Math.min(sH, sR) * scaleVar);
   } else {
     g = new THREE.Group();
-    if (voxelId && attachVoxelModel(g, voxelId, cfg.height, cfg.radius, scaleVar)) {
+    if (voxelId && attachVoxelModel(g, voxelId, cfg.height, cfg.radius, scaleVar, { outline: isBoss || tier === "unique" || tier === "rare", lod: !isBoss })) {
       voxelUsed = true;
       if (!isBoss) {
         g.userData.poolKeep = g.children.length;
@@ -7513,11 +7582,15 @@ function createEnemyInner(tier, cfg, opts) {
   const hpBar = makeHpBar(false);
   hpBar.position.y = cfg.height * (isBoss ? 1.5 : 1.3);
   hpBar.scale.multiplyScalar(isBoss ? 1.35 : 1);
+  if (!isBoss) hpBar.visible = false;
   g.add(hpBar);
-  const nameLabel = makeNameLabel(name, isBoss ? "boss" : tier);
-  nameLabel.position.y = cfg.height * (isBoss ? 1.85 : 1.58);
-  nameLabel.scale.multiplyScalar(isBoss ? 1.2 : 1);
-  g.add(nameLabel);
+  let nameLabel = null;
+  if (isBoss || tier !== "normal") {
+    nameLabel = makeNameLabel(name, isBoss ? "boss" : tier);
+    nameLabel.position.y = cfg.height * (isBoss ? 1.85 : 1.58);
+    nameLabel.scale.multiplyScalar(isBoss ? 1.2 : 1);
+    g.add(nameLabel);
+  }
   const isRanged = tier === "magic" && Math.random() < 0.38;
   let castLabel = null;
   if (isRanged) {
@@ -7526,7 +7599,7 @@ function createEnemyInner(tier, cfg, opts) {
     g.add(castLabel);
   }
   if (isBoss) addEnemyZoneOverlay(g, 0xff4444, true);
-  attachBlobShadow(g, cfg.radius);
+  if (isBoss || tier === "unique" || tier === "rare") attachBlobShadow(g, cfg.radius);
 
   const plvl = state.level || 0;
   const levelScale = 1 + plvl * 0.075;
@@ -10320,7 +10393,7 @@ function spawnAbyssEnemy(pit, isBoss) {
   e.abyssPitRef = pit;
   e.xp *= ABYSS_XP_MULT;
   e.name = isBoss ? "Abyss Lord" : ABYSS_NAMES[Math.floor(Math.random() * ABYSS_NAMES.length)];
-  e.mesh.remove(e.nameLabel);
+  if (e.nameLabel) e.mesh.remove(e.nameLabel);
   e.nameLabel = makeNameLabel(e.name, "abyss");
   e.nameLabel.position.y = cfg.height * (isBoss ? 1.85 : 1.58);
   e.nameLabel.scale.multiplyScalar(isBoss ? 1.2 : 1);
@@ -11063,7 +11136,7 @@ function roundRect(ctx, x, y, w, h, r) {
 function spawnTelegraph(pos, radius, damage, delay, source, color) {
   if (effects.length >= MAX_EFFECTS) return;
   const teleColor = color || (source === "enemy" ? 0xff5f88 : 0xffb474);
-  const mesh = new THREE.Mesh(new THREE.RingGeometry(radius * 0.25, radius, 40), new THREE.MeshBasicMaterial({ color: teleColor, transparent: true, opacity: 0.42, side: THREE.DoubleSide }));
+  const mesh = new THREE.Mesh(new THREE.RingGeometry(radius * 0.25, radius, 16), new THREE.MeshBasicMaterial({ color: teleColor, transparent: true, opacity: 0.42, side: THREE.DoubleSide }));
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.copy(pos).setY(sampleTerrainHeight(pos.x, pos.z) + 0.09);
   scene.add(mesh);
@@ -12149,6 +12222,19 @@ function updateWaterSharks(dt) {
   }
 }
 
+function markEnemyLodSlots() {
+  const px = player.mesh.position.x, pz = player.mesh.position.z;
+  const list = [];
+  for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i];
+    if (!e || !e.mesh || e.isBoss) continue;
+    const dx = e.mesh.position.x - px, dz = e.mesh.position.z - pz;
+    list.push({ e, d: dx * dx + dz * dz });
+  }
+  list.sort(function (a, b) { return a.d - b.d; });
+  for (let i = 0; i < list.length; i++) list[i].e._lodNear = i < ENEMY_LOD_NEAR_MAX;
+}
+
 function updateEnemies(dt) {
   state.toxicPuddles = state.toxicPuddles || [];
   for (let p = state.toxicPuddles.length - 1; p >= 0; p--) {
@@ -12168,11 +12254,13 @@ function updateEnemies(dt) {
   const worldSlowmo = (state.slowmoUntil && state.time < state.slowmoUntil) ? 0.5 : 1;
   const playerPos = player.mesh.position;
   const aiTick = _perfFrame % ENEMY_FAR_TICK;
+  if ((_perfFrame & 3) === 0) markEnemyLodSlots();
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
     applyRimStats(e);
     if (e.isBoss) trySwapBossPhase2(e);
     const distToPlayer = e.mesh.position.distanceTo(playerPos);
+    applyEnemyLod(e, distToPlayer);
     // Uzaktaki siradan dusmanlar her karede degil, ENEMY_FAR_TICK karede bir islenir.
     let farSkip = 0;
     if (distToPlayer > ENEMY_FAR_DIST && !e.isBoss && e.spawnDelay <= 0) {
@@ -12484,6 +12572,7 @@ function updateEnemies(dt) {
         pos.x = clamp(pos.x, -WORLD_HALF + 4, WORLD_HALF - 4);
         pos.z = clamp(pos.z, -WORLD_HALF + 4, WORLD_HALF - 4);
         pos.y = sampleTerrainHeight(pos.x, pos.z) + 0.1;
+        pulseBossTelegraph(e);
         const ring = new THREE.Mesh(
           new THREE.RingGeometry(LIGHTNING_RADIUS * 0.3, LIGHTNING_RADIUS, 24),
           new THREE.MeshBasicMaterial({ color: 0x88ff88, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
@@ -12497,6 +12586,7 @@ function updateEnemies(dt) {
       if (e.specialCd <= 0) {
         e.specialCd = 4.5 + Math.random() * 1.8;
         const targetPos = player.mesh.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 4, 0, (Math.random() - 0.5) * 4));
+        pulseBossTelegraph(e);
         spawnTelegraph(targetPos, 5.7, 32 + state.difficultyStage * 3, 1.55, "enemy", 0x44aa44);
         if (Math.random() < 0.25 && enemies.length < getMaxEnemies() - 2) {
           spawnEnemy();
@@ -12509,6 +12599,7 @@ function updateEnemies(dt) {
       if (e.specialCd <= 0) {
         e.specialCd = 5.0 + Math.random() * 2.0;
         const targetPos = player.mesh.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 4, 0, (Math.random() - 0.5) * 4));
+        pulseBossTelegraph(e);
         spawnTelegraph(targetPos, 5.7, 28 + state.difficultyStage * 3, 1.6, "enemy", 0xff425c);
         if (Math.random() < 0.3 && enemies.length < getMaxEnemies() - 2) {
           spawnEnemy();
@@ -12565,12 +12656,9 @@ function updateEnemies(dt) {
     }
     // HP bari canvas'a ciziyor; uzaktakileri gizle, yakindakileri seyrek guncelle.
     if (e.hpBar) {
-      if (distToPlayer > HP_BAR_DRAW_DIST) {
-        if (e.hpBar.visible) e.hpBar.visible = false;
-      } else {
-        if (!e.hpBar.visible) e.hpBar.visible = true;
-        if ((i + _perfFrame) % 2 === 0) updateHpBar(e.hpBar, e.hp, e.maxHp);
-      }
+      const showHp = e.isBoss || ((e._lodNear || distToPlayer <= HP_BAR_DRAW_DIST) && e.hp < e.maxHp * 0.98);
+      if (e.hpBar.visible !== showHp) e.hpBar.visible = showHp;
+      if (showHp && (i + _perfFrame) % 2 === 0) updateHpBar(e.hpBar, e.hp, e.maxHp);
     }
   }
 }

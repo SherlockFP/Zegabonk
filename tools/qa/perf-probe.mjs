@@ -202,10 +202,42 @@ for (let i = 0; i < 5; i++) {
 report.leak = leak;
 report.errors = errors.slice(0, 40);
 
+const extras = await page.evaluate(() => ({
+  landmarkCount: (typeof state !== "undefined" && state && state.landmarkCount) || 0,
+  pulseBoss: typeof pulseBossTelegraph === "function",
+  lodDist: typeof ENEMY_LOD_DIST === "number" ? ENEMY_LOD_DIST : -1,
+}));
+report.extras = extras;
+
+const GATES = {
+  "ingame-empty": { drawCalls: 320, fps: 55 },
+  "ingame-50": { drawCalls: 520, fps: 55 },
+  "ingame-150-power": { drawCalls: 700, fps: 55 },
+};
+const fails = [];
+for (const sc of report.scenarios) {
+  const g = GATES[sc.scene];
+  if (!g) continue;
+  if (sc.drawCalls > g.drawCalls) fails.push(`${sc.scene} drawCalls ${sc.drawCalls} > ${g.drawCalls}`);
+  if (sc.fps < g.fps) fails.push(`${sc.scene} fps ${sc.fps} < ${g.fps}`);
+}
+if (extras.landmarkCount < 4) fails.push(`landmarks ${extras.landmarkCount} < 4`);
+if (!extras.pulseBoss) fails.push("pulseBossTelegraph missing");
+report.pass = fails.length === 0;
+report.fails = fails;
+
 const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 const file = `${outDir}/perf-${LABEL}-${stamp}.json`;
 writeFileSync(file, JSON.stringify(report, null, 2));
 console.log("\nreport:", file);
 console.log("errors:", report.errors.length);
 if (report.errors.length) console.log(report.errors.join("\n"));
+console.log("landmarks:", extras.landmarkCount, "pulseBoss:", extras.pulseBoss);
+if (fails.length) {
+  console.log("BENCHMARK FAIL");
+  fails.forEach((f) => console.log(" -", f));
+} else {
+  console.log("BENCHMARK PASS");
+}
 await browser.close();
+if (fails.length) process.exit(1);

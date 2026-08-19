@@ -6,12 +6,11 @@ Durum degerleri: `bekliyor` | `deVAM` (sahip yaz) | `blokeli (sebep)` | `BITTI (
 
 ## Su An (en guncel ozet)
 
-- AA pasi: blob golge, kill voxel kup, hit squash, hit-stop tavan 80ms, kart stat satiri (Hasar/HP/Hiz/Zirh).
-- Pacing: XP 40*1.11^L (L11 duvari yok), kill XP 0.40, dusman HP erken oyun daha sert, armor %75 cap, krit/multishot tavanlari kisildi.
-- Bolum 2 gercek kar (sis+kar tanesi) + portal dunyayi yeniden kuruyor. Boss odasi kose sutun + kirmizi halka.
-- Menu overlay blur kapali (diorama net).
-- Boot: THREE artik vendor/three.min.js (importmap + node_modules 404 oyunu olduruyordu). GLTF istege bagli.
-- Coop (P8/P9) yok.
+- Draw-call AA: uzak dusman tek `__lod` mesh, normal isim/outline yok, HP bar 18m, city/koy PointLight kesildi, cimen 2200.
+- Landmark: koy degirmeni + 2 kule (`landmark_mill` / `landmark_tower`).
+- Boss saldiri: `pulseBossTelegraph` model poza + yer halkasi.
+- Benchmark: `docs/plan/BENCHMARK.md` + perf-probe PASS/FAIL (150 dusman <=700 cagri, >=55 FPS).
+- Boot: THREE `vendor/three.min.js`. Coop (P8/P9) yok.
 
 ## Kod Haritasi Guncellemesi (PLAN.md'deki numaralar artik eski)
 
@@ -40,9 +39,9 @@ Guncel satirlar (19 Agu, leftover seans):
 | P1.3 Projektil/efekt havuzu | BITTI kismi (19 Agu) | app.js | Damage text + sekilli projektil + flash/burst havuzu. Ring/wave hala spawn; unique mat |
 | P1.4 Dekor instancing | BITTI (19 Agu 2026) | app.js | LIVE classic instanced agac/kaya/cali/varil. Grass + voxel crate/oak/pine |
 | P1.5 Statik dunya merge | BITTI instanced (19 Agu) | app.js | BufferGeometryUtils yok; koy/bina/sinir duvari/sehir kutulari InstancedMesh. Bunker tekil. PointLight'lar tekil |
-| P1.6 Render ayarlari (pixel ratio/golge) | BITTI (19 Agu 2026) | app.js | pixel ratio min(dpr, 1.25), golge 1024 PCF. Draw call hedefi 150'de hala 1192 (eski olcum) |
+| P1.6 Render ayarlari (pixel ratio/golge) | BITTI (19 Agu 2026) | app.js | pixel ratio min(dpr, 1.25), golge 1024 PCF. 150 dusman hedefi <=700 + LOD; olcum BENCHMARK.md |
 | P1.7 Dispose denetimi | BITTI kismi (19 Agu) | app.js | Paylasilan geo dispose skip + NAME_LABEL_CACHE trim(48) restart. Tam 5x restart olcumu yok |
-| P1.8 Update maliyeti | BITTI (18 Agu 2026) | - | Uzak dusman 3 karede bir AI; HP bar 38m uzagi gizli + 2 karede bir cizim |
+| P1.8 Update maliyeti | BITTI (19 Agu 2026) | app.js | Uzak AI 3 kare; HP 18m; `ENEMY_LOD_DIST` 16 tek mesh |
 | P2.1 VoxelModel fabrikasi | BITTI (2026-08-18) | voxel | voxel.js. Geometry cache + 2 paylasilan mat. Handoff: VOXEL-INTEGRATION.md |
 | P2.2 Outline | BITTI (2026-08-18) | voxel | Inverted hull, fat-cube, BackSide #1a1a22 |
 | P2.3 Toon isik | BITTI (2026-08-18) | voxel | MeshToon 3-step gradient, specular yok. Gozler emissive. |
@@ -122,6 +121,17 @@ C 2156/2690/1706/848/1652 (artan degil). Texture sayisi hala restart basina ~3-5
 Kabul kriterine gore durum: FPS hedefi (>=55 @150) onceki tam olcumde TUTMADI (44.8). Draw call hedefi (<=700) 150'de hala TUTMADI (1192) ama bos harita 715->238, 50 dusman 1365->621. Pixel ratio 0.5 duruyor.
 
 ## Seans Gunlugu (en yeni ustte)
+
+### 2026-08-19 - Draw call LOD + landmark + telegraph + skill
+
+**Yapilan**
+- `threejs-perf` zaten vardi; proje skill `.cursor/skills/threejs-optimization/` + `docs/plan/BENCHMARK.md` kuruldu.
+- voxel.js: bake edilen `__lod` tek mesh. Uzak dusman parca grubunu kapatir.
+- Normal tier: outline yok, isim sprite yok. PointLight ormani (sehir 60 + koy/lamba/mesale/sunak) kesildi.
+- `landmark_mill` / `landmark_tower` instanced. Boss `pulseBossTelegraph`.
+- perf-probe cikis kodu 1 (FAIL) / 0 (PASS).
+
+**Olcum (`--fast --label=lod2`):** empty 299/247fps, 50 dusman 487/206fps, 150+skill **699/153fps**. Landmarks 6, pulseBoss ok. BENCHMARK PASS. (Probe vsync kapali; gercek 60fps oyunda dogrulanmali.)
 
 ### 2026-08-19 - Boot 404: THREE vendor
 

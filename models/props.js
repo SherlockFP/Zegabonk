@@ -329,5 +329,48 @@
     }
   });
 
+  // Landmark mill: stone base, wood shaft, X blades. One part = 1-2 draws instanced.
+  add("landmark_mill", {
+    palette: { S: PAL.S, s: PAL.s, W: PAL.W, w: PAL.w, A: PAL.A, k: PAL.k },
+    parts: {
+      body: {
+        pivot: [6, 0, 6],
+        boxes: [
+          b("S", 2, 0, 2, 10, 3, 10),
+          b("s", 3, 3, 3, 9, 4, 9),
+          b("W", 5, 4, 5, 7, 22, 7),
+          b("w", 4, 22, 4, 8, 24, 8),
+          b("A", 5, 14, 5, 7, 16, 7),
+          b("W", 0, 14, 6, 12, 16, 6),
+          b("W", 6, 8, 0, 6, 22, 12),
+          b("k", 0, 15, 5, 0, 15, 7),
+          b("k", 12, 15, 5, 12, 15, 7)
+        ]
+      }
+    }
+  });
+
+  // Landmark tower: tall stone keep, two emissive windows.
+  add("landmark_tower", {
+    palette: { S: PAL.S, s: PAL.s, k: PAL.k, E: PAL.A, W: PAL.W },
+    emissiveKeys: ["E"],
+    parts: {
+      body: {
+        pivot: [5, 0, 5],
+        boxes: [
+          b("S", 1, 0, 1, 9, 26, 9),
+          b("s", 0, 26, 0, 10, 28, 10),
+          b("k", 0, 28, 0, 2, 30, 2),
+          b("k", 8, 28, 0, 10, 30, 2),
+          b("k", 0, 28, 8, 2, 30, 10),
+          b("k", 8, 28, 8, 10, 30, 10),
+          b("E", 4, 12, 9, 6, 15, 9),
+          b("E", 4, 18, 9, 6, 20, 9),
+          b("W", 4, 0, 9, 6, 4, 10)
+        ]
+      }
+    }
+  });
+
   global.PROP_MODEL_IDS = IDS.slice();
 })(window);
