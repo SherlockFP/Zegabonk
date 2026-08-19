@@ -103,8 +103,8 @@ body.death-grayscale { filter: grayscale(1); transition: filter 0.4s ease-out; }
   backdrop-filter: none;
 }
 #startScreen.overlay {
-  background: radial-gradient(circle at 50% 38%, rgba(12,18,32,0.28), rgba(6,10,18,0.72));
-  backdrop-filter: blur(2px);
+  background: radial-gradient(circle at 50% 38%, rgba(12,18,32,0.22), rgba(6,10,18,0.58));
+  backdrop-filter: none;
 }
 #levelup { z-index: 999; }
 #skillTreePanel { z-index: 999; }

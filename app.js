@@ -82,19 +82,11 @@ let bgMusicPlaying = false;
 let bgMusicAudio = null;
 let bgMusicLoopHandle = null;
 const MAX_LEVEL = 10000;
-const GLOBAL_KILL_XP_MULT = 0.55;
+const GLOBAL_KILL_XP_MULT = 0.40;
 function getXpNextForLevel(level) {
   const L = Math.min(level, MAX_LEVEL);
-  const XP_HARDER = 1.35;
-  const XP_LEVEL11_PLUS = 1.28;
-  let xp;
-  if (L <= 1) xp = 48 * XP_HARDER;
-  else if (L <= 1000) xp = 48 * Math.pow(1.09, L - 1) * XP_HARDER;
-  else xp = 48 * Math.pow(1.09, 999) * Math.pow(1.006, L - 1000);
-  if (L > 10) xp *= XP_LEVEL11_PLUS;
+  let xp = 40 * Math.pow(1.11, Math.max(0, L - 1));
   if (L > 35) xp *= (1 + (L - 35) * 0.024);
-  // Ilk 10 level cok daha hizli: gereken XP yariya yakin
-  if (L <= 10) xp *= 0.42;
   return Math.floor(xp);
 }
 let windAmbientTimer = 0;
@@ -217,6 +209,9 @@ function getMaxEnemies() {
   if (state.hordeSurgeActive) cap = Math.min(90, cap + 18);
   return cap;
 }
+function armorMitigation() {
+  return 1 - Math.min(0.75, stats.armor || 0);
+}
 function hasVoxel(id) {
   return !!(id && typeof getVoxelModelDef === "function" && typeof buildVoxelModel === "function" && getVoxelModelDef(id));
 }
@@ -272,6 +267,20 @@ function placeVoxelProp(id, x, y, z, fitHeight, outline) {
   const built = buildVoxelModel(id, { outline: outline !== false, fitHeight: fitHeight || undefined });
   built.position.set(x, y, z);
   return built;
+}
+var _blobShadowGeo = null;
+var _blobShadowMat = null;
+function attachBlobShadow(group, radius) {
+  if (!group || group.userData.hasBlob) return;
+  if (!_blobShadowGeo) _blobShadowGeo = markShared(new THREE.CircleGeometry(1, 12));
+  if (!_blobShadowMat) _blobShadowMat = markShared(new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.34, depthWrite: false }));
+  const s = new THREE.Mesh(_blobShadowGeo, _blobShadowMat);
+  s.rotation.x = -Math.PI / 2;
+  s.position.y = 0.05;
+  s.scale.setScalar(Math.max(0.75, (radius || 0.6) * 1.7));
+  s.renderOrder = -1;
+  group.add(s);
+  group.userData.hasBlob = true;
 }
 function addInstancedMesh(geo, mat, count) {
   const inst = new THREE.InstancedMesh(geo, mat, Math.max(1, count));
@@ -532,6 +541,13 @@ function updateVoxelCreatureAnim(e, dt) {
     }
   }
   if (anim === "slither" && parts.body) parts.body.rotation.y = Math.sin(t * 4) * 0.12;
+  if (e.hitPunch > 0) {
+    e.hitPunch = Math.max(0, e.hitPunch - dt * 7);
+    if (parts.body) {
+      const p = 1 + e.hitPunch * 0.9;
+      parts.body.scale.set(p, 1 / Math.max(0.82, p * 0.92), p);
+    }
+  }
   if (anim === "fly") {
     if (parts.wingL) parts.wingL.rotation.z = Math.sin(t * 14) * 0.55;
     if (parts.wingR) parts.wingR.rotation.z = -Math.sin(t * 14) * 0.55;
@@ -1345,7 +1361,7 @@ function showAchievementPopup(a) {
     document.head.appendChild(document.createElement("style")).textContent = "@keyframes achSlide { from { opacity:0; transform:translateX(-50%) translateY(-20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }";
     document.body.appendChild(el);
   }
-  el.innerHTML = "<div style=\"font-size:9px;color:rgba(255,215,0,0.9);margin-bottom:4px;letter-spacing:0.1em;\">🏆 BAŞARI AÇILDI</div><div style=\"font-size:11px;color:#fff;font-weight:bold;margin-bottom:2px;\">" + a.name + "</div><div style=\"font-size:8px;color:rgba(200,200,220,0.9);\">" + a.desc + "</div>";
+  el.innerHTML = "<div style=\"font-size:9px;color:rgba(255,215,0,0.9);margin-bottom:4px;letter-spacing:0.1em;\">BASARI ACILDI</div><div style=\"font-size:11px;color:#fff;font-weight:bold;margin-bottom:2px;\">" + a.name + "</div><div style=\"font-size:8px;color:rgba(200,200,220,0.9);\">" + a.desc + "</div>";
   el.classList.remove("hidden");
   el.style.display = "block";
   playSfx(880, 0.14);
@@ -1748,13 +1764,13 @@ function stopMenuMusic() {
 
 const skills = [
   { id: "dmg", name: "Hasar +7%", desc: "Tum hasar kaynaklari artar.", max: 8, rarity: "common", tierRange: [2, 10], apply(tv) { const pct = tv != null ? tv : 7; stats.damage *= (1 + pct / 100); } },
-  { id: "firerate", name: "Atis hizi +4%", desc: "Daha sik otomatik ates.", max: 8, rarity: "common", tierRange: [2, 7], apply(tv) { const pct = tv != null ? tv : 4; stats.fireRate *= (1 - pct / 100); } },
-  { id: "multishot", name: "Coklu Mermi +1", desc: "Ana atista +1 mermi.", max: 4, rarity: "magic", apply() { stats.multiShot += 1; } },
+  { id: "firerate", name: "Atis hizi +4%", desc: "Daha sik otomatik ates.", max: 6, rarity: "common", tierRange: [2, 5], apply(tv) { const pct = tv != null ? tv : 4; stats.fireRate *= (1 - pct / 100); } },
+  { id: "multishot", name: "Coklu Mermi +1", desc: "Ana atista +1 mermi.", max: 3, rarity: "magic", apply() { stats.multiShot += 1; } },
   { id: "speed", name: "Hareket hizi +4%", desc: "WASD daha hizli.", max: 8, rarity: "common", tierRange: [2, 8], apply(tv) { const pct = tv != null ? tv : 4; stats.moveSpeed *= (1 + pct / 100); } },
   { id: "hp", name: "Max HP +12", desc: "Can havuzu buyur.", max: 6, rarity: "common", tierRange: [8, 18], apply(tv) { const v = tv != null ? tv : 12; stats.maxHp += v; stats.hp = Math.min(stats.maxHp, stats.hp + v); } },
   { id: "heal", name: "Can doldur", desc: "Anlik %24 iyilesme.", max: 5, rarity: "magic", tierRange: [16, 32], apply(tv) { const pct = tv != null ? tv : 24; stats.hp = Math.min(stats.maxHp, stats.hp + stats.maxHp * (pct / 100)); } },
-  { id: "crit", name: "Kritik sans +8%", desc: "Kritik vurma ihtimali artar. (%0-100 arasi)", max: 12, rarity: "magic", tierRange: [4, 12], apply(tv) { const pct = tv != null ? tv : 8; stats.critChance = Math.min(1, (stats.critChance || 0) + pct / 100); } },
-  { id: "crit_dmg", name: "Kritik hasar +25%", desc: "Kritik vurdugunda ekstra hasar carpani.", max: 8, rarity: "rare", tierRange: [15, 35], apply(tv) { const pct = tv != null ? tv : 25; stats.critDmgBonus = (stats.critDmgBonus || 0) + pct / 100; stats.critMult = (stats.critMult || 1.9) + pct / 100; } },
+  { id: "crit", name: "Kritik sans +8%", desc: "Kritik vurma ihtimali artar. (%0-100 arasi)", max: 6, rarity: "magic", tierRange: [3, 7], apply(tv) { const pct = tv != null ? tv : 8; stats.critChance = Math.min(1, (stats.critChance || 0) + pct / 100); } },
+  { id: "crit_dmg", name: "Kritik hasar +25%", desc: "Kritik vurdugunda ekstra hasar carpani.", max: 5, rarity: "rare", tierRange: [10, 20], apply(tv) { const pct = tv != null ? tv : 25; stats.critDmgBonus = (stats.critDmgBonus || 0) + pct / 100; stats.critMult = (stats.critMult || 1.9) + pct / 100; } },
   { id: "pierce", name: "Delme +1", desc: "Mermiler ekstra hedef deler.", max: 4, rarity: "magic", apply() { stats.pierce += 1; } },
   { id: "aoe", name: "Patlama alani", desc: "Vurusta kucuk AOE patlar.", max: 4, rarity: "magic", apply() { stats.aoe += 1; } },
   { id: "pickup", name: "Toplama yaricapi", desc: "XP orb toplama mesafesi artar.", max: 7, rarity: "common", tierRange: [8, 16], apply(tv) { const pct = tv != null ? tv : 12; stats.pickupRange *= (1 + pct / 100); } },
@@ -1824,18 +1840,18 @@ const skills = [
   { id: "turret_master", name: "Turret Ustasi", desc: "Turret suresi +10sn, hasar +20%.", max: 1, rarity: "magic", requires: "unlock_turret", apply() { } },
   { id: "lifesteal", name: "Vampirizm", desc: "Vuruslarin can verir (maks %1).", max: 5, rarity: "magic", tierRange: [0.15, 0.28], apply(tv) { const v = tv != null ? tv / 100 : 0.002; stats.lifesteal = (stats.lifesteal || 0) + v; } },
   { id: "thorns", name: "Dikenli Zirh", desc: "Temas hasarinin %25'ini yansitir.", max: 4, rarity: "rare", tierRange: [18, 32], apply(tv) { const pct = tv != null ? tv : 25; stats.thorns = (stats.thorns || 0) + pct / 100; } },
-  { id: "heal_on_kill", name: "Olumle Doy", desc: "Her oldurmede +4 can.", max: 6, rarity: "magic", tierRange: [2, 6], apply(tv) { const v = tv != null ? tv : 4; stats.healOnKill = (stats.healOnKill || 0) + v; } },
-  { id: "armor", name: "Zirh", desc: "Alinan hasar %8 azalir.", max: 5, rarity: "common", tierRange: [4, 12], apply(tv) { const pct = tv != null ? tv : 8; stats.armor = (stats.armor || 0) + pct / 100; } },
+  { id: "heal_on_kill", name: "Olumle Doy", desc: "Her oldurmede +4 can.", max: 4, rarity: "magic", tierRange: [1, 3], apply(tv) { const v = tv != null ? tv : 4; stats.healOnKill = (stats.healOnKill || 0) + v; } },
+  { id: "armor", name: "Zirh", desc: "Alinan hasar %8 azalir.", max: 4, rarity: "common", tierRange: [3, 8], apply(tv) { const pct = tv != null ? tv : 8; stats.armor = (stats.armor || 0) + pct / 100; } },
   { id: "execute", name: "Infaz", desc: "%35 alti cana +%40 hasar.", max: 3, rarity: "rare", tierRange: [28, 50], apply(tv) { const pct = tv != null ? tv : 40; stats.execute = (stats.execute || 0) + pct / 100; } },
   { id: "berserker", name: "Berserker", desc: "Canin %40 altindayken +%35 hasar.", max: 3, rarity: "rare", tierRange: [25, 45], apply(tv) { const pct = tv != null ? tv : 35; stats.berserker = (stats.berserker || 0) + pct / 100; } },
   { id: "double_jump", name: "Cift Ziplama", desc: "Havada bir kez daha zipla.", max: 1, rarity: "magic", apply() { stats.doubleJump = (stats.doubleJump || 0) + 1; } },
   { id: "ricochet", name: "Sekme", desc: "Mermiler bir dusmana sekebilir (LoL RFC gibi).", max: 1, rarity: "rare", apply() { stats.ricochet = (stats.ricochet || 0) + 1; } },
   { id: "runaan", name: "Runaan Firtinasi", desc: "Vuruslar 2 yakin dusmana %60 hasar yansir (LoL Runaan).", max: 1, rarity: "rare", apply() { stats.runaan = (stats.runaan || 0) + 1; } },
-  { id: "rapid_fire", name: "Hizli Ates", desc: "Atis hizi +%18, ilk vurus +%25 hasar (LoL Rapid Fire).", max: 3, rarity: "magic", apply() { stats.fireRate *= 0.85; stats.rapidFireFirstHit = (stats.rapidFireFirstHit || 0) + 0.25; } },
+  { id: "rapid_fire", name: "Hizli Ates", desc: "Atis hizi +%18, ilk vurus +%25 hasar (LoL Rapid Fire).", max: 2, rarity: "magic", apply() { stats.fireRate *= 0.90; stats.rapidFireFirstHit = (stats.rapidFireFirstHit || 0) + 0.25; } },
   { id: "global_cd", name: "Hizli Eller", desc: "Tum yetenek cooldown %6 azalir.", max: 4, rarity: "magic", apply() { stats.globalCdReduction = (stats.globalCdReduction || 0) + 0.06; } },
   { id: "lucky", name: "Sansli", desc: "Kritik sans +%5, XP +%10.", max: 4, rarity: "magic", apply() { stats.critChance = Math.min(1, (stats.critChance || 0) + 0.05); stats.xpGainMult *= 1.1; } },
   { id: "sans", name: "Sans", desc: "Her seyde biraz sans! Crit +3%, drop +15%, XP +8%.", max: 6, rarity: "common", apply() { stats.critChance = Math.min(1, (stats.critChance || 0) + 0.03); stats.xpGainMult *= 1.08; } },
-  { id: "glass_cannon", name: "Cam Top", desc: "Hasar +40% ama max HP -20%.", max: 2, rarity: "unique", apply() { stats.damage *= 1.4; stats.maxHp *= 0.8; stats.hp = Math.min(stats.hp, stats.maxHp); } },
+  { id: "glass_cannon", name: "Cam Top", desc: "Hasar +40% ama max HP -20%.", max: 1, rarity: "unique", apply() { stats.damage *= 1.4; stats.maxHp *= 0.8; stats.hp = Math.min(stats.hp, stats.maxHp); } },
   { id: "tank_mode", name: "Tank Modu", desc: "Max HP +50, Zirh +8%, Hiz -10%.", max: 3, rarity: "rare", apply() { stats.maxHp += 50; stats.hp += 50; stats.armor += 0.08; stats.moveSpeed *= 0.9; } },
   { id: "bhop_master", name: "Bhop Ustasi", desc: "Bhop hiz bonusu +30% daha etkili.", max: 3, rarity: "magic", apply() { /* handled in bhop calc */ } },
   { id: "magnet_aura", name: "Magnet Aura", desc: "XP orblar sana kosar. Magnet +50%.", max: 3, rarity: "common", apply() { stats.magnetRange *= 1.5; stats.magnetStrength *= 1.3; } },
@@ -1872,9 +1888,9 @@ const skills = [
   { id: "frost_aura", name: "Buz Aurasi", desc: "Yakin dusmanlar yavaslar.", max: 2, rarity: "magic", apply() { stats.frostAura = (stats.frostAura || 0) + 1; } },
   { id: "gold_rush", name: "Altin Zamani", desc: "Kill basina ekstra coin + %10 XP.", max: 3, rarity: "common", apply() { stats.coinMult = (stats.coinMult || 1) * 1.2; stats.xpGainMult = (stats.xpGainMult || 1) * 1.1; } },
   { id: "heavy_armor", name: "Agir Zirh", desc: "Max HP +40 ama hiz -%5.", max: 3, rarity: "common", apply() { stats.maxHp += 40; stats.hp += 40; stats.moveSpeed *= 0.95; } },
-  { id: "shadow_clone", name: "Golge Kopya", desc: "Bazen mermilerinin kopyasini atar.", max: 2, rarity: "legendary", apply() { stats.multiShot += 1; } },
+  { id: "shadow_clone", name: "Golge Kopya", desc: "Bazen mermilerinin kopyasini atar.", max: 1, rarity: "legendary", apply() { stats.multiShot += 1; } },
   { id: "regen", name: "Rejenerasyon", desc: "Saniyede 1 can yenile.", max: 5, rarity: "common", apply() { stats.regen = (stats.regen || 0) + 1; } },
-  { id: "critical_master", name: "Krit Ustasi", desc: "Krit sansi +12%, krit hasar carpani +30%.", max: 4, rarity: "rare", apply() { stats.critChance = Math.min(1, (stats.critChance || 0) + 0.12); stats.critMult = (stats.critMult || 1.9) + 0.30; } },
+  { id: "critical_master", name: "Krit Ustasi", desc: "Krit sansi +12%, krit hasar carpani +30%.", max: 2, rarity: "rare", apply() { stats.critChance = Math.min(1, (stats.critChance || 0) + 0.12); stats.critMult = (stats.critMult || 1.9) + 0.30; } },
   { id: "fire_trail", name: "Ates Izi", desc: "Yurudugun yerde ates birak, dusmanlar yanar.", max: 2, rarity: "unique", apply() { stats.fireTrail = (stats.fireTrail || 0) + 1; } },
   { id: "bloodlust", name: "Kan Susuzlugu", desc: "Oldurmeden sonra 3 sn +%20 hasar.", max: 3, rarity: "magic", apply() { stats.bloodlust = (stats.bloodlust || 0) + 0.20; } },
   { id: "lucky_coin", name: "Sansli Para", desc: "Coin drop +%25, XP +%5.", max: 4, rarity: "common", apply() { stats.coinMult = (stats.coinMult || 1) * 1.25; stats.xpGainMult = (stats.xpGainMult || 1) * 1.05; } },
@@ -4602,6 +4618,7 @@ function buildPlayer() {
   }
   g.position.set(0, sampleTerrainHeight(0, 0), 0);
   g.traverse((c) => { if (c.isMesh) c.castShadow = true; });
+  attachBlobShadow(g, 0.7);
   player.mesh = g;
 
   const shieldRing = new THREE.Mesh(
@@ -5906,7 +5923,9 @@ function clearEntities() {
     if (fx.fxPooled && fx.mesh) {
       scene.remove(fx.mesh);
       fx.mesh.visible = false;
-      if (flashMeshPool.length < 24) flashMeshPool.push(fx.mesh);
+      if (fx.killCube) {
+        if (killCubePool.length < 32) killCubePool.push(fx.mesh);
+      } else if (flashMeshPool.length < 24) flashMeshPool.push(fx.mesh);
       return;
     }
     if (fx.mesh && fx.mesh.material) {
@@ -7507,13 +7526,14 @@ function createEnemyInner(tier, cfg, opts) {
     g.add(castLabel);
   }
   if (isBoss) addEnemyZoneOverlay(g, 0xff4444, true);
+  attachBlobShadow(g, cfg.radius);
 
   const plvl = state.level || 0;
-  const levelScale = 1 + plvl * 0.058;
+  const levelScale = 1 + plvl * 0.075;
   const levelDiffMult = plvl >= 10 ? (1 + (plvl - 10) * 0.024) : 1;
   const levelHpRamp = plvl >= 10 ? (1 + (plvl - 10) * 0.022) : 1;
   const levelDmgRamp = plvl >= 10 ? (1 + (plvl - 10) * 0.004) : 1;
-  const first10LevelHpScale = plvl <= 10 ? (0.32 + 0.068 * plvl) : 1;
+  const first10LevelHpScale = plvl <= 10 ? (0.62 + 0.038 * plvl) : 1;
   const stageScale = 1 + Math.max(0, state.difficultyStage - 1) * 0.025;
   const endlessScale = state.endlessMode ? (1 + (state.endlessWave || 0) * 0.05) : 1;
   const chapterTimeFactor = 0.75 + 0.4 * Math.min(1, (state.chapterTime || 0) / 720);
@@ -7524,8 +7544,8 @@ function createEnemyInner(tier, cfg, opts) {
   const hardcoreSpeedMult = state.hardcoreMode ? 1.45 : 1;
   const chapterHpMult = getChapterHpMult(state.chapter);
   const chapterDmgMult = getChapterDamageMult(state.chapter);
-  const globalEase = 0.75;
-  const earlyLevelEase = plvl <= 3 ? 0.62 : plvl <= 10 ? 0.76 : 1;
+  const globalEase = 0.90;
+  const earlyLevelEase = plvl <= 3 ? 0.80 : 1;
   let hp = cfg.hp * levelScale * stageScale * endlessScale * diffMult * chapterHpMult * globalEase * earlyLevelEase * levelDiffMult * levelHpRamp * first10LevelHpScale;
   const chapterSpeedMult = getChapterEnemySpeedMult(state.chapter);
   const stageSpeedMult = 1 + Math.max(0, state.difficultyStage - 1) * 0.015;
@@ -8202,17 +8222,17 @@ function applyMapTheme(chapter) {
       }
       renderer.toneMappingExposure = 0.95;
     } else if (chapter === 2) {
-      scene.background = new THREE.Color(0x251a35);
-      scene.fog = new THREE.FogExp2(0x3d2a55, 0.012);
+      scene.background = new THREE.Color(0xa8c8e8);
+      scene.fog = new THREE.FogExp2(0xc8e0f8, 0.011);
       if (ground.material) {
-        ground.material.color.setHex(0x4a3568);
-        if (ground.material.emissive) ground.material.emissive.setHex(0x150a22);
+        ground.material.color.setHex(0xe0f0ff);
+        if (ground.material.emissive) ground.material.emissive.setHex(0x6080a0);
       }
-      renderer.toneMappingExposure = 1.0;
-      for (let i = 0; i < 55; i++) {
-        const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.06, 4, 4), new THREE.MeshBasicMaterial({ color: 0xaa88cc }));
-        mesh.position.set((Math.random() - 0.5) * WORLD_HALF * 2, 12 + Math.random() * 25, (Math.random() - 0.5) * WORLD_HALF * 2);
-        mesh.userData.vel = new THREE.Vector3((Math.random() - 0.5) * 0.3, -0.5 - Math.random() * 0.4, (Math.random() - 0.5) * 0.3);
+      renderer.toneMappingExposure = 1.12;
+      for (let i = 0; i < 80; i++) {
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.07, 4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.88 }));
+        mesh.position.set((Math.random() - 0.5) * WORLD_HALF * 2, 8 + Math.random() * 26, (Math.random() - 0.5) * WORLD_HALF * 2);
+        mesh.userData.vel = new THREE.Vector3((Math.random() - 0.5) * 0.25, -0.55 - Math.random() * 0.4, (Math.random() - 0.5) * 0.25);
         scene.add(mesh);
         mapSnowParticles.push(mesh);
       }
@@ -8809,7 +8829,7 @@ function enterPortal() {
     player.vy = 0;
     applyMapTheme(state.chapter);
     state.spawnTimer = 1.2;
-    const chapterNames = { 1: "BOLUM 1", 2: "BOLUM 2 - KARLI HARITA", 3: "BOLUM 3 - SOĞUK HARITA" };
+    const chapterNames = { 1: "BOLUM 1", 2: "BOLUM 2 - KAR", 3: "BOLUM 3 - KIZIL GECE" };
     const chapterMessages = { 2: "Well played! Bolum 2'ye gectin.", 3: "Bolum 3'e gectin. Son savas!" };
     spawnWave(player.mesh.position, 8, state.chapter === 2 ? 0xe8f4ff : 0x88aacc);
     spawnDamageText(player.mesh.position, chapterNames[state.chapter] || "BOLUM " + state.chapter, true, chapterNames[state.chapter] || "BOLUM " + state.chapter);
@@ -8831,15 +8851,18 @@ function enterPortal() {
   state.realDifficultyNotifiedThisChapter = false;
     state.realDifficultyTier = 0;
     for (let i = enemies.length - 1; i >= 0; i--) {
+      releaseEnemyVisuals(enemies[i]);
       scene.remove(enemies[i].mesh);
       enemies.splice(i, 1);
     }
+    clearCurrentWorld();
+    buildWorld(state.selectedMapId || "classic");
     player.mesh.position.set(0, sampleTerrainHeight(0, 0), 0);
     player.vel.set(0, 0, 0);
     player.vy = 0;
     applyMapTheme(state.chapter);
     state.spawnTimer = 1.2;
-    const chapterNames = { 1: "BOLUM 1", 2: "BOLUM 2 - KARLI HARITA", 3: "BOLUM 3 - SOĞUK HARITA" };
+    const chapterNames = { 1: "BOLUM 1", 2: "BOLUM 2 - KAR", 3: "BOLUM 3 - KIZIL GECE" };
     const chapterFlavor = { 2: "Bolum 2'ye adim attin...", 3: "Bolum 3'e adim attin... Son savas yaklasiyor." };
     spawnWave(player.mesh.position, 8, state.chapter === 2 ? 0xe8f4ff : 0x88aacc);
     spawnDamageText(player.mesh.position, chapterNames[state.chapter] || "BOLUM " + state.chapter, true, chapterNames[state.chapter] || "BOLUM " + state.chapter);
@@ -8893,6 +8916,21 @@ function spawnMegaArenaWall() {
     wall.position.set(s.x, y0, s.z);
     g.add(wall);
   }
+  const pillarMat = new THREE.MeshStandardMaterial({ color: 0x5a2030, emissive: 0x3a0818, emissiveIntensity: 0.45, roughness: 0.7 });
+  const gy = getGroundHeight(0, 0);
+  const corners = [[HALF - 4, HALF - 4], [HALF - 4, -(HALF - 4)], [-(HALF - 4), HALF - 4], [-(HALF - 4), -(HALF - 4)]];
+  for (let i = 0; i < corners.length; i++) {
+    const p = new THREE.Mesh(new THREE.BoxGeometry(3.2, 22, 3.2), pillarMat);
+    p.position.set(corners[i][0], gy + 11, corners[i][1]);
+    g.add(p);
+  }
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(8, 10.5, 32),
+    new THREE.MeshBasicMaterial({ color: 0xff3344, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(0, gy + 0.2, 0);
+  g.add(ring);
   mapGroup.add(g);
   megaArenaWall = g;
   state.megaArenaCenter = { x: 0, z: 0, r: HALF - 2 };
@@ -11093,18 +11131,37 @@ function spawnDismantle(origin, aimDir, damage, radius, arcAngle) {
 }
 
 function spawnFragmentationDebris(pos, count) {
-  const current = effects.filter((x) => x.type === "debris").length;
-  const toSpawn = Math.min(count, Math.max(0, MAX_DEBRIS - current));
-  if (toSpawn <= 0) return;
-  const geo = new THREE.SphereGeometry(0.12, 4, 3);
-  for (let i = 0; i < toSpawn; i++) {
-    const mat = new THREE.MeshBasicMaterial({ color: 0x88aacc, transparent: true, opacity: 0.85 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(pos);
-    mesh.position.y += 0.3 + Math.random() * 0.4;
-    const vel = new THREE.Vector3((Math.random() - 0.5) * 4, 2 + Math.random() * 3, (Math.random() - 0.5) * 4);
+  spawnKillCubes(pos, 0x88aacc, count);
+}
+
+var _sharedKillCubeGeo = null;
+var killCubePool = [];
+function spawnKillCubes(pos, color, count) {
+  if (count == null) count = 5;
+  if (!_sharedKillCubeGeo) _sharedKillCubeGeo = markShared(new THREE.BoxGeometry(0.16, 0.16, 0.16));
+  count = Math.min(count, 8);
+  if (effects.length + count >= MAX_EFFECTS) count = Math.max(0, MAX_EFFECTS - effects.length);
+  for (var i = 0; i < count; i++) {
+    var mesh = killCubePool.pop();
+    if (!mesh) mesh = new THREE.Mesh(_sharedKillCubeGeo, new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.92 }));
+    else {
+      mesh.material.color.setHex(color);
+      mesh.material.opacity = 0.92;
+      mesh.visible = true;
+    }
+    mesh.scale.setScalar(0.65 + Math.random() * 0.7);
+    mesh.position.copy(pos).add(new THREE.Vector3((Math.random() - 0.5) * 0.45, 0.35 + Math.random() * 0.4, (Math.random() - 0.5) * 0.45));
     scene.add(mesh);
-    effects.push({ type: "debris", mesh, life: 0.6, total: 0.6, vel });
+    effects.push({
+      type: "particle",
+      mesh: mesh,
+      life: 0.32 + Math.random() * 0.12,
+      total: 0.4,
+      vel: new THREE.Vector3((Math.random() - 0.5) * 7, 2.8 + Math.random() * 4, (Math.random() - 0.5) * 7),
+      gravity: true,
+      fxPooled: true,
+      killCube: true
+    });
   }
 }
 
@@ -11119,7 +11176,7 @@ function killEnemy(enemy) {
     spawnRing(deathPos, 3.5, 0xff6622, 0.4);
     spawnFlash(deathPos, 0xff4400, 0.8, 0.25);
     if (player.mesh && player.mesh.position.distanceTo(deathPos) < 4 && (!state.invincibleUntil || state.time >= state.invincibleUntil)) {
-      stats.hp -= 12 * Math.max(0, 1 - (stats.armor || 0));
+      stats.hp -= 12 * armorMitigation();
       state.invincibleUntil = state.time + 0.22;
       triggerCameraShake(0.55);
     }
@@ -11296,7 +11353,10 @@ function killEnemy(enemy) {
   if (Math.random() < chestChance) spawnWorldChestAt(enemy.mesh.position.clone());
   // Death dust cloud
   spawnDustCloud(enemy.mesh.position, enemy.tier === "boss" ? 0xff4444 : 0xaa9977, enemy.isBoss ? 8 : 3);
+  spawnKillCubes(enemy.mesh.position, enemy.tier === "boss" ? 0xff3344 : enemy.tier === "unique" ? 0xff9ef4 : 0xff8866, enemy.isBoss ? 8 : 5);
   spawnFlash(enemy.mesh.position, enemy.tier === "unique" ? 0xff9ef4 : 0xff6a6a, 0.9, 0.22);
+  triggerHitFreeze(enemy.isBoss ? 0.07 : 0.028);
+  if (typeof playSfx === "function") playSfx(180 + Math.random() * 90, 0.07, 0.45);
   if (enemy.isBoss) {
     triggerBigShake();
     spawnBurst(enemy.mesh.position, 0xff2244, 10);
@@ -11495,6 +11555,7 @@ function applyDamageEnemy(e, damage, dir, isCrit = false, damageType = null) {
   }
 
   if (!skipHitEffect) {
+    e.hitPunch = 0.16;
     if (typeof triggerCameraShake === "function") triggerCameraShake(0.24);
     if (typeof triggerHitFreeze === "function") triggerHitFreeze(0.022);
   }
@@ -11919,7 +11980,7 @@ function updatePlayer(dt) {
           const fallDmg = Math.min(45, (-player.vy - 12) * 2.2);
           state.lastAttacker = null;
           state.lastDamageType = "fall";
-          stats.hp -= fallDmg * Math.max(0, 1 - (stats.armor || 0));
+          stats.hp -= fallDmg * armorMitigation();
           if (fallDmg > 5) spawnDamageText(player.mesh.position.clone().setY(next.y + 1.5), Math.floor(fallDmg) + " fall", false, "fall");
         }
         if (player.vy < -6 && bhop.streak === 0) {
@@ -11941,7 +12002,7 @@ function updatePlayer(dt) {
         const fallDmg = Math.min(45, (-player.vy - 12) * 2.2);
         state.lastAttacker = null;
         state.lastDamageType = "fall";
-        stats.hp -= fallDmg * Math.max(0, 1 - (stats.armor || 0));
+        stats.hp -= fallDmg * armorMitigation();
         if (fallDmg > 5) spawnDamageText(player.mesh.position.clone().setY(next.y + 1.5), Math.floor(fallDmg) + " fall", false, "fall");
       }
       if (player.vy < -6 && bhop.streak === 0) {
@@ -12077,7 +12138,7 @@ function updateWaterSharks(dt) {
       s.hitCooldown = 1.5;
       state.lastAttacker = "Köpekbalığı";
       state.lastDamageType = "shark";
-      var dmg = s.damage * Math.max(0, 1 - (stats.armor || 0));
+      var dmg = s.damage * armorMitigation();
       var sh = stats.shield || 0;
       if (sh > 0) { stats.shield = Math.max(0, sh - dmg); dmg = Math.max(0, dmg - sh); }
       stats.hp -= dmg;
@@ -12149,7 +12210,7 @@ function updateEnemies(dt) {
             if (player.mesh && player.mesh.position.distanceTo(pos) < creeperRadius) {
               state.lastAttacker = c.name;
               state.lastDamageType = "creeper";
-              let dmg = creeperDamage * 0.85 * Math.max(0, 1 - (stats.armor || 0));
+              let dmg = creeperDamage * 0.85 * armorMitigation();
               const sh = stats.shield || 0;
               if (sh > 0) { stats.shield = Math.max(0, sh - dmg); dmg = Math.max(0, dmg - sh); }
               stats.hp -= dmg;
@@ -12384,7 +12445,7 @@ function updateEnemies(dt) {
           spawnEnemySpeechBubble(e, lines[Math.floor(Math.random() * lines.length)]);
         }
         let rawDmg = e.damage * effectiveDt;
-        let reduced = rawDmg * Math.max(0, 1 - (stats.armor || 0));
+        let reduced = rawDmg * armorMitigation();
         if (stats.lastStand && stats.hp <= stats.maxHp * 0.2) reduced *= 0.75;
         const totalIncoming = reduced;
         const sh = stats.shield || 0;
@@ -12494,7 +12555,7 @@ function updateEnemies(dt) {
       if (!inv) {
         state.lastAttacker = e.name;
         state.lastDamageType = "lifesteal";
-        const drain = 2.2 * dt * Math.max(0, 1 - (stats.armor || 0));
+        const drain = 2.2 * dt * armorMitigation();
         stats.hp -= drain;
         e.hp = Math.min(e.maxHp, e.hp + 1.0 * dt);
       }
@@ -12571,7 +12632,7 @@ function updateEnemyLasers(dt) {
       if (!inv) {
         state.lastAttacker = p.attackerName || null;
         state.lastDamageType = "laser";
-        let reduced = p.damage * Math.max(0, 1 - (stats.armor || 0));
+        let reduced = p.damage * armorMitigation();
         const sh = stats.shield || 0;
         if (sh > 0) { stats.shield = Math.max(0, sh - reduced); reduced = Math.max(0, reduced - sh); }
         stats.hp -= reduced;
@@ -12624,7 +12685,7 @@ function updateEnemyProjectiles(dt) {
       if (!inv) {
         state.lastAttacker = p.attackerName || null;
         state.lastDamageType = p.damageType || "projectile";
-        let reduced = p.damage * Math.max(0, 1 - (stats.armor || 0));
+        let reduced = p.damage * armorMitigation();
         if (stats.lastStand && stats.hp <= stats.maxHp * 0.2) reduced *= 0.75;
         const sh = stats.shield || 0;
         if (sh > 0) { stats.shield = Math.max(0, sh - reduced); reduced = Math.max(0, reduced - sh); }
@@ -12988,7 +13049,7 @@ function updateProjectiles(dt) {
           if (typeof spawnBurst === "function") spawnBurst(impactPos.clone().setY(impactPos.y + 0.5), 0xff6622, 12);
           if (typeof playExplosionBoom === "function") playExplosionBoom();
           if (player.mesh && player.mesh.position.distanceTo(impactPos) < explR) {
-            const dmg = p.damage * 0.7 * (1 - player.mesh.position.distanceTo(impactPos) / explR) * Math.max(0, 1 - (stats.armor || 0));
+            const dmg = p.damage * 0.7 * (1 - player.mesh.position.distanceTo(impactPos) / explR) * armorMitigation();
             let d = dmg;
             const sh = stats.shield || 0;
             if (sh > 0) { stats.shield = Math.max(0, sh - d); d = Math.max(0, d - sh); }
@@ -13187,7 +13248,9 @@ function updateEffects(dt) {
       if (fx.fxPooled && fx.mesh) {
         scene.remove(fx.mesh);
         fx.mesh.visible = false;
-        if (flashMeshPool.length < 24) flashMeshPool.push(fx.mesh);
+        if (fx.killCube) {
+          if (killCubePool.length < 32) killCubePool.push(fx.mesh);
+        } else if (flashMeshPool.length < 24) flashMeshPool.push(fx.mesh);
         effects.splice(i, 1);
         continue;
       }
@@ -14735,6 +14798,23 @@ function renderLevelupCards() {
       if (skill.id === "crit") detail = `<div class="cardStat">Krit: %${critChancePct} -> %${Math.min(100, critChancePct + Math.round(critAdd))}</div>`;
       else if (skill.id === "critical_master") detail = `<div class="cardStat">Krit: %${critChancePct} -> %${Math.min(100, critChancePct + 12)} | Krit hasar: x${critMultVal.toFixed(1)} -> x${(critMultVal + 0.3).toFixed(1)}</div>`;
       else detail = `<div class="cardStat">Krit hasar carpani: x${critMultVal.toFixed(1)} -> x${(critMultVal + (critAdd / 100)).toFixed(1)}</div>`;
+    } else if (skill.id === "dmg") {
+      const pct = skill._tierValue != null ? skill._tierValue : 7;
+      detail = `<div class="cardStat">Hasar ${stats.damage.toFixed(1)} -> ${(stats.damage * (1 + pct / 100)).toFixed(1)}</div>`;
+    } else if (skill.id === "hp") {
+      const add = skill._tierValue != null ? skill._tierValue : 12;
+      detail = `<div class="cardStat">HP ${Math.floor(stats.maxHp)} -> ${Math.floor(stats.maxHp + add)}</div>`;
+    } else if (skill.id === "firerate") {
+      const pct = skill._tierValue != null ? skill._tierValue : 4;
+      const next = stats.fireRate * (1 - pct / 100);
+      detail = `<div class="cardStat">Atis/s ${(1 / stats.fireRate).toFixed(1)} -> ${(1 / next).toFixed(1)}</div>`;
+    } else if (skill.id === "speed") {
+      const pct = skill._tierValue != null ? skill._tierValue : 4;
+      detail = `<div class="cardStat">Hiz ${stats.moveSpeed.toFixed(1)} -> ${(stats.moveSpeed * (1 + pct / 100)).toFixed(1)}</div>`;
+    } else if (skill.id === "armor") {
+      const pct = skill._tierValue != null ? skill._tierValue : 8;
+      const now = Math.round((stats.armor || 0) * 100);
+      detail = `<div class="cardStat">Zirh %${now} -> %${Math.min(75, now + Math.round(pct))}</div>`;
     }
     const iconSrc = "assets/ui/icon-card.svg";
     const syn = SKILL_SYNERGY[skill.id];
@@ -16154,7 +16234,7 @@ function applyCameraShake() {
 
 // === HIT FREEZE - brief pause on big hits for impact feel ===
 let hitFreezeTimer = 0;
-var MAX_HIT_FREEZE = 0.035;
+var MAX_HIT_FREEZE = 0.08;
 function triggerHitFreeze(duration) { hitFreezeTimer = Math.min(MAX_HIT_FREEZE, Math.max(hitFreezeTimer, duration || 0.02)); }
 
 // === DUST / SMOKE PARTICLES ===

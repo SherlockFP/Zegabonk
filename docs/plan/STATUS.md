@@ -6,16 +6,11 @@ Durum degerleri: `bekliyor` | `deVAM` (sahip yaz) | `blokeli (sebep)` | `BITTI (
 
 ## Su An (en guncel ozet)
 
-- P1.6 acik: pixel ratio min(dpr, 1.25), golge 1024 PCF.
-- P1.3 flash/burst mesh havuzu (paylasilan sphere geo, 24 cap). P1.7 isim etiketi cache restart'ta 48'e kirpiliyor.
-- P4 boss odasi 60x60 kutu arena (HALF=30). Faz 2 `*_p2` %50 HP.
-- P7.1 6 evrim: Inferno Orb, Glacier, Blade Storm, Arrow Wall, Storm Caller, Cataclysm.
-- P7.2/7.3 ek: Siginak, Momentum, Asiri Sarj. Ricochet/golge kopya zaten vardi.
-- P6 HUD emoji kaldirildi (ASCII etiket). map-audit grid step=4 (spec=2, Playwright asiri yavas).
-- Bug: M2 breach spawn sayaci, M4 Deadshot, M5 mermi hizi, M6 pause input, M8 cift XP.
-- Playtest: onceki leftover --fast bos 238 / 50=621 / 150=1192 draw. Bu seans perf-probe kosulmadi.
-- app.js kilidi: SERBEST.
-- Coop (P8/P9) yok - bilincli atlandi.
+- AA pasi: blob golge, kill voxel kup, hit squash, hit-stop tavan 80ms, kart stat satiri (Hasar/HP/Hiz/Zirh).
+- Pacing: XP 40*1.11^L (L11 duvari yok), kill XP 0.40, dusman HP erken oyun daha sert, armor %75 cap, krit/multishot tavanlari kisildi.
+- Bolum 2 gercek kar (sis+kar tanesi) + portal dunyayi yeniden kuruyor. Boss odasi kose sutun + kirmizi halka.
+- Menu overlay blur kapali (diorama net).
+- Coop (P8/P9) yok.
 
 ## Kod Haritasi Guncellemesi (PLAN.md'deki numaralar artik eski)
 
@@ -126,6 +121,22 @@ C 2156/2690/1706/848/1652 (artan degil). Texture sayisi hala restart basina ~3-5
 Kabul kriterine gore durum: FPS hedefi (>=55 @150) onceki tam olcumde TUTMADI (44.8). Draw call hedefi (<=700) 150'de hala TUTMADI (1192) ama bos harita 715->238, 50 dusman 1365->621. Pixel ratio 0.5 duruyor.
 
 ## Seans Gunlugu (en yeni ustte)
+
+### 2026-08-19 - AA hissi: juice + pacing + bolum
+
+**Yapilan**
+- XP egri duz (L11 duvari silindi), GLOBAL_KILL_XP_MULT 0.55->0.40, erken HP ease sertlestirildi.
+- Kart tavan: crit 6, crit_dmg 5, critical_master 2, firerate 6, multishot 3, shadow_clone 1, heal_on_kill 4, armor 4, glass 1, rapid_fire 2.
+- armorMitigation %75 cap (dokunulmazlik koptu).
+- Blob shadow oyuncu+dusman; kill cube havuzu; hitPunch squash; hit-stop 80ms.
+- Levelup Hasar/HP/Atis/Hiz/Zirh once->sonra satiri.
+- Bolum portal: clearCurrentWorld+buildWorld. Ch2 kar paleti. Boss oda sutun+halka.
+- Menu overlay blur kapali.
+
+**Yapilmadi (AA icin sonraki)**
+- P8/P9 coop/TD. Meta upgrade agaci. Tam ses paketi. Draw call 150 dusman <=700. Boss telegraf anim. Landmark objeler.
+
+**app.js kilidi:** SERBEST.
 
 ### 2026-08-19 - Coop haric leftover kapatma + push
 
