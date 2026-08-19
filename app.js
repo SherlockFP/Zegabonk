@@ -634,7 +634,7 @@ function resetEnemyLod(root) {
   if (parts) {
     for (const k in parts) if (parts[k]) parts[k].visible = true;
   }
-  if (root.userData.blob) root.userData.blob.visible = true;
+  if (root.userData.blob) root.userData.blob.visible = false;
 }
 function applyEnemyLod(e, dist) {
   if (!e || !e.mesh || e.isBoss) return;
@@ -650,9 +650,9 @@ function applyEnemyLod(e, dist) {
       for (const k in parts) if (parts[k]) parts[k].visible = !far;
     }
   }
-  if (typeof setVoxelOutlineVisible === "function") setVoxelOutlineVisible(root, !far);
-  if (e.nameLabel) e.nameLabel.visible = !far && e.tier !== "normal";
-  if (root.userData.blob) root.userData.blob.visible = !far;
+  if (typeof setVoxelOutlineVisible === "function") setVoxelOutlineVisible(root, !far && (e.tier === "rare" || e.tier === "unique"));
+  if (e.nameLabel) e.nameLabel.visible = !far && (e.tier === "rare" || e.tier === "unique");
+  if (root.userData.blob) root.userData.blob.visible = false;
 }
 function pulseBossTelegraph(e) {
   if (!e || !e.mesh) return;
@@ -675,7 +675,7 @@ const ENEMY_FAR_DIST = 34;
 const ENEMY_FAR_TICK = 3;
 const HP_BAR_DRAW_DIST = 10;
 const ENEMY_LOD_DIST = 8;
-const ENEMY_LOD_NEAR_MAX = 16;
+const ENEMY_LOD_NEAR_MAX = 12;
 const ATTACK_ROUND_START_TIME = 420;
 const ATTACK_ROUND_WAVE1_COUNT = 50;
 const ATTACK_ROUND_WAVE2_COUNT = 80;
@@ -7849,7 +7849,7 @@ function createEnemyInner(tier, cfg, opts) {
     g.add(castLabel);
   }
   if (isBoss) addEnemyZoneOverlay(g, 0xff4444, true);
-  if (isBoss || tier === "unique" || tier === "rare") attachBlobShadow(g, cfg.radius);
+  if (isBoss) attachBlobShadow(g, cfg.radius);
 
   const plvl = state.level || 0;
   const levelScale = 1 + plvl * 0.075;
@@ -12511,9 +12511,9 @@ function updateEnemies(dt) {
     const distToPlayer = e.mesh.position.distanceTo(playerPos);
     applyEnemyLod(e, distToPlayer);
     // HP gosterimini far-skip continue ONCE yap: yoksa yakindan uzaklasan bar acik kalir (draw).
-    // _lodNear 16 en yakin (uzak olabilir); bar sadece yakin bantta.
+    // _lodNear 12 en yakin (uzak olabilir); bar sadece hasar alinca veya boss.
     if (e.hpBar) {
-      const showHp = e.isBoss || distToPlayer <= HP_BAR_DRAW_DIST || (e._lodNear && distToPlayer <= ENEMY_LOD_DIST * 2);
+      const showHp = e.isBoss || (distToPlayer <= HP_BAR_DRAW_DIST && e.hp < e.maxHp * 0.995);
       if (e.hpBar.visible !== showHp) e.hpBar.visible = showHp;
     }
     // Uzaktaki siradan dusmanlar her karede degil, ENEMY_FAR_TICK karede bir islenir.

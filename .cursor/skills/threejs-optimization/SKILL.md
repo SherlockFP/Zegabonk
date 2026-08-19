@@ -29,7 +29,7 @@ Pixel ratio stays `min(dpr, 1.25)`. One directional shadow, map 1024. No extra P
 ## Order of attack (this repo)
 
 1. Measure `renderer.info.render.calls` via perf-probe. Do not guess.
-2. Cut **enemy** draws: at most 16 full voxel enemies (`ENEMY_LOD_NEAR_MAX`); the rest use one `__lod` mesh. Normal tier: no outline, no name sprite, no blob. HP bars only when damaged.
+2. Cut **enemy** draws: at most 12 full voxel enemies (`ENEMY_LOD_NEAR_MAX`); the rest use one `__lod` mesh. Normal/magic tier: no outline, no name sprite, no blob. HP bars only when damaged (or boss).
 3. Cut lights before shaders: MeshBasic bulbs, not `PointLight` forests.
 4. Keep world instanced. Do not set `InstancedMesh.frustumCulled = true` unless instance bounding spheres are rebuilt (culling bugs).
 5. Landmarks are few instanced voxel props (`landmark_mill`, `landmark_tower`), not unique mesh piles.

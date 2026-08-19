@@ -6,10 +6,10 @@ Durum degerleri: `bekliyor` | `deVAM` (sahip yaz) | `blokeli (sebep)` | `BITTI (
 
 ## Su An (en guncel ozet)
 
-- 19 Agu kalite pass dogrulandi + push: Kenney SFX `playSample` (hit/kill/slam/levelup/portal/boss/click), bolum boss kes -> `chapterExitPortal` (void ritual yok), boss telegraf spawn'dan acik, kiting refill + despawn 86m, uzak chase hiz boost, menu `returnToMainMenu` sim durdur, `cartoonSky`, player voxel anim cagrisi.
-- Draw-call: uzak `__lod` 1 mesh; 16 yakin outline. HP: boss / 10m / (16 yakin ve <=16m). Far-AI skip ONCE gizlenir (uzak bar kalmaz).
+- 19 Agu perf fix push: `ENEMY_LOD_NEAR_MAX` 12, HP bar yalniz hasar/boss, outline+isim yalniz rare/unique yakin, trash blob kapali.
+- Draw-call: uzak `__lod` 1 mesh; 12 yakin tam voxel. HP: boss veya hasar almis + 10m.
+- perf-probe `--fast --label=lod-fix`: 150+skill **548** draw (hedef 700), 79fps. 50 dusman 355 (hedef 520). **BENCHMARK PASS**.
 - Landmark mill/tower duruyor. Boss `pulseBossTelegraph`. Pixel ratio min(dpr, 1.25). Coop/TD yok.
-- Boot: `node --check app.js` OK. perf-probe `--fast --label=quality`: 150+skill **710** draw (hedef 700, +10), 94fps.
 
 ## Bu seans plani (oncelik, sonra uygulandi)
 
