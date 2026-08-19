@@ -422,34 +422,19 @@
     </section>
   </div>
 
-  <script type="importmap">
-    {"imports":{"three":"/node_modules/three/build/three.module.js","three/":"/node_modules/three/"}}
-  </script>
-  <script type="module">
-    import * as THREE from 'three';
-    // Modul namespace'i salt okunur; app.js paylasilan geometry/material cache'i icin
-    // yazilabilir bir kopya lazim.
-    window.THREE = Object.assign({}, THREE);
-    import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-    window.GLTFLoader = GLTFLoader;
-    window.dispatchEvent(new Event('GLTFLoaderReady'));
-    function loadScript(src) {
-      return new Promise(function (resolve, reject) {
-        var s = document.createElement('script');
-        s.src = src;
-        s.onload = resolve;
-        s.onerror = reject;
-        document.body.appendChild(s);
-      });
+  <script src="vendor/three.min.js"></script>
+  <script>
+    if (typeof THREE === "undefined") {
+      var p = document.getElementById("loadingProgress");
+      if (p) p.textContent = "three.js yuklenemedi. vendor/three.min.js eksik.";
+      throw new Error("THREE missing");
     }
-    await loadScript('voxel.js');
-    await loadScript('models/creatures.js');
-    await loadScript('models/bosses.js');
-    await loadScript('models/player.js');
-    await loadScript('models/props.js');
-    var s = document.createElement('script');
-    s.src = 'app.js?v=' + Date.now();
-    document.body.appendChild(s);
   </script>
+  <script src="voxel.js"></script>
+  <script src="models/creatures.js"></script>
+  <script src="models/bosses.js"></script>
+  <script src="models/player.js"></script>
+  <script src="models/props.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

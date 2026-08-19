@@ -10,6 +10,7 @@ Durum degerleri: `bekliyor` | `deVAM` (sahip yaz) | `blokeli (sebep)` | `BITTI (
 - Pacing: XP 40*1.11^L (L11 duvari yok), kill XP 0.40, dusman HP erken oyun daha sert, armor %75 cap, krit/multishot tavanlari kisildi.
 - Bolum 2 gercek kar (sis+kar tanesi) + portal dunyayi yeniden kuruyor. Boss odasi kose sutun + kirmizi halka.
 - Menu overlay blur kapali (diorama net).
+- Boot: THREE artik vendor/three.min.js (importmap + node_modules 404 oyunu olduruyordu). GLTF istege bagli.
 - Coop (P8/P9) yok.
 
 ## Kod Haritasi Guncellemesi (PLAN.md'deki numaralar artik eski)
@@ -121,6 +122,10 @@ C 2156/2690/1706/848/1652 (artan degil). Texture sayisi hala restart basina ~3-5
 Kabul kriterine gore durum: FPS hedefi (>=55 @150) onceki tam olcumde TUTMADI (44.8). Draw call hedefi (<=700) 150'de hala TUTMADI (1192) ama bos harita 715->238, 50 dusman 1365->621. Pixel ratio 0.5 duruyor.
 
 ## Seans Gunlugu (en yeni ustte)
+
+### 2026-08-19 - Boot 404: THREE vendor
+
+index.html importmap `/node_modules/three/` + blocking GLTFLoader. node_modules gitignore; Live Server / file / npm'siz clone 404, modul hic kosmuyordu, window.THREE yok, oyun acilmiyordu. THREE UMD `vendor/three.min.js`, GLTF boot'tan cikti (voxel yeter).
 
 ### 2026-08-19 - AA hissi: juice + pacing + bolum
 
